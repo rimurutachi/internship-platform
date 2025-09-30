@@ -39,9 +39,11 @@ app.use((err: any, req: any, res: any, next: any) => {
     res.status(500).json({ error: 'Something went wrong.'})
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// Start Server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
 
 export default app;
