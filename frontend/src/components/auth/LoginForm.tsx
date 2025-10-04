@@ -36,33 +36,51 @@ export default function LoginForm({ redirectTo, className}: LoginFormProps) {
             .eq('id', data.user.id)
             .single();
         
-        switch (profile?.role) {
-            case 'student':
-                router.push('/dashboard/student');
-                break;
-            case 'advisor':
-                router.push('/dashboard/advisor');
-                break;
-            case 'supervisor':
-                router.push('/dashboard/supervisor');
-                break;
-            default:
-                router.push('/dashboard');
+        // Set user data in state
+        setUser({
+            id: data.user.id,
+            email: data.user.email!,
+            role: profile?.role || 'student'
+        });
+        
+        // Use redirectTo prop if provided, otherwise use role-based routing
+        if (redirectTo) {
+            router.push(redirectTo);
+        } else {
+            switch (profile?.role) {
+                case 'student':
+                    router.push('/dashboard/student');
+                    break;
+                case 'advisor':
+                    router.push('/dashboard/advisor');
+                    break;
+                case 'supervisor':
+                    router.push('/dashboard/supervisor');
+                    break;
+                default:
+                    router.push('/dashboard');
+            }
         }
-        } catch (error) {
-            setError('Login Failed, try again.');
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Login Failed, try again.';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
 return (
-    <div className="min-h-screen flex items-center justify-center bg-grey-50">
+    <div className={`min-h-screen flex items-center justify-center bg-grey-50 ${className || ''}`}>
         <div className="max-w-md w-full space-y-8">
             <div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-grey-900">
                     Sign in to Intern-Galing
                 </h2>
+                {user && (
+                    <p className="mt-2 text-center text-sm text-green-600">
+                        Welcome back, {user.email}!
+                    </p>
+                )}
             </div>
             <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                 {error && (
@@ -89,7 +107,7 @@ return (
 
                 <div>
                     <label htmlFor="password" className="sr-only">
-                        Email Address
+                        Password
                     </label>
                     <input
                     id="password"
