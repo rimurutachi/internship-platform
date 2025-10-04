@@ -3,3 +3,31 @@
 .env.local
 .env.*
 !.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Models and data
+models/*.pkl
+models/*.joblib
+nltk_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Distributions
+dist/
+build/
+*.egg-info/
