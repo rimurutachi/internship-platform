@@ -1,0 +1,74 @@
+
+services:
+  # Front-end
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_WEBSOCKET_URL=ws://document-service:6000
+    depends_on:
+      - backend
+      - document-service
+    networks:
+      - intern-galing
+    
+  # Back-end
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - intern-galing
+
+  # Document service
+  document-service:
+    build: ./document-service
+    ports:
+      - "6000:6000"
+      - "6001:6001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+    depends_on:
+      - redis
+    networks:
+      - intern-galing
+
+  # AI Service
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    networks:
+      - intern-galing
+    
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/DATABASE_URL
+    networks:
+      - intern-galing
+
+networks:
+  intern-galing:
+    driver: bridge
+
+volumes:
+  redis_data:
+    

@@ -1,4 +1,38 @@
 // Types
+export interface UserProfileData {
+    bio?: string;
+    skills?: string[];
+    experience?: string;
+    education?: string;
+    portfolio_url?: string;
+    linkedin_url?: string;
+    github_url?: string;
+    avatar_url?: string;
+    preferences?: {
+        notifications?: boolean;
+        theme?: 'light' | 'dark';
+        language?: string;
+    };
+}
+
+export interface ContactInfo {
+    phone?: string;
+    email?: string;
+    website?: string;
+    address?: {
+        street?: string;
+        city?: string;
+        state?: string;
+        zip_code?: string;
+        country?: string;
+    };
+    social_media?: {
+        linkedin?: string;
+        twitter?: string;
+        facebook?: string;
+    };
+}
+
 export interface User {
     id: string;
     email: string;
@@ -7,7 +41,7 @@ export interface User {
     last_name?: string;
     university_id?: string;
     company_id?: string;
-    profile_data?: any;
+    profile_data?: UserProfileData;
     created_at?: string;
     updated_at?: string;
 }
@@ -17,7 +51,7 @@ export interface University {
     name: string;
     code?: string;
     address?: string;
-    contact_info?: any;
+    contact_info?: ContactInfo;
     created_at?: string;
 }
 
@@ -26,7 +60,7 @@ export interface Company {
     name: string;
     industry?: string;
     address?: string;
-    contact_info?: any;
+    contact_info?: ContactInfo;
     is_verified?: boolean;
     created_at?: string;
 }
