@@ -5,7 +5,10 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
+// Load environment variables FIRST before importing any modules that need them
 dotenv.config();
+
+import internshipRoutes from './routes/internships';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +35,8 @@ app.use(limiter);
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', message: 'Intern-Galing API is running smoothly.'});
 });
+
+app.use('/api/internships', internshipRoutes);
 
 // Error Handling Middleware
 app.use((err: any, req: any, res: any, next: any) => {
