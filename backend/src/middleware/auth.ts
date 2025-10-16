@@ -2,14 +2,17 @@ import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
 
-// Validate required environment variables
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+// Validate required environment variables (skip strict check in test environment)
+if (
+    process.env.NODE_ENV !== 'test' &&
+    (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)
+) {
     throw new Error('Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY');
 }
 
 const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+    process.env.SUPABASE_URL as string,
+    process.env.SUPABASE_SERVICE_KEY as string
 );
 
 export interface AuthRequest extends Request {
