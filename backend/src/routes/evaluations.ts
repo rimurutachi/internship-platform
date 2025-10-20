@@ -1,0 +1,33 @@
+import { Router } from "express";
+import { authenticateToken, requireRole } from "../middleware/auth";
+import * as evaluationController from '../controllers/evaluationController';
+
+const router = Router();
+
+router.use(authenticateToken);
+
+// Create evaluation (supervisor)
+router.post('/',
+    requireRole(['supervisor']),
+    evaluationController.createEvaluation
+);
+
+// Get evaluation
+router.get('/:id', evaluationController.getEvaluation);
+
+// Submit evaluation for AI Processing
+router.post('/:id/submit',
+    requireRole(['supervisor']),
+    evaluationController.submitEvaluation
+);
+
+// Approve evaluation (advisor)
+router.post('/:id/approve',
+    requireRole(['advisor']),
+    evaluationController.approveEvaluation
+);
+
+// Get evaluation for internship
+router.get('/internship/:internshipId', evaluationController.getInternshipEvaluations);
+
+export default router;

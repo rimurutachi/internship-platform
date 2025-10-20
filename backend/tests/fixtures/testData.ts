@@ -9,9 +9,9 @@ export const mockUser = {
 
 export const mockUniversity = {
     id: '456e7890-e89b-12d3-a456-426614174000',
-  name: 'Test University',
-  code: 'TU',
-  address: '123 Test Street',
+    name: 'Test University',
+    code: 'TU',
+    address: '123 Test Street',
 };
 
 export const mockCompany = {
