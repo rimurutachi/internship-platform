@@ -19,9 +19,16 @@ if (
   );
 }
 
-const supabase = createClient(
+// Admin client with service key
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_KEY as string
+);
+
+// Regular client with Anon key only.
+const supabase = createClient(
+  process.env.SUPABASE_URL as string,
+  process.env.SUPABASE_ANON_KEY as string
 );
 
 export class AuthService {
@@ -106,17 +113,19 @@ export class AuthService {
       } = userData;
 
       // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
             first_name,
             last_name,
+          },
+          app_metadata: {
             role,
           },
-        },
-      });
+        });
 
       if (authError) {
         return {
@@ -146,7 +155,7 @@ export class AuthService {
       });
 
       // Create user profile in users table
-      const { error: profileError } = await supabase
+      const { error: profileError } = await supabaseAdmin
         .from("users")
         .insert([userProfile]);
 
@@ -236,7 +245,7 @@ export class AuthService {
 
       // Merge profile_data with existing data
       if (filteredUpdates.profile_data) {
-        const { data: existingUser } = await supabase
+        const { data: existingUser } = await supabaseAdmin
           .from("users")
           .select("profile_data")
           .eq("id", userId)
@@ -250,7 +259,8 @@ export class AuthService {
         }
       }
 
-      const { data, error } = await supabase
+      // Update custom users table
+      const { data, error } = await supabaseAdmin
         .from("users")
         .update({
           ...filteredUpdates,
@@ -276,7 +286,7 @@ export class AuthService {
           metadataUpdate.last_name = filteredUpdates.last_name;
         }
         if (Object.keys(metadataUpdate).length > 0) {
-          await supabase.auth.admin.updateUserById(userId, {
+          await supabaseAdmin.auth.admin.updateUserById(userId, {
             user_metadata: metadataUpdate,
           });
         }
@@ -333,6 +343,63 @@ export class AuthService {
     }
   }
 
+  /* Change user role (admin only) */
+  static async changeUserRole(
+    userId: string,
+    role: string
+  ): Promise<SuccessResponse | ErrorResponse> {
+    try {
+      // Validate role
+      const validRoles = ["student", "advisor", "supervisor", "admin"];
+      if (!validRoles.includes(role)) {
+        return {
+          error: "Invalid role",
+          message: "Role must be one of: student, advisor, supervisor, admin",
+        };
+      }
+
+      // Update custom users table
+      const { error: dbError } = await supabaseAdmin
+        .from("users")
+        .update({ role, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+
+      if (dbError) {
+        return {
+          error: "Update failed",
+          message: dbError.message,
+        };
+      }
+
+      // Update app_metadata in Auth
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        {
+          app_metadata: { role },
+        }
+      );
+
+      if (authError) {
+        return {
+          error: "Auth update failed",
+          message: authError.message,
+        };
+      }
+
+      return {
+        success: true,
+        message: "User role updated successfully",
+        data: { userId, role },
+      };
+    } catch (error: any) {
+      console.error("Role update error:", error);
+      return {
+        error: "Update failed",
+        message: "Unable to update user role",
+      };
+    }
+  }
+
   /* Build user profile object with role-specific fields */
   private static async buildUserProfile(params: {
     authData: any;
@@ -344,7 +411,7 @@ export class AuthService {
     company_id?: string;
     company_code?: string;
     profile_data?: Record<string, any>;
-  }): Promise<UserProfile> {
+  }) {
     const {
       authData,
       role,
@@ -357,7 +424,7 @@ export class AuthService {
       profile_data = {},
     } = params;
 
-    const userProfile: Partial<UserProfile> = {
+    const userProfile: any = {
       id: authData.user.id,
       email: authData.user.email,
       role,
@@ -370,68 +437,37 @@ export class AuthService {
 
     // Add university_id for students and advisors
     if (role === "student" || role === "advisor") {
-      const resolvedUniversityId = await this.resolveUniversityId(
-        university_id,
-        university_code
-      );
-      if (resolvedUniversityId) {
-        userProfile.university_id = resolvedUniversityId;
+      let resolvedUniversityId: string | undefined = undefined;
+      if (university_id) {
+        resolvedUniversityId = university_id;
+      } else if (university_code) {
+        const { data: uni } = await supabaseAdmin
+          .from("universities")
+          .select("id")
+          .eq("code", university_code)
+          .single();
+        if (uni && uni.id) resolvedUniversityId = uni.id;
       }
+      if (resolvedUniversityId)
+        userProfile.university_id = resolvedUniversityId;
     }
 
     // Add company_id for supervisors
     if (role === "supervisor") {
-      const resolvedCompanyId = await this.resolveCompanyId(
-        company_id,
-        company_code
-      );
-      if (resolvedCompanyId) {
-        userProfile.company_id = resolvedCompanyId;
+      let resolvedCompanyId: string | undefined = undefined;
+      if (company_id) {
+        resolvedCompanyId = company_id;
+      } else if (company_code) {
+        const { data: comp } = await supabaseAdmin
+          .from("companies")
+          .select("id")
+          .eq("code", company_code)
+          .single();
+        if (comp && comp.id) userProfile.company_id = comp.id;
       }
+      if (resolvedCompanyId) userProfile.company_id = resolvedCompanyId;
     }
 
-    return userProfile as UserProfile;
-  }
-
-  /* Resolve university ID from code or return existing ID */
-  private static async resolveUniversityId(
-    university_id?: string,
-    university_code?: string
-  ): Promise<string | undefined> {
-    if (university_id) {
-      return university_id;
-    }
-
-    if (university_code) {
-      const { data: uni } = await supabase
-        .from("universities")
-        .select("id")
-        .eq("code", university_code)
-        .single();
-      return uni?.id;
-    }
-
-    return undefined;
-  }
-
-  /* Resolve company ID from code or return existing ID */
-  private static async resolveCompanyId(
-    company_id?: string,
-    company_code?: string
-  ): Promise<string | undefined> {
-    if (company_id) {
-      return company_id;
-    }
-
-    if (company_code) {
-      const { data: comp } = await supabase
-        .from("companies")
-        .select("id")
-        .eq("code", company_code)
-        .single();
-      return comp?.id;
-    }
-
-    return undefined;
+    return userProfile;
   }
 }

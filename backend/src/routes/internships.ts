@@ -17,7 +17,7 @@ router.post('/',
 router.get('/', internshipController.getAllInternships);
 
 // Get my internships (student or advisor)
-router.get('/my-internships', internshipController.getMyInternships);
+router.get('/my-internships', authenticateToken, internshipController.getMyInternships);
 
 // Get specific internship
 router.get('/:id', internshipController.getInternship);

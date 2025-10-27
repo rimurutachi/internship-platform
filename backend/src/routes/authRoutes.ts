@@ -8,6 +8,7 @@ import {
   validateLoginRequest,
   validateRegisterRequest,
   validateProfileUpdateRequest,
+  validateRoleChangeRequest,
   sanitizeInput,
 } from "../middleware/validation";
 import { AuthService } from "../services/authService";
@@ -21,6 +22,7 @@ import {
   LoginRequest,
   RegisterRequest,
   ProfileUpdateRequest,
+  RoleChangeRequest,
 } from "../types/auth";
 
 const router: Router = express.Router();
@@ -134,6 +136,31 @@ router.get(
 
     if ("error" in result) {
       return sendErrorResponse(res, result.error, result.message, 500);
+    }
+
+    return sendSuccessResponse(res, result.message, result.data);
+  })
+);
+
+/**
+ * @route   PUT /auth/users/:userId/role
+ * @desc    Admin can change user roles
+ * @access  Private/Admin
+ */
+router.put(
+  "/auth/users/:userId/role",
+  authenticateToken,
+  requireRole(["admin"]),
+  sanitizeInput,
+  validateRoleChangeRequest,
+  asyncHandler(async (req: AuthRequest & Request<{ userId: string }, any, RoleChangeRequest>, res: Response) => {
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    const result = await AuthService.changeUserRole(userId, role);
+
+    if ("error" in result) {
+      return sendErrorResponse(res, result.error, result.message, 400);
     }
 
     return sendSuccessResponse(res, result.message, result.data);

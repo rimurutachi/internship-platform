@@ -3,14 +3,14 @@ export interface Internship {
     student_id: string;
     company_id: string;
     advisor_id: string;
-    supervisor_id: string;
+    supervisor_id: string | null;
     position: string;
     department?: string;
     start_date: Date;
     end_date: Date;
     status: 'pending' | 'active' | 'completed' | 'cancelled';
     requirements?: any;
-    metadeta?: any;
+    metadata?: any;
     created_at: Date;
     updated_at: Date;
 }
@@ -25,6 +25,7 @@ export interface CreateInternshipDTO {
     start_date: string;
     end_date: string;
     requirements?: any;
+    metadata?: any;
 }
 
 export interface UpdateInternshipDTO {
@@ -32,6 +33,8 @@ export interface UpdateInternshipDTO {
     department?: string;
     start_date?: string;
     end_date?: string;
-    status?: string;
+    status?: 'pending' | 'active' | 'completed' | 'cancelled';
     supervisor_id?: string;
+    requirements?: any;
+    metadata?: any;
 }
