@@ -9,7 +9,12 @@ const helmet_1 = __importDefault(require("helmet"));
 const morgan_1 = __importDefault(require("morgan"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
+// Load environment variables FIRST before importing any modules that need them
 dotenv_1.default.config();
+// For Routes on top of dotenv
+const internships_1 = __importDefault(require("./routes/internships"));
+const evaluations_1 = __importDefault(require("./routes/evaluations"));
+const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Middleware
@@ -31,6 +36,9 @@ app.use(limiter);
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', message: 'Intern-Galing API is running smoothly.' });
 });
+app.use('/api/internships', internships_1.default);
+app.use('/api/evaluations', evaluations_1.default);
+app.use('/api', authRoutes_1.default);
 // Error Handling Middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);

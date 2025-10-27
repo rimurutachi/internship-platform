@@ -1,23 +1,81 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireRole = exports.authenticateToken = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+// Validate required environment variables (skip strict check in test environment)
+if (process.env.NODE_ENV !== "test" &&
+    (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)) {
+    throw new Error("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY");
+}
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+/* Middleware for authentication and extract user info including its role. */
 const authenticateToken = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ error: 'No Token Provided.' });
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                error: "No token provided",
+                message: "Authorization header with Bearer token is required",
+            });
         }
-        const { data: { user }, error } = await supabase.auth.getUser(token);
+        const token = authHeader.replace("Bearer ", "");
+        // Verify token with Supabase
+        const { data: { user }, error, } = await supabase.auth.getUser(token);
         if (error || !user) {
-            return res.status(401).json({ error: 'Invalid Token.' });
+            return res.status(401).json({
+                error: "Invalid token",
+                message: "Token is invalid or expired",
+            });
         }
-        req.user = user;
+        // Decode JWT to extract app_metadata
+        const decoded = jsonwebtoken_1.default.decode(token);
+        if (!decoded) {
+            return res.status(401).json({
+                error: "Invalid token.",
+                message: "Token decoded failed.",
+            });
+        }
+        // Extract role from app_metadata
+        const role = decoded.app_metadata?.role || decoded.user_metadata?.role;
+        if (!role) {
+            // IF no role in JWT, fetch from database as fallback
+            const { data: userProfile, error: profileError } = await supabase
+                .from("users")
+                .select("role")
+                .eq("id", user.id)
+                .single();
+            if (profileError || !userProfile) {
+                return res.status(403).json({
+                    error: "Access denied.",
+                    message: "User role not found.",
+                });
+            }
+            req.user = {
+                id: user.id,
+                email: user.email || "",
+                role: userProfile.role,
+            };
+        }
+        else {
+            // Attach user info with role from JWT.
+            req.user = {
+                id: user.id,
+                email: user.email || "",
+                role: role,
+            };
+        }
         next();
     }
     catch (error) {
-        res.status(401).json({ error: 'Authentication Failed, try again.' });
+        console.error("Authentication error:", error);
+        return res.status(401).json({
+            error: "Authentication failed",
+            message: "Unable to verify authentication",
+        });
     }
 };
 exports.authenticateToken = authenticateToken;
@@ -25,18 +83,33 @@ exports.authenticateToken = authenticateToken;
 const requireRole = (roles) => {
     return async (req, res, next) => {
         try {
-            const { data: userProfile } = await supabase
-                .from('users')
-                .select('role')
-                .eq('id', req.user.id)
-                .single();
-            if (!userProfile || !roles.includes(userProfile.role)) {
-                return res.status(403).json({ error: 'Insufficient permissions, sorry!' });
+            if (!req.user?.id) {
+                return res.status(401).json({
+                    error: "User not authenticated",
+                    message: "Please authenticate first",
+                });
+            }
+            const userRole = req.user.role;
+            if (!userRole) {
+                return res.status(404).json({
+                    error: "Access denied.",
+                    message: "User not found.",
+                });
+            }
+            if (!roles.includes(userRole)) {
+                return res.status(403).json({
+                    error: "Insufficient permissions",
+                    message: `Access denied. Required roles: ${roles.join(", ")}`,
+                });
             }
             next();
         }
         catch (error) {
-            res.status(500).json({ error: 'Authorization Failed.' });
+            console.error("Authorization error:", error);
+            return res.status(500).json({
+                error: "Authorization failed",
+                message: "Unable to verify user permissions",
+            });
         }
     };
 };

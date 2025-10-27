@@ -13,7 +13,7 @@ export interface Evaluation {
     final_grade?: number;
     confidence_score?: number;
     bias_check_passed?: boolean;
-    status: 'draft' | 'submmited' | 'processed' | 'approved';
+    status: 'draft' | 'submitted' | 'processed' | 'approved';
     submmited_at?: Date;
     processed_at?: Date;
     created_at?: Date;

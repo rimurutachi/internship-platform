@@ -139,6 +139,26 @@ export const validateProfileUpdateRequest = (
 };
 
 
+/* Validation middleware for role change requests */
+export const validateRoleChangeRequest = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const { role } = req.body;
+
+  // Validate role
+  const validRoles = ["student", "advisor", "supervisor", "admin"];
+  if (!role || !validRoles.includes(role)) {
+    return res.status(400).json({
+      error: "Invalid role",
+      message: `Role must be one of: ${validRoles.join(", ")}`,
+    });
+  }
+
+  next();
+};
+
 /* Sanitize input to prevent XSS attacks */
 export const sanitizeInput = (
   req: Request,
@@ -155,7 +175,7 @@ export const sanitizeInput = (
 
   /* Sanitize string fields in body */
   if (req.body) {
-    const stringFields = ["email", "first_name", "last_name"];
+    const stringFields = ["email", "first_name", "last_name", "role"];
     stringFields.forEach((field) => {
       if (req.body[field] && typeof req.body[field] === "string") {
         req.body[field] = sanitizeString(req.body[field]);
