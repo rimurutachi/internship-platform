@@ -39,10 +39,13 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK', message: 'Intern-Galing API is running smoothly.'});
 });
 
+// Internship APIs
 app.use('/api/internships', internshipRoutes);
 
+// Evaluation APIs
 app.use('/api/evaluations', evaluationRoutes);
 
+// Auth APIs
 app.use('/api', authRoutes);
 
 // Error Handling Middleware
