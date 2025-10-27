@@ -40,6 +40,10 @@ export interface ProfileUpdateRequest {
   profile_data?: Record<string, any>;
 }
 
+export interface RoleChangeRequest {
+  role: "student" | "advisor" | "supervisor" | "admin";
+}
+
 export interface UserProfile {
   id: string;
   email: string;

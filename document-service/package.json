@@ -1,7 +1,7 @@
 {
   "name": "document-service",
   "version": "1.0.0",
-  "scripts": { 
+  "scripts": {
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
@@ -22,8 +22,10 @@
     "express": "^5.1.0",
     "imagemin": "^9.0.1",
     "ioredis": "^5.8.0",
+    "jsonwebtoken": "^9.0.2",
     "lib0": "^0.2.114",
     "mammoth": "^1.11.0",
+    "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "pdfkit": "^0.17.2",
     "redis": "^5.8.2",
@@ -36,6 +38,8 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.6.1",
     "nodemon": "^3.1.10",
