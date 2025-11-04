@@ -12,6 +12,7 @@ dotenv.config();
 import internshipRoutes from './routes/internships';
 import evaluationRoutes from './routes/evaluations';
 import authRoutes from './routes/authRoutes';
+import communicationRoutes from './routes/communicatons';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -47,6 +48,9 @@ app.use('/api/evaluations', evaluationRoutes);
 
 // Auth APIs
 app.use('/api', authRoutes);
+
+// Communication APIs
+app.use('/api/communication', communicationRoutes);
 
 // Error Handling Middleware
 app.use((err: any, req: any, res: any, next: any) => {
