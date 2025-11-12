@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { CreateNotificationDTO, Notification } from "../models/communication";
+import {
+  emitNewNotification,
+  emitNotificationCountUpdate,
+} from "../socket/emitters";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -27,6 +31,14 @@ export class NotificationService {
 
     if (error) throw new Error(error.message);
     if (!notification) throw new Error("Failed to create notification");
+
+    // Emit real-time notification
+    emitNewNotification(data.user_id, notification);
+
+    // Get and emit updated count
+    const count = await this.getUnreadNotificationsCount(data.user_id);
+    emitNotificationCountUpdate(data.user_id, count);
+
     return notification;
   }
 
@@ -87,6 +99,10 @@ export class NotificationService {
       .eq("user_id", userId);
 
     if (error) throw new Error(error.message);
+
+    // Emit updated count
+    const count = await this.getUnreadNotificationsCount(userId);
+    emitNotificationCountUpdate(userId, count);
   }
 
   // Mark all notifications as read
@@ -101,6 +117,9 @@ export class NotificationService {
       .eq("is_read", false);
 
     if (error) throw new Error(error.message);
+
+    // Emit updated count (should be 0)
+    emitNotificationCountUpdate(userId, 0);
   }
 
   // Delete notification
@@ -130,6 +149,10 @@ export class NotificationService {
       .eq("user_id", userId);
 
     if (error) throw new Error(error.message);
+
+    // Emit updated count
+    const count = await this.getUnreadNotificationsCount(userId);
+    emitNotificationCountUpdate(userId, count);
   }
 
   // Bulk create notifications
@@ -159,6 +182,11 @@ export class NotificationService {
       .insert(notificationData);
 
     if (error) throw new Error(error.message);
+
+    // Emit to each user
+    notifications.forEach((notif) => {
+      emitNewNotification(notif.user_id, notif as Notification);
+    });
   }
 }
 
