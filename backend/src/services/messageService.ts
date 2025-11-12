@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { CreateMessageDTO, Message } from "../models/communication";
+import {
+  emitNewMessage,
+  emitMessageEdited,
+  emitMessageDeleted,
+} from "../socket/emitters";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -40,6 +45,9 @@ export class MessageService {
         convError
       );
     }
+
+    // Emit real-time event
+    emitNewMessage(data.conversation_id, message);
 
     return message;
   }
@@ -107,6 +115,17 @@ export class MessageService {
     if (error) throw new Error(error.message);
     if (!data) throw new Error("Failed to update message");
 
+    // Get conversation_id to emit
+    const { data: messageData } = await supabase
+      .from("messages")
+      .select("conversation_id")
+      .eq("id", messageId)
+      .single();
+
+    if (messageData) {
+      emitMessageEdited(messageData.conversation_id, data);
+    }
+
     return data;
   }
 
@@ -138,6 +157,11 @@ export class MessageService {
       .eq("sender_id", userId);
 
     if (error) throw new Error(error.message);
+
+    // Emit real-time event
+    if (existingMessage) {
+      emitMessageDeleted(existingMessage.sender_id, messageId);
+    }
   }
 }
 
