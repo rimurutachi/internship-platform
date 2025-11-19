@@ -63,40 +63,36 @@ const securityMetricsData = [
   { type: "Data Access", success: 45000, failed: 45 },
 ];
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--success))', 'hsl(var(--ai))', 'hsl(var(--warning))'];
+// Theme-aware color palettes
+const getChartColors = (isDark: boolean) => ({
+  primary: isDark ? '#8b5cf6' : '#7c3aed',      // Purple
+  success: isDark ? '#10b981' : '#059669',      // Green
+  ai: isDark ? '#3b82f6' : '#2563eb',           // Blue
+  warning: isDark ? '#f59e0b' : '#d97706',      // Orange
+  error: isDark ? '#ef4444' : '#dc2626',        // Red
+  info: isDark ? '#06b6d4' : '#0891b2',         // Cyan
+  pink: isDark ? '#ec4899' : '#db2777',         // Pink
+  indigo: isDark ? '#6366f1' : '#4f46e5',       // Indigo
+});
+
+const COLORS = ['#8b5cf6', '#10b981', '#3b82f6', '#f59e0b'];
 
 export function AdminAnalytics() {
   const { resolvedTheme } = useTheme();
-  const [textColor, setTextColor] = useState('#94a3b8');
-  const [foregroundColor, setForegroundColor] = useState('#ededed');
-  const [cardBg, setCardBg] = useState('#1a1a1a');
-  const [borderColor, setBorderColor] = useState('#334155');
+  const isDark = resolvedTheme === 'dark';
+  const colors = getChartColors(isDark);
+  
+  const [textColor, setTextColor] = useState(isDark ? '#94a3b8' : '#64748b');
+  const [foregroundColor, setForegroundColor] = useState(isDark ? '#e2e8f0' : '#0f172a');
+  const [cardBg, setCardBg] = useState(isDark ? '#1e293b' : '#ffffff');
+  const [borderColor, setBorderColor] = useState(isDark ? '#334155' : '#e2e8f0');
 
   useEffect(() => {
-    // Get computed CSS variable values
-    // Create a temporary element to get computed styles with CSS variables resolved
-    const tempEl = document.createElement('div');
-    tempEl.style.color = 'var(--muted-foreground)';
-    tempEl.style.backgroundColor = 'var(--card)';
-    tempEl.style.borderColor = 'var(--border)';
-    document.body.appendChild(tempEl);
-    
-    const computedStyle = window.getComputedStyle(tempEl);
-    const computedMutedFg = computedStyle.color;
-    const computedCard = computedStyle.backgroundColor;
-    const computedBorder = computedStyle.borderColor;
-    
-    // Get foreground color from a test element
-    tempEl.style.color = 'var(--foreground)';
-    const computedFg = window.getComputedStyle(tempEl).color;
-    
-    document.body.removeChild(tempEl);
-    
-    if (computedMutedFg) setTextColor(computedMutedFg);
-    if (computedFg) setForegroundColor(computedFg);
-    if (computedCard) setCardBg(computedCard);
-    if (computedBorder) setBorderColor(computedBorder);
-  }, [resolvedTheme]);
+    setTextColor(isDark ? '#94a3b8' : '#64748b');
+    setForegroundColor(isDark ? '#e2e8f0' : '#0f172a');
+    setCardBg(isDark ? '#1e293b' : '#ffffff');
+    setBorderColor(isDark ? '#334155' : '#e2e8f0');
+  }, [isDark, resolvedTheme]);
 
   // Custom tooltip component with theme-aware styling
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -208,38 +204,38 @@ export function AdminAnalytics() {
             <AreaChart data={platformUsageData}>
               <defs>
                 <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.primary} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={colors.primary} stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id="colorAdvisors" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.success} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={colors.success} stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id="colorSupervisors" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--ai))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--ai))" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.ai} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={colors.ai} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke={borderColor} opacity={0.3} />
               <XAxis 
                 dataKey="month" 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <YAxis 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
                 wrapperStyle={{ color: foregroundColor }}
                 iconType="square"
               />
-              <Area type="monotone" dataKey="students" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorStudents)" name="Students" />
-              <Area type="monotone" dataKey="advisors" stroke="hsl(var(--success))" fillOpacity={1} fill="url(#colorAdvisors)" name="Advisors" />
-              <Area type="monotone" dataKey="supervisors" stroke="hsl(var(--ai))" fillOpacity={1} fill="url(#colorSupervisors)" name="Supervisors" />
+              <Area type="monotone" dataKey="students" stroke={colors.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorStudents)" name="Students" />
+              <Area type="monotone" dataKey="advisors" stroke={colors.success} strokeWidth={2} fillOpacity={1} fill="url(#colorAdvisors)" name="Advisors" />
+              <Area type="monotone" dataKey="supervisors" stroke={colors.ai} strokeWidth={2} fillOpacity={1} fill="url(#colorSupervisors)" name="Supervisors" />
             </AreaChart>
           </ResponsiveContainer>
         </CardContent>
@@ -254,34 +250,34 @@ export function AdminAnalytics() {
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={systemPerformanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke={borderColor} opacity={0.3} />
               <XAxis 
                 dataKey="hour" 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <YAxis 
                 yAxisId="left" 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <YAxis 
                 yAxisId="right" 
                 orientation="right" 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
                 wrapperStyle={{ color: foregroundColor }}
                 iconType="line"
               />
-              <Line yAxisId="left" type="monotone" dataKey="responseTime" stroke="hsl(var(--primary))" strokeWidth={2} name="Response Time (ms)" />
-              <Line yAxisId="right" type="monotone" dataKey="cpuUsage" stroke="hsl(var(--warning))" strokeWidth={2} name="CPU Usage %" />
-              <Line yAxisId="left" type="monotone" dataKey="aiProcessing" stroke="hsl(var(--ai))" strokeWidth={2} name="AI Processing (s)" />
+              <Line yAxisId="left" type="monotone" dataKey="responseTime" stroke={colors.primary} strokeWidth={3} name="Response Time (ms)" dot={{ fill: colors.primary, r: 4 }} />
+              <Line yAxisId="right" type="monotone" dataKey="cpuUsage" stroke={colors.warning} strokeWidth={3} name="CPU Usage %" dot={{ fill: colors.warning, r: 4 }} />
+              <Line yAxisId="left" type="monotone" dataKey="aiProcessing" stroke={colors.ai} strokeWidth={3} name="AI Processing (s)" dot={{ fill: colors.ai, r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -297,25 +293,25 @@ export function AdminAnalytics() {
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={universityAdoptionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" stroke={borderColor} opacity={0.3} />
                 <XAxis 
                   dataKey="university" 
                   stroke={textColor}
                   tick={{ fill: textColor }}
-                  axisLine={{ stroke: textColor }}
+                  axisLine={{ stroke: borderColor }}
                 />
                 <YAxis 
                   stroke={textColor}
                   tick={{ fill: textColor }}
-                  axisLine={{ stroke: textColor }}
+                  axisLine={{ stroke: borderColor }}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend 
                   wrapperStyle={{ color: foregroundColor }}
                   iconType="square"
                 />
-                <Bar dataKey="users" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} name="Total Users" />
-                <Bar dataKey="growth" fill="hsl(var(--success))" radius={[8, 8, 0, 0]} name="Monthly Growth" />
+                <Bar dataKey="users" fill={colors.primary} radius={[8, 8, 0, 0]} name="Total Users" />
+                <Bar dataKey="growth" fill={colors.success} radius={[8, 8, 0, 0]} name="Monthly Growth" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -328,26 +324,33 @@ export function AdminAnalytics() {
             <CardDescription>Adoption rates by feature</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={featureUsageData} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={featureUsageData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={borderColor} opacity={0.3} />
                 <XAxis 
-                  type="number" 
-                  domain={[0, 100]} 
+                  dataKey="feature" 
                   stroke={textColor}
-                  tick={{ fill: textColor }}
-                  axisLine={{ stroke: textColor }}
+                  tick={{ fill: textColor, fontSize: 11 }}
+                  axisLine={{ stroke: borderColor }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
                 />
                 <YAxis 
-                  dataKey="feature" 
-                  type="category" 
+                  domain={[0, 100]}
                   stroke={textColor}
-                  tick={{ fill: textColor }}
-                  axisLine={{ stroke: textColor }}
-                  width={150} 
+                  tick={{ fill: textColor, fontSize: 12 }}
+                  axisLine={{ stroke: borderColor }}
+                  label={{ value: 'Usage %', angle: -90, position: 'insideLeft', fill: textColor }}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="usage" fill="hsl(var(--ai))" radius={[0, 8, 8, 0]} />
+                <Bar 
+                  dataKey="usage" 
+                  fill={colors.ai} 
+                  radius={[8, 8, 0, 0]} 
+                  maxBarSize={60}
+                  label={{ position: 'top', fill: foregroundColor, fontSize: 12, formatter: (value: number) => `${value}%` }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -365,33 +368,33 @@ export function AdminAnalytics() {
             <AreaChart data={revenueData}>
               <defs>
                 <linearGradient id="colorSubscription" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.success} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={colors.success} stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id="colorEnterprise" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.primary} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={colors.primary} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke={borderColor} opacity={0.3} />
               <XAxis 
                 dataKey="month" 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <YAxis 
                 stroke={textColor}
                 tick={{ fill: textColor }}
-                axisLine={{ stroke: textColor }}
+                axisLine={{ stroke: borderColor }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
                 wrapperStyle={{ color: foregroundColor }}
                 iconType="square"
               />
-              <Area type="monotone" dataKey="subscription" stroke="hsl(var(--success))" fillOpacity={1} fill="url(#colorSubscription)" name="Subscription Revenue" />
-              <Area type="monotone" dataKey="enterprise" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorEnterprise)" name="Enterprise Revenue" />
+              <Area type="monotone" dataKey="subscription" stroke={colors.success} strokeWidth={2} fillOpacity={1} fill="url(#colorSubscription)" name="Subscription Revenue" />
+              <Area type="monotone" dataKey="enterprise" stroke={colors.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorEnterprise)" name="Enterprise Revenue" />
             </AreaChart>
           </ResponsiveContainer>
         </CardContent>

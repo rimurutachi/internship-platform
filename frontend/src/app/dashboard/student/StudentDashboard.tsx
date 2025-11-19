@@ -34,19 +34,19 @@ const StudentDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background overflow-hidden">
       {/* Desktop View */}
-      <div className="hidden lg:flex">
+      <div className="hidden lg:flex h-full">
         {/* Left Sidebar */}
         <StudentSidebar />
         
         {/* Main Content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           {/* Header */}
           <StudentHeader />
           
-          {/* Dashboard Content */}
-          <div className="flex-1 p-6">
+          {/* Dashboard Content - Scrollable */}
+          <div className="flex-1 overflow-y-auto p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="bg-muted mb-6">
                 <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -88,7 +88,7 @@ const StudentDashboard = () => {
       </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden">
+      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
         {/* Mobile Header */}
         <MobileHeader 
           title="Intern-Galing"
@@ -100,8 +100,8 @@ const StudentDashboard = () => {
           }
         />
 
-        {/* Mobile Content */}
-        <div className="p-4 pb-20 space-y-4">
+        {/* Mobile Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
           {/* Welcome Card */}
           <Card className="bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20">
             <CardContent className="p-4 flex items-center space-x-4">
