@@ -2,10 +2,16 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, Clock, Brain, AlertTriangle, Building2, CheckCircle } from "lucide-react";
+import { TrendingUp, Clock, Brain, AlertTriangle, Building2, CheckCircle, FileText, Download, ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { exportAdvisorAnalyticsToCSV, exportAdvisorAnalyticsToJSON, exportAdvisorAnalyticsToText } from "@/utils/exportAdvisorAnalytics";
+import { CustomReportBuilder } from './CustomReportBuilder';
+import { HistoricalDataView } from './HistoricalDataView';
 
 const cohortPerformanceData = [
   { month: "Jan", avgGrade: 78, students: 42 },
@@ -145,8 +151,110 @@ export function AdvisorAnalytics() {
     return null;
   };
 
+  // Export handler
+  const handleExport = (format: 'csv' | 'json' | 'txt') => {
+    const analyticsData = {
+      keyMetrics: {
+        activeStudents: 52,
+        aiAccuracy: 97,
+        timeSaved: 96,
+        biasAlerts: 6,
+      },
+      cohortPerformance: cohortPerformanceData,
+      gradeDistribution: gradeDistributionData,
+      aiAccuracy: aiAccuracyData,
+      timeSavings: timeSavingsData,
+      companyPartnerships: companyPartnershipsData,
+      biasDetection: biasDetectionData,
+    };
+
+    switch (format) {
+      case 'csv':
+        exportAdvisorAnalyticsToCSV(analyticsData);
+        break;
+      case 'json':
+        exportAdvisorAnalyticsToJSON(analyticsData);
+        break;
+      case 'txt':
+        exportAdvisorAnalyticsToText(analyticsData);
+        break;
+    }
+  };
+
+  const handleCustomExport = (reportData: any, format: 'csv' | 'json' | 'txt', template: string) => {
+    // Handle custom report export with selected metrics and date range
+    const analyticsData = {
+      keyMetrics: {
+        activeStudents: reportData.selectedMetrics.keyMetrics ? 52 : 0,
+        aiAccuracy: reportData.selectedMetrics.keyMetrics ? 97 : 0,
+        timeSaved: reportData.selectedMetrics.keyMetrics ? 96 : 0,
+        biasAlerts: reportData.selectedMetrics.keyMetrics ? 6 : 0,
+      },
+      cohortPerformance: reportData.selectedMetrics.cohortPerformance ? cohortPerformanceData : [],
+      gradeDistribution: reportData.selectedMetrics.gradeDistribution ? gradeDistributionData : [],
+      aiAccuracy: reportData.selectedMetrics.aiAccuracy ? aiAccuracyData : [],
+      timeSavings: reportData.selectedMetrics.timeSavings ? timeSavingsData : [],
+      companyPartnerships: reportData.selectedMetrics.companyPartnerships ? companyPartnershipsData : [],
+      biasDetection: reportData.selectedMetrics.biasDetection ? biasDetectionData : [],
+    };
+
+    switch (format) {
+      case 'csv':
+        exportAdvisorAnalyticsToCSV(analyticsData);
+        break;
+      case 'json':
+        exportAdvisorAnalyticsToJSON(analyticsData);
+        break;
+      case 'txt':
+        exportAdvisorAnalyticsToText(analyticsData);
+        break;
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="current" className="w-full">
+        {/* Header with Tabs and Export Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          {/* Tabs */}
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="current" className="flex-1 sm:flex-none">Current Analytics</TabsTrigger>
+            <TabsTrigger value="historical" className="flex-1 sm:flex-none">Historical Data</TabsTrigger>
+          </TabsList>
+
+          {/* Export Buttons */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex-1 sm:flex-none">
+              <CustomReportBuilder onExport={handleCustomExport} />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2 flex-1 sm:flex-none">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Quick Export</span>
+                  <span className="sm:hidden">Export</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('csv')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('json')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('txt')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as Text
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <TabsContent value="current" className="space-y-6">
       {/* Key Metrics */}
       <div className="grid md:grid-cols-4 gap-6">
         <Card className="hover:shadow-hover transition-shadow">
@@ -406,6 +514,12 @@ export function AdvisorAnalytics() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="historical" className="space-y-6">
+          <HistoricalDataView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -116,3 +116,16 @@ export interface Database {
     };
   };
 }
+
+// Re-export API types for convenience
+export type {
+  Internship,
+  Evaluation,
+  Conversation,
+  Message,
+  Notification,
+  Document,
+  CollaborationSession,
+  PaginatedResponse,
+  ListParams,
+} from './api';
