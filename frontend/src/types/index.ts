@@ -86,6 +86,7 @@ export interface Company {
 export interface LoginFormProps {
   redirectTo?: string;
   className?: string;
+  selectedRole?: 'student' | 'advisor' | 'supervisor' | 'admin';
 }
 
 export interface DashboardProps {

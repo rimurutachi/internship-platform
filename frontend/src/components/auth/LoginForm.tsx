@@ -13,7 +13,7 @@ import { createSupabaseClient } from '@/lib/supabase';
  * @param redirectTo - Optional custom redirect path after login
  * @param className - Optional additional CSS classes
  */
-export default function LoginForm({ redirectTo, className }: LoginFormProps) {
+export default function LoginForm({ redirectTo, className, selectedRole }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,6 +59,13 @@ export default function LoginForm({ redirectTo, className }: LoginFormProps) {
         return;
       }
 
+      // Role-based authentication: only allow login if user role matches selectedRole
+      if (selectedRole && profile?.role !== selectedRole) {
+        setError('You are not allowed to log in as this role. Please select the correct role.');
+        await supabase.auth.signOut(); // sign out the session
+        return;
+      }
+
       // Redirect based on redirectTo prop or user role
       if (redirectTo) {
         router.push(redirectTo);
@@ -70,7 +77,6 @@ export default function LoginForm({ redirectTo, className }: LoginFormProps) {
           supervisor: '/dashboard/supervisor',
           admin: '/dashboard/admin',
         };
-        
         router.push(roleRoutes[role] || '/dashboard');
       }
     } catch (err) {
@@ -83,76 +89,61 @@ export default function LoginForm({ redirectTo, className }: LoginFormProps) {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center bg-gray-50 ${className || ''}`}>
-      <div className="max-w-md w-full space-y-8 px-4">
+    <form onSubmit={handleSubmit} className={`space-y-6 ${className || ''}`}>
+      {error && (
+        <div 
+          className="bg-destructive/10 border border-destructive/50 text-destructive px-4 py-3 rounded-lg text-sm"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-4">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to Intern-Galing
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your credentials to access your account
-          </p>
+          <label htmlFor="email" className="text-sm font-medium text-foreground mb-2 block">
+            Email Address
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            className="w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            placeholder="your.email@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+          />
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div 
-              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md"
-              role="alert"
-            >
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Signing In...' : 'Sign in'}
-            </button>
-          </div>
-        </form>
+        <div>
+          <label htmlFor="password" className="text-sm font-medium text-foreground mb-2 block">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            className="w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+          />
+        </div>
       </div>
-    </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold py-3 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? 'Signing In...' : 'Sign In'}
+      </button>
+    </form>
   );
 }

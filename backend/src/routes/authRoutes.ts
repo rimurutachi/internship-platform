@@ -82,12 +82,11 @@ router.get(
       return sendAuthError(res, "User not authenticated");
     }
 
-    const result = await AuthService.getUserProfile(req.user.id);
-
+    // Pass req.user as fallbackUser for auto-create logic
+    const result = await AuthService.getUserProfile(req.user.id, req.user);
     if ("error" in result) {
       return sendErrorResponse(res, result.error, result.message, 404);
     }
-
     return sendSuccessResponse(res, result.message, result.data);
   })
 );

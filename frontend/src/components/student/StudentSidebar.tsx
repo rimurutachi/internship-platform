@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useUserContext } from '@/components/providers/UserProvider';
 import { 
   BarChart3, 
   Briefcase, 
@@ -24,6 +25,20 @@ const menuItems = [
 
 export const StudentSidebar = () => {
   const pathname = usePathname();
+  const { user, loading } = useUserContext();
+
+  const getInitials = () => {
+    if (!user) return 'U';
+    const firstInitial = user.first_name?.charAt(0) || '';
+    const lastInitial = user.last_name?.charAt(0) || '';
+    return (firstInitial + lastInitial).toUpperCase() || 'U';
+  };
+
+  const getDisplayName = () => {
+    if (loading) return 'Loading...';
+    if (!user) return 'Student';
+    return `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email?.split('@')[0] || 'Student';
+  };
 
   return (
     <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
@@ -31,12 +46,12 @@ export const StudentSidebar = () => {
       <div className="p-6 border-b border-border">
         <div className="flex items-center space-x-3">
           <Avatar className="w-12 h-12">
-            <AvatarImage src="/placeholder.svg" alt="Student" />
-            <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
+            <AvatarImage src={user?.profile_data?.avatar_url} alt={getDisplayName()} />
+            <AvatarFallback className="bg-primary text-primary-foreground">{getInitials()}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-foreground">Juan Martinez</h3>
-            <p className="text-sm text-muted-foreground">Computer Science Major</p>
+            <h3 className="font-semibold text-foreground">{getDisplayName()}</h3>
+            <p className="text-sm text-muted-foreground">{user?.profile_data?.education || 'Computer Science Major'}</p>
           </div>
         </div>
       </div>

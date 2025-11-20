@@ -1,4 +1,4 @@
-# 🚀 Intern-Galing - AI-Powered Decentralized Internship Management Platform
+# 🚀 Intern-Galing - AI-Powered Internship Management Platform
 
 Modern platform bridging universities and companies through intelligent internship management and automated evaluation using Linear Law-based Transformation (LLT) + Sentiment Analysis.
 

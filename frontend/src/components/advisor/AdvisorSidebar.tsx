@@ -13,6 +13,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUserContext } from '@/components/providers/UserProvider';
 
 const menuItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/dashboard/advisor', emoji: '📊' },
@@ -26,6 +27,14 @@ const menuItems = [
 
 export const AdvisorSidebar = () => {
   const pathname = usePathname();
+  const { user } = useUserContext();
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Advisor';
+  const initials = user ? getInitials(user.first_name, user.last_name) : 'AD';
 
   return (
     <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
@@ -33,12 +42,12 @@ export const AdvisorSidebar = () => {
       <div className="p-6 border-b border-border">
         <div className="flex items-center space-x-3">
           <Avatar className="w-12 h-12">
-            <AvatarImage src="/placeholder.svg" alt="Advisor" />
-            <AvatarFallback className="bg-ai text-ai-foreground">AR</AvatarFallback>
+            <AvatarImage src="/placeholder.svg" alt={fullName} />
+            <AvatarFallback className="bg-ai text-ai-foreground">{initials}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-foreground">Prof. Ana Rodriguez</h3>
-            <p className="text-sm text-muted-foreground">Computer Science</p>
+            <h3 className="font-semibold text-foreground">{fullName}</h3>
+            <p className="text-sm text-muted-foreground">{user?.role || 'Advisor'}</p>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { UserProvider, useUserContext } from '@/components/providers/UserProvider';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { CurrentInternshipCard } from '@/components/student/CurrentInternshipCard';
@@ -12,7 +13,7 @@ import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { QuickActionGrid } from '@/components/mobile/QuickActionGrid';
 import { StudentAnalytics } from '@/components/analytics/StudentAnalytics';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClipboardList, MessageSquare, BarChart3, FileText } from 'lucide-react';
@@ -25,6 +26,7 @@ import { ClipboardList, MessageSquare, BarChart3, FileText } from 'lucide-react'
  */
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { user } = useUserContext();
   
   const quickActions = [
     { icon: ClipboardList, label: 'Tasks', color: 'bg-primary' },
@@ -33,12 +35,20 @@ const StudentDashboard = () => {
     { icon: FileText, label: 'Docs', color: 'bg-indigo-500' },
   ];
 
+  // Get user initials for avatar
+  const getInitials = () => {
+    if (!user) return 'U';
+    const firstInitial = user.first_name?.charAt(0) || '';
+    const lastInitial = user.last_name?.charAt(0) || '';
+    return (firstInitial + lastInitial).toUpperCase() || 'U';
+  };
+
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        {/* Left Sidebar */}
-        <StudentSidebar />
+      <div className="h-screen bg-background overflow-hidden">
+        {/* Desktop View */}
+        <div className="hidden lg:flex h-full">
+          {/* Left Sidebar */}
+          <StudentSidebar />
         
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -106,13 +116,18 @@ const StudentDashboard = () => {
           <Card className="bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20">
             <CardContent className="p-4 flex items-center space-x-4">
               <Avatar className="w-16 h-16 border-2 border-primary">
+                <AvatarImage src={user?.profile_data?.avatar_url} />
                 <AvatarFallback className="bg-gradient-primary text-white font-bold text-lg">
-                  JM
+                  {getInitials()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-bold text-foreground">Welcome, Juan!</h2>
-                <p className="text-sm text-muted-foreground">Computer Science • MIT</p>
+                <h2 className="text-xl font-bold text-foreground">
+                  Welcome, {user?.first_name || 'Student'}!
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {user?.profile_data?.education || 'Computer Science'} \u2022 MIT
+                </p>
               </div>
             </CardContent>
           </Card>

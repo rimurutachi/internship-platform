@@ -4,6 +4,7 @@
  * Central export for all API services
  */
 
+export * from './user';
 export * from './internships';
 export * from './evaluations';
 export * from './communications';
