@@ -6,6 +6,7 @@ import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { AdminAnalytics } from '@/components/analytics/AdminAnalytics';
+import { useUserContext } from '@/components/providers/UserProvider';
 
 /**
  * AdminDashboard Component
@@ -14,6 +15,14 @@ import { AdminAnalytics } from '@/components/analytics/AdminAnalytics';
  * Includes desktop and mobile views.
  */
 const AdminDashboard = () => {
+  const { user } = useUserContext();
+  
+  const getInitials = () => {
+    if (!user?.first_name || !user?.last_name) return 'AD';
+    return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
+  };
+
+  const initials = getInitials();
 
   return (
     <div className="h-screen bg-background overflow-hidden">
@@ -52,7 +61,7 @@ const AdminDashboard = () => {
             subtitle="System Dashboard"
             logo={
               <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
+                <span className="text-white font-bold text-sm">{initials}</span>
               </div>
             }
           />

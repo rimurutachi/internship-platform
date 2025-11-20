@@ -12,6 +12,7 @@ import {
   Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUserContext } from '@/components/providers/UserProvider';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/admin', emoji: '📊' },
@@ -25,6 +26,14 @@ const menuItems = [
 
 export const AdminSidebar = () => {
   const pathname = usePathname();
+  const { user } = useUserContext();
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Admin';
+  const initials = user ? getInitials(user.first_name, user.last_name) : 'AD';
 
   return (
     <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
@@ -32,12 +41,12 @@ export const AdminSidebar = () => {
       <div className="p-6 border-b border-border">
         <div className="flex items-center space-x-3">
           <Avatar className="w-12 h-12">
-            <AvatarImage src="/placeholder.svg" alt="Admin" />
-            <AvatarFallback className="bg-gradient-primary text-white font-bold">AD</AvatarFallback>
+            <AvatarImage src="/placeholder.svg" alt={fullName} />
+            <AvatarFallback className="bg-gradient-primary text-white font-bold">{initials}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-foreground">System Admin</h3>
-            <p className="text-sm text-muted-foreground">Administrator</p>
+            <h3 className="font-semibold text-foreground">{fullName}</h3>
+            <p className="text-sm text-muted-foreground">{user?.role || 'Administrator'}</p>
           </div>
         </div>
       </div>

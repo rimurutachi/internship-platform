@@ -56,6 +56,9 @@ const createApiClient = (): AxiosInstance => {
         
         if (session?.access_token) {
           config.headers.Authorization = `Bearer ${session.access_token}`;
+          console.log('API Request:', config.method?.toUpperCase(), config.url, '- Token attached');
+        } else {
+          console.warn('API Request:', config.method?.toUpperCase(), config.url, '- No token available');
         }
       } catch (error) {
         console.error('Error attaching auth token:', error);

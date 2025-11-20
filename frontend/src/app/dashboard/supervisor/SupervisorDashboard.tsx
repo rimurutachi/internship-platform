@@ -6,6 +6,7 @@ import { SupervisorHeader } from '@/components/supervisor/SupervisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { SupervisorAnalytics } from '@/components/analytics/SupervisorAnalytics';
+import { useUserContext } from '@/components/providers/UserProvider';
 
 /**
  * SupervisorDashboard Component
@@ -14,6 +15,14 @@ import { SupervisorAnalytics } from '@/components/analytics/SupervisorAnalytics'
  * Includes desktop and mobile views.
  */
 const SupervisorDashboard = () => {
+  const { user } = useUserContext();
+  
+  const getInitials = () => {
+    if (!user?.first_name || !user?.last_name) return 'SU';
+    return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
+  };
+
+  const initials = getInitials();
 
   return (
     <div className="h-screen bg-background overflow-hidden">
@@ -52,7 +61,7 @@ const SupervisorDashboard = () => {
             subtitle="Performance insights"
             logo={
               <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
+                <span className="text-white font-bold text-sm">{initials}</span>
               </div>
             }
           />

@@ -190,27 +190,90 @@ export class AuthService {
   }
 
   /* Get user profile by ID */
+  /**
+   * Get user profile by ID. If not found, auto-create using JWT info (from req.user).
+   * @param userId - Supabase Auth user id
+   * @param fallbackUser - Optional: user info from JWT (id, email, role, etc.)
+   */
   static async getUserProfile(
-    userId: string
+    userId: string,
+    fallbackUser?: { id: string; email: string; role: string; first_name?: string; last_name?: string }
   ): Promise<SuccessResponse | ErrorResponse> {
     try {
-      const { data: userProfile, error } = await supabase
+      // Use admin client to bypass RLS policies
+      const { data: userProfile, error } = await supabaseAdmin
         .from("users")
         .select("*")
         .eq("id", userId)
         .single();
 
-      if (error || !userProfile) {
+      if (!error && userProfile) {
         return {
-          error: "Profile not found",
-          message: "Unable to find user profile.",
+          success: true,
+          message: "Profile retrieved successfully.",
+          data: userProfile,
+        };
+      }
+
+      // If not found, try to auto-create using fallbackUser (from JWT)
+      if (fallbackUser) {
+        console.log("Auto-creating profile for user:", fallbackUser.id, fallbackUser.email);
+        
+        // Compose minimal profile matching the registration structure
+        const newProfile: any = {
+          id: fallbackUser.id,
+          email: fallbackUser.email,
+          role: fallbackUser.role,
+          first_name: fallbackUser.first_name || "",
+          last_name: fallbackUser.last_name || "",
+        };
+        
+        const { data: insertedProfile, error: insertError } = await supabaseAdmin
+          .from("users")
+          .insert([newProfile])
+          .select()
+          .single();
+          
+        if (insertError) {
+          console.error("Auto-create profile error:", insertError);
+          console.error("Failed profile data:", newProfile);
+          
+          // If duplicate key error, try to fetch again (profile exists but wasn't found before)
+          if (insertError.code === "23505") {
+            console.log("Profile already exists, fetching again...");
+            const { data: existingProfile, error: refetchError } = await supabaseAdmin
+              .from("users")
+              .select("*")
+              .eq("id", userId)
+              .single();
+            
+            if (!refetchError && existingProfile) {
+              console.log("Profile found on retry:", existingProfile.email);
+              return {
+                success: true,
+                message: "Profile retrieved successfully.",
+                data: existingProfile,
+              };
+            }
+          }
+          
+          return {
+            error: "Profile auto-create failed",
+            message: insertError.message || "Could not create user profile.",
+          };
+        }
+        
+        console.log("Profile auto-created successfully for:", fallbackUser.email);
+        return {
+          success: true,
+          message: "Profile auto-created successfully.",
+          data: insertedProfile,
         };
       }
 
       return {
-        success: true,
-        message: "Profile retrieved successfully.",
-        data: userProfile,
+        error: "Profile not found",
+        message: "Unable to find user profile.",
       };
     } catch (error: any) {
       console.error("Profile fetch error:", error);

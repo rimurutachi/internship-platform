@@ -14,7 +14,7 @@ dotenv.config();
 import internshipRoutes from "./routes/internships";
 import evaluationRoutes from "./routes/evaluations";
 import authRoutes from "./routes/authRoutes";
-import communicationRoutes from "./routes/communicatons";
+import communicationRoutes from "./routes/communications";
 
 const app = express();
 const PORT = process.env.PORT || 5000;

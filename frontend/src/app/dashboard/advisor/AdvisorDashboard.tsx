@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useUserContext } from '@/components/providers/UserProvider';
 
 /**
  * AdvisorDashboard Component
@@ -27,6 +28,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
  * Includes overview with AI-powered grade recommendations.
  */
 const AdvisorDashboard = () => {
+  const { user } = useUserContext();
+  
+  const getInitials = () => {
+    if (!user?.first_name || !user?.last_name) return 'AD';
+    return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
+  };
+
+  const initials = getInitials();
 
   const keyMetrics = [
     {
@@ -350,11 +359,11 @@ const AdvisorDashboard = () => {
         {/* Mobile Header */}
         <MobileHeader 
           title="Advisor Portal"
-          subtitle="Prof. Ana Rodriguez"
+          subtitle={user?.email || 'Advisor'}
           notificationCount={15}
           logo={
             <div className="w-8 h-8 bg-gradient-ai rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">AR</span>
+              <span className="text-white font-bold text-sm">{initials}</span>
             </div>
           }
         />
@@ -366,12 +375,12 @@ const AdvisorDashboard = () => {
             <CardContent className="p-4 flex items-center space-x-4">
               <Avatar className="w-16 h-16 border-2 border-ai">
                 <AvatarFallback className="bg-gradient-ai text-white font-bold text-lg">
-                  AR
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-bold text-foreground">Welcome, Prof. Rodriguez!</h2>
-                <p className="text-sm text-muted-foreground">Computer Science • Advisor Portal</p>
+                <h2 className="text-xl font-bold text-foreground">Welcome, {user?.first_name || 'Advisor'}!</h2>
+                <p className="text-sm text-muted-foreground">{user?.email || 'Advisor Portal'}</p>
               </div>
             </CardContent>
           </Card>
