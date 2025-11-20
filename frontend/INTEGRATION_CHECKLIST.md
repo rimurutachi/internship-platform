@@ -156,7 +156,7 @@ export function SocketTest() {
 4. Test token refresh on expiry
 
 ### Step 7: Test Core Features
-- [ ] User login and authentication
+- [x] User login and authentication
 - [ ] Dashboard data fetching
 - [ ] Create/update internship
 - [ ] Create/update evaluation

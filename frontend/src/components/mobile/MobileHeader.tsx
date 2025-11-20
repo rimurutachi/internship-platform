@@ -1,10 +1,12 @@
 'use client';
 
-import { Bell, Menu } from "lucide-react";
+import { Bell, Menu, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { logout } from "@/lib/auth";
+import { useUserContext } from "@/components/providers/UserProvider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +31,30 @@ export const MobileHeader = ({
   notificationCount = 0,
   onMenuClick 
 }: MobileHeaderProps) => {
+  // Try to get user context if available (optional - won't break if not wrapped in UserProvider)
+  let user = null;
+  try {
+    const context = useUserContext();
+    user = context.user;
+  } catch {
+    // UserProvider not available - use defaults
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Get user initials for avatar
+  const getInitials = () => {
+    if (!user) return 'U';
+    const firstInitial = user.first_name?.charAt(0) || '';
+    const lastInitial = user.last_name?.charAt(0) || '';
+    return (firstInitial + lastInitial).toUpperCase() || 'U';
+  };
   return (
     <header className="lg:hidden bg-card border-b border-border z-40 px-4 py-3 flex-shrink-0">
       <div className="flex items-center justify-between">
@@ -76,8 +102,10 @@ export const MobileHeader = ({
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="User menu">
                 <Avatar className="w-8 h-8">
-                  <AvatarImage src="/placeholder.svg" alt="Student" />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">JM</AvatarFallback>
+                  <AvatarImage src={user?.profile_data?.avatar_url} alt={user?.email || 'User'} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {getInitials()}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -88,7 +116,13 @@ export const MobileHeader = ({
               <DropdownMenuItem>Preferences</DropdownMenuItem>
               <DropdownMenuItem>Help & Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">Log out</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive cursor-pointer"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Log out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
