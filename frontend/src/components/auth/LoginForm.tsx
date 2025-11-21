@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoginFormProps } from '@/types';
 import { createSupabaseClient } from '@/lib/supabase';
+import { apiClient } from '@/lib/api';
 
 /**
  * LoginForm Component
@@ -30,37 +31,35 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
     setError('');
 
     try {
-      // Authenticate user
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      // Call backend login API (which updates last_login)
+      const response = await apiClient.post('/auth/login', {
         email,
         password,
       });
 
-      if (authError) {
-        setError(authError.message);
+      const loginData = response.data;
+
+      if (!loginData.success) {
+        setError(loginData.message || 'Login failed');
         return;
       }
 
-      if (!authData.user) {
-        setError('Authentication failed. Please try again.');
+      // Set the session in Supabase client
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: loginData.data.access_token,
+        refresh_token: loginData.data.refresh_token,
+      });
+
+      if (sessionError) {
+        setError('Failed to establish session');
         return;
       }
 
-      // Fetch user profile to get role
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        setError('Failed to load user profile. Please try again.');
-        return;
-      }
+      // Get user role from response
+      const userRole = loginData.data.user?.role || 'student';
 
       // Role-based authentication: only allow login if user role matches selectedRole
-      if (selectedRole && profile?.role !== selectedRole) {
+      if (selectedRole && userRole !== selectedRole) {
         setError('You are not allowed to log in as this role. Please select the correct role.');
         await supabase.auth.signOut(); // sign out the session
         return;
@@ -70,17 +69,16 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
       if (redirectTo) {
         router.push(redirectTo);
       } else {
-        const role = profile?.role || 'student';
         const roleRoutes: Record<string, string> = {
           student: '/dashboard/student',
           advisor: '/dashboard/advisor',
           supervisor: '/dashboard/supervisor',
           admin: '/dashboard/admin',
         };
-        router.push(roleRoutes[role] || '/dashboard');
+        router.push(roleRoutes[userRole] || '/dashboard');
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.';
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Login failed. Please try again.';
       setError(errorMessage);
       console.error('Login error:', err);
     } finally {
