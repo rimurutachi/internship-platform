@@ -65,6 +65,39 @@ export class AuthService {
         .eq("id", data.user.id)
         .single();
 
+      // Check if user is suspended or inactive
+      if (userProfile) {
+        if (userProfile.status === 'suspended') {
+          // Sign out the user immediately
+          await supabase.auth.signOut();
+          return {
+            error: "Account Suspended",
+            message: "Your account has been suspended. Please contact support.",
+          };
+        }
+
+        if (userProfile.status === 'inactive') {
+          // Sign out the user immediately
+          await supabase.auth.signOut();
+          return {
+            error: "Account Inactive",
+            message: "Your account is inactive. Please contact support to reactivate.",
+          };
+        }
+
+        // Update last_login timestamp using admin client
+        const { error: updateError } = await supabaseAdmin
+          .from("users")
+          .update({ last_login: new Date().toISOString() })
+          .eq("id", data.user.id);
+
+        if (updateError) {
+          console.error('Failed to update last_login:', updateError);
+        } else {
+          console.log('Successfully updated last_login for user:', data.user.id);
+        }
+      }
+
       const mergedUser = userProfile
         ? {
             id: data.user.id,
@@ -75,6 +108,8 @@ export class AuthService {
             last_name:
               userProfile.last_name ?? data.user.user_metadata?.last_name,
             profile_data: userProfile.profile_data,
+            status: userProfile.status,
+            verified: userProfile.verified,
           }
         : data.user;
 

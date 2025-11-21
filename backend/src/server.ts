@@ -15,6 +15,7 @@ import internshipRoutes from "./routes/internships";
 import evaluationRoutes from "./routes/evaluations";
 import authRoutes from "./routes/authRoutes";
 import communicationRoutes from "./routes/communications";
+import adminRoutes from "./routes/admin";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +61,9 @@ app.use("/api", authRoutes);
 
 // Communication APIs
 app.use("/api/communication", communicationRoutes);
+
+// Admin APIs
+app.use("/api/admin", adminRoutes);
 
 // Error Handling Middleware
 app.use((err: any, req: any, res: any, next: any) => {
