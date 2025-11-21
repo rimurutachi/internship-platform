@@ -89,7 +89,7 @@ export const authenticateToken = async (
       // IF no role in JWT, fetch from database as fallback
       const { data: userProfile, error: profileError } = await supabase
         .from("users")
-        .select("role")
+        .select("role, status")
         .eq("id", user.id)
         .single();
 
@@ -100,12 +100,50 @@ export const authenticateToken = async (
         });
       }
 
+      // Check if user is suspended or inactive
+      if (userProfile.status === 'suspended') {
+        return res.status(403).json({
+          error: "Account Suspended",
+          message: "Your account has been suspended. Please contact support.",
+        });
+      }
+
+      if (userProfile.status === 'inactive') {
+        return res.status(403).json({
+          error: "Account Inactive",
+          message: "Your account is inactive. Please contact support.",
+        });
+      }
+
       req.user = {
         id: user.id,
         email: user.email || "",
         role: userProfile.role,
       };
     } else {
+      // Even if role exists in JWT, check status from database
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select("status")
+        .eq("id", user.id)
+        .single();
+
+      if (userProfile) {
+        if (userProfile.status === 'suspended') {
+          return res.status(403).json({
+            error: "Account Suspended",
+            message: "Your account has been suspended. Please contact support.",
+          });
+        }
+
+        if (userProfile.status === 'inactive') {
+          return res.status(403).json({
+            error: "Account Inactive",
+            message: "Your account is inactive. Please contact support.",
+          });
+        }
+      }
+
       // Attach user info with role from JWT.
       req.user = {
         id: user.id,

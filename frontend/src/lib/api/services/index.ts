@@ -10,6 +10,7 @@ export * from './evaluations';
 export * from './communications';
 export * from './documents';
 export * from './notifications';
+export * from './admin';
 
 // Re-export client utilities for convenience
 export { apiClient, ApiError } from '../client';
