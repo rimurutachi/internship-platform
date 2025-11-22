@@ -60,12 +60,14 @@ export default function UsersPage() {
   // Form states
   const [createForm, setCreateForm] = useState<CreateUserRequest>({
     email: '',
-    name: '',
+    firstName: '',
+    lastName: '',
     role: 'student',
     password: '',
   });
   const [editForm, setEditForm] = useState<UpdateUserRequest>({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -123,7 +125,7 @@ export default function UsersPage() {
 
   // Create user handler
   const handleCreateUser = async () => {
-    if (!createForm.email || !createForm.name || !createForm.password) {
+    if (!createForm.email || !createForm.firstName || !createForm.lastName || !createForm.password) {
       toast({
         title: 'Validation Error',
         description: 'Please fill in all required fields',
@@ -140,7 +142,7 @@ export default function UsersPage() {
         description: 'User created successfully',
       });
       setCreateDialogOpen(false);
-      setCreateForm({ email: '', name: '', role: 'student', password: '' });
+      setCreateForm({ email: '', firstName: '', lastName: '', role: 'student', password: '' });
       fetchUsers();
       fetchStats();
     } catch (error: any) {
@@ -156,7 +158,7 @@ export default function UsersPage() {
 
   // Update user handler
   const handleUpdateUser = async () => {
-    if (!selectedUser || (!editForm.name && !editForm.email)) {
+    if (!selectedUser || (!editForm.firstName && !editForm.lastName && !editForm.email)) {
       toast({
         title: 'Validation Error',
         description: 'Please provide at least one field to update',
@@ -174,7 +176,7 @@ export default function UsersPage() {
       });
       setEditDialogOpen(false);
       setSelectedUser(null);
-      setEditForm({ name: '', email: '' });
+      setEditForm({ firstName: '', lastName: '', email: '' });
       fetchUsers();
     } catch (error: any) {
       toast({
@@ -235,7 +237,11 @@ export default function UsersPage() {
   // Open edit dialog
   const openEditDialog = (user: AdminUser) => {
     setSelectedUser(user);
-    setEditForm({ name: user.name, email: user.email });
+    // Split name into first and last name for editing
+    const nameParts = (user.name || '').trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    setEditForm({ firstName, lastName, email: user.email });
     setEditDialogOpen(true);
   };
 
@@ -322,12 +328,21 @@ export default function UsersPage() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label>Full Name</Label>
+                        <Label>First Name</Label>
                         <Input 
-                          placeholder="John Doe" 
+                          placeholder="John" 
                           className="mt-2"
-                          value={createForm.name}
-                          onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                          value={createForm.firstName}
+                          onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Last Name</Label>
+                        <Input 
+                          placeholder="Doe" 
+                          className="mt-2"
+                          value={createForm.lastName}
+                          onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
                         />
                       </div>
                       <div>
@@ -652,12 +667,21 @@ export default function UsersPage() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label>Full Name</Label>
+                    <Label>First Name</Label>
                     <Input 
-                      placeholder="John Doe" 
+                      placeholder="John" 
                       className="mt-2"
-                      value={createForm.name}
-                      onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                      value={createForm.firstName}
+                      onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Last Name</Label>
+                    <Input 
+                      placeholder="Doe" 
+                      className="mt-2"
+                      value={createForm.lastName}
+                      onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
                     />
                   </div>
                   <div>
@@ -878,12 +902,21 @@ export default function UsersPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Full Name</Label>
+              <Label>First Name</Label>
               <Input 
-                placeholder="John Doe" 
+                placeholder="John" 
                 className="mt-2"
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                value={editForm.firstName}
+                onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Last Name</Label>
+              <Input 
+                placeholder="Doe" 
+                className="mt-2"
+                value={editForm.lastName}
+                onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
               />
             </div>
             <div>

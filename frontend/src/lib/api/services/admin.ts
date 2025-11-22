@@ -50,7 +50,8 @@ export interface PaginatedResponse<T> {
  */
 export interface CreateUserRequest {
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   role: 'student' | 'advisor' | 'supervisor' | 'admin';
   password: string;
 }
@@ -59,7 +60,8 @@ export interface CreateUserRequest {
  * Update user request data
  */
 export interface UpdateUserRequest {
-  name?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
 }
 
