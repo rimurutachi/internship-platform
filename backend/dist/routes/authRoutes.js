@@ -42,7 +42,8 @@ router.get("/auth/profile", auth_1.authenticateToken, (0, responseUtils_1.asyncH
     if (!req.user?.id) {
         return (0, responseUtils_1.sendAuthError)(res, "User not authenticated");
     }
-    const result = await authService_1.AuthService.getUserProfile(req.user.id);
+    // Pass req.user as fallbackUser for auto-create logic
+    const result = await authService_1.AuthService.getUserProfile(req.user.id, req.user);
     if ("error" in result) {
         return (0, responseUtils_1.sendErrorResponse)(res, result.error, result.message, 404);
     }

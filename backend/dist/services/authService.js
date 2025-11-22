@@ -38,6 +38,36 @@ class AuthService {
                 .select("*")
                 .eq("id", data.user.id)
                 .single();
+            // Check if user is suspended or inactive
+            if (userProfile) {
+                if (userProfile.status === 'suspended') {
+                    // Sign out the user immediately
+                    await supabase.auth.signOut();
+                    return {
+                        error: "Account Suspended",
+                        message: "Your account has been suspended. Please contact support.",
+                    };
+                }
+                if (userProfile.status === 'inactive') {
+                    // Sign out the user immediately
+                    await supabase.auth.signOut();
+                    return {
+                        error: "Account Inactive",
+                        message: "Your account is inactive. Please contact support to reactivate.",
+                    };
+                }
+                // Update last_login timestamp using admin client
+                const { error: updateError } = await supabaseAdmin
+                    .from("users")
+                    .update({ last_login: new Date().toISOString() })
+                    .eq("id", data.user.id);
+                if (updateError) {
+                    console.error('Failed to update last_login:', updateError);
+                }
+                else {
+                    console.log('Successfully updated last_login for user:', data.user.id);
+                }
+            }
             const mergedUser = userProfile
                 ? {
                     id: data.user.id,
@@ -46,6 +76,8 @@ class AuthService {
                     first_name: userProfile.first_name ?? data.user.user_metadata?.first_name,
                     last_name: userProfile.last_name ?? data.user.user_metadata?.last_name,
                     profile_data: userProfile.profile_data,
+                    status: userProfile.status,
+                    verified: userProfile.verified,
                 }
                 : data.user;
             return {
@@ -138,23 +170,77 @@ class AuthService {
         }
     }
     /* Get user profile by ID */
-    static async getUserProfile(userId) {
+    /**
+     * Get user profile by ID. If not found, auto-create using JWT info (from req.user).
+     * @param userId - Supabase Auth user id
+     * @param fallbackUser - Optional: user info from JWT (id, email, role, etc.)
+     */
+    static async getUserProfile(userId, fallbackUser) {
         try {
-            const { data: userProfile, error } = await supabase
+            // Use admin client to bypass RLS policies
+            const { data: userProfile, error } = await supabaseAdmin
                 .from("users")
                 .select("*")
                 .eq("id", userId)
                 .single();
-            if (error || !userProfile) {
+            if (!error && userProfile) {
                 return {
-                    error: "Profile not found",
-                    message: "Unable to find user profile.",
+                    success: true,
+                    message: "Profile retrieved successfully.",
+                    data: userProfile,
+                };
+            }
+            // If not found, try to auto-create using fallbackUser (from JWT)
+            if (fallbackUser) {
+                console.log("Auto-creating profile for user:", fallbackUser.id, fallbackUser.email);
+                // Compose minimal profile matching the registration structure
+                const newProfile = {
+                    id: fallbackUser.id,
+                    email: fallbackUser.email,
+                    role: fallbackUser.role,
+                    first_name: fallbackUser.first_name || "",
+                    last_name: fallbackUser.last_name || "",
+                };
+                const { data: insertedProfile, error: insertError } = await supabaseAdmin
+                    .from("users")
+                    .insert([newProfile])
+                    .select()
+                    .single();
+                if (insertError) {
+                    console.error("Auto-create profile error:", insertError);
+                    console.error("Failed profile data:", newProfile);
+                    // If duplicate key error, try to fetch again (profile exists but wasn't found before)
+                    if (insertError.code === "23505") {
+                        console.log("Profile already exists, fetching again...");
+                        const { data: existingProfile, error: refetchError } = await supabaseAdmin
+                            .from("users")
+                            .select("*")
+                            .eq("id", userId)
+                            .single();
+                        if (!refetchError && existingProfile) {
+                            console.log("Profile found on retry:", existingProfile.email);
+                            return {
+                                success: true,
+                                message: "Profile retrieved successfully.",
+                                data: existingProfile,
+                            };
+                        }
+                    }
+                    return {
+                        error: "Profile auto-create failed",
+                        message: insertError.message || "Could not create user profile.",
+                    };
+                }
+                console.log("Profile auto-created successfully for:", fallbackUser.email);
+                return {
+                    success: true,
+                    message: "Profile auto-created successfully.",
+                    data: insertedProfile,
                 };
             }
             return {
-                success: true,
-                message: "Profile retrieved successfully.",
-                data: userProfile,
+                error: "Profile not found",
+                message: "Unable to find user profile.",
             };
         }
         catch (error) {

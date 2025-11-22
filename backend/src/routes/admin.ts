@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import * as adminController from '../controllers/adminController';
+import documentRoutes from './admin/documents';
 
 const router = Router();
 
@@ -11,6 +12,9 @@ router.use(requireRole(['admin']));
 // IMPORTANT: Specific routes MUST come before parameterized routes
 // Get user statistics (BEFORE /users/:id)
 router.get('/users/stats/overview', adminController.getUserStats);
+
+// Migrate user names (one-time migration endpoint)
+router.post('/users/migrate-names', adminController.migrateUserNames);
 
 // Get all users with filtering and pagination
 router.get('/users', adminController.getAllUsers);
@@ -32,5 +36,8 @@ router.patch('/users/:id/role', adminController.updateUserRole);
 
 // Delete user
 router.delete('/users/:id', adminController.deleteUser);
+
+// Document management routes
+router.use('/documents', documentRoutes);
 
 export default router;
