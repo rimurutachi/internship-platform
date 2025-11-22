@@ -30,11 +30,14 @@ export const AdvisorSidebar = () => {
   const { user } = useUserContext();
 
   const getInitials = (firstName: string, lastName: string) => {
+    if (!firstName || !lastName) return '??';
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Advisor';
-  const initials = user ? getInitials(user.first_name, user.last_name) : 'AD';
+  const fullName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Advisor' : 'Advisor';
+  const initials = user && user.first_name && user.last_name 
+    ? getInitials(user.first_name, user.last_name) 
+    : 'AD';
 
   return (
     <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">

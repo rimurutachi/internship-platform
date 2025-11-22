@@ -1,4 +1,4 @@
-import { Evaluation, CreateEvaluationDTO, ProcessEvaluationResult } from '../models/evaluation';
+import { Evaluation, CreateEvaluationDTO, ProcessEvaluationResult } from "../models/evaluation";
 export declare class EvaluationService {
     create(data: CreateEvaluationDTO): Promise<Evaluation>;
     getById(id: string): Promise<Evaluation | null>;

@@ -110,18 +110,18 @@ export async function getUserById(req: AuthRequest, res: Response) {
 
 /**
  * Create new user (both Auth and database)
- * Body: { email, name, role, password }
+ * Body: { email, firstName, lastName, role, password }
  */
 export async function createUser(req: AuthRequest, res: Response) {
   try {
-    const { email, name, role, password } = req.body;
+    const { email, firstName, lastName, role, password } = req.body;
 
     // Validate required fields
-    if (!email || !name || !role || !password) {
+    if (!email || !firstName || !lastName || !role || !password) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Email, name, role, and password are required',
+        message: 'Email, first name, last name, role, and password are required',
       });
     }
 
@@ -135,13 +135,18 @@ export async function createUser(req: AuthRequest, res: Response) {
       });
     }
 
+    // Construct full name
+    const fullName = `${firstName} ${lastName}`;
+
     // Create user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: {
-        name,
+        firstName,
+        lastName,
+        name: fullName,
         role,
       },
     });
@@ -160,7 +165,9 @@ export async function createUser(req: AuthRequest, res: Response) {
       .insert({
         id: authData.user.id,
         email,
-        name,
+        name: fullName,
+        first_name: firstName,
+        last_name: lastName,
         role,
         status: 'active',
         verified: true,
@@ -194,24 +201,42 @@ export async function createUser(req: AuthRequest, res: Response) {
 }
 
 /**
- * Update user information (name, email)
- * Body: { name?, email? }
+ * Update user information (firstName, lastName, email)
+ * Body: { firstName?, lastName?, email? }
  */
 export async function updateUser(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
-    const { name, email } = req.body;
+    const { firstName, lastName, email } = req.body;
 
-    if (!name && !email) {
+    if (!firstName && !lastName && !email) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'At least one field (name or email) is required',
+        message: 'At least one field (firstName, lastName, or email) is required',
       });
     }
 
     const updates: any = { updated_at: new Date().toISOString() };
-    if (name) updates.name = name;
+    
+    // Handle name updates
+    if (firstName || lastName) {
+      // Get current user data to preserve existing names if only one is updated
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('first_name, last_name')
+        .eq('id', id)
+        .single();
+
+      const newFirstName = firstName || currentUser?.first_name || '';
+      const newLastName = lastName || currentUser?.last_name || '';
+      const fullName = `${newFirstName} ${newLastName}`.trim();
+
+      updates.first_name = newFirstName;
+      updates.last_name = newLastName;
+      updates.name = fullName;
+    }
+    
     if (email) updates.email = email;
 
     // Update database
@@ -230,9 +255,19 @@ export async function updateUser(req: AuthRequest, res: Response) {
       });
     }
 
-    // Update Supabase Auth if email changed
-    if (email) {
-      await supabase.auth.admin.updateUserById(id, { email });
+    // Update Supabase Auth metadata
+    const authUpdates: any = {};
+    if (email) authUpdates.email = email;
+    if (firstName || lastName) {
+      authUpdates.user_metadata = {
+        firstName: user.first_name,
+        lastName: user.last_name,
+        name: user.name,
+      };
+    }
+    
+    if (Object.keys(authUpdates).length > 0) {
+      await supabase.auth.admin.updateUserById(id, authUpdates);
     }
 
     return res.status(200).json({
@@ -536,6 +571,80 @@ export async function getUserStats(req: AuthRequest, res: Response) {
       success: false,
       error: 'Internal server error',
       message: error.message || 'Failed to fetch statistics',
+    });
+  }
+}
+
+/**
+ * Migrate existing users to split name into first_name and last_name
+ * This is a one-time migration endpoint
+ */
+export async function migrateUserNames(req: AuthRequest, res: Response) {
+  try {
+    // Fetch all users without first_name or last_name
+    const { data: users, error: fetchError } = await supabase
+      .from('users')
+      .select('id, name, first_name, last_name')
+      .or('first_name.is.null,last_name.is.null');
+
+    if (fetchError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch users',
+        message: fetchError.message,
+      });
+    }
+
+    if (!users || users.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No users need migration',
+        migrated: 0,
+      });
+    }
+
+    // Update each user
+    const updates = users.map(async (user) => {
+      if (!user.name) {
+        return { id: user.id, success: false, reason: 'No name field' };
+      }
+
+      // Split name into first and last
+      const nameParts = user.name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || nameParts[0] || ''; // If only one word, use it for both
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        return { id: user.id, success: false, reason: updateError.message };
+      }
+
+      return { id: user.id, success: true, firstName, lastName };
+    });
+
+    const results = await Promise.all(updates);
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success);
+
+    return res.status(200).json({
+      success: true,
+      message: `Migration complete. ${successful} users updated.`,
+      migrated: successful,
+      failed: failed.length > 0 ? failed : undefined,
+    });
+  } catch (error: any) {
+    console.error('Migrate user names error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
     });
   }
 }

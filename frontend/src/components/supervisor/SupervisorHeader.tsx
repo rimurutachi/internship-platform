@@ -35,11 +35,14 @@ export const SupervisorHeader = () => {
   };
 
   const getInitials = (firstName: string, lastName: string) => {
+    if (!firstName || !lastName) return '??';
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  const fullName = user ? `${user.first_name} ${user.last_name}` : 'Supervisor';
-  const initials = user ? getInitials(user.first_name || '', user.last_name || '') : 'SU';
+  const fullName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Supervisor' : 'Supervisor';
+  const initials = user && user.first_name && user.last_name 
+    ? getInitials(user.first_name, user.last_name) 
+    : 'SU';
 
   return (
     <header className="bg-card border-b border-border px-6 py-4">

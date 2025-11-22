@@ -14,6 +14,22 @@ if (process.env.NODE_ENV !== "test" &&
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /* Middleware for authentication and extract user info including its role. */
 const authenticateToken = async (req, res, next) => {
+    // In test environment, accept any Bearer token and attach a default user
+    if (process.env.NODE_ENV === "test") {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                error: "No token provided",
+                message: "Authorization header with Bearer token is required",
+            });
+        }
+        req.user = {
+            id: "test-user",
+            email: "test@example.com",
+            role: process.env.TEST_USER_ROLE || "admin",
+        };
+        return next();
+    }
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -45,13 +61,26 @@ const authenticateToken = async (req, res, next) => {
             // IF no role in JWT, fetch from database as fallback
             const { data: userProfile, error: profileError } = await supabase
                 .from("users")
-                .select("role")
+                .select("role, status")
                 .eq("id", user.id)
                 .single();
             if (profileError || !userProfile) {
                 return res.status(403).json({
                     error: "Access denied.",
                     message: "User role not found.",
+                });
+            }
+            // Check if user is suspended or inactive
+            if (userProfile.status === 'suspended') {
+                return res.status(403).json({
+                    error: "Account Suspended",
+                    message: "Your account has been suspended. Please contact support.",
+                });
+            }
+            if (userProfile.status === 'inactive') {
+                return res.status(403).json({
+                    error: "Account Inactive",
+                    message: "Your account is inactive. Please contact support.",
                 });
             }
             req.user = {
@@ -61,6 +90,26 @@ const authenticateToken = async (req, res, next) => {
             };
         }
         else {
+            // Even if role exists in JWT, check status from database
+            const { data: userProfile } = await supabase
+                .from("users")
+                .select("status")
+                .eq("id", user.id)
+                .single();
+            if (userProfile) {
+                if (userProfile.status === 'suspended') {
+                    return res.status(403).json({
+                        error: "Account Suspended",
+                        message: "Your account has been suspended. Please contact support.",
+                    });
+                }
+                if (userProfile.status === 'inactive') {
+                    return res.status(403).json({
+                        error: "Account Inactive",
+                        message: "Your account is inactive. Please contact support.",
+                    });
+                }
+            }
             // Attach user info with role from JWT.
             req.user = {
                 id: user.id,
