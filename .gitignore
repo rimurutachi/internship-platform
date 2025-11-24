@@ -3,3 +3,7 @@
 .env.local
 .env.*
 !.env.example
+
+# Docker images and build artifacts
+*.tar
+internship-images.tar
