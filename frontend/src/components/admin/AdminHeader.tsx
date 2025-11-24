@@ -1,10 +1,11 @@
 'use client';
 
-import { Bell, ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, LogOut, User, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { NotificationsDropdown } from '@/components/ui/NotificationsDropdown';
 import { logout } from '@/lib/auth';
 import { useUserContext } from '@/components/providers/UserProvider';
 import {
@@ -24,7 +25,6 @@ import {
  */
 export const AdminHeader = () => {
   const { user } = useUserContext();
-  const notificationCount = 5;
 
   const handleLogout = async () => {
     try {
@@ -43,6 +43,7 @@ export const AdminHeader = () => {
   const initials = user && user.first_name && user.last_name 
     ? getInitials(user.first_name, user.last_name) 
     : 'AD';
+  const avatarUrl = user?.profile_data?.avatar_url;
 
   return (
     <header className="bg-card border-b border-border px-6 py-4">
@@ -56,22 +57,16 @@ export const AdminHeader = () => {
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
           <ThemeToggle />
+          
           {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
-            <Bell className="w-5 h-5" />
-            {notificationCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-xs p-0 flex items-center justify-center">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </Badge>
-            )}
-          </Button>
+          <NotificationsDropdown />
 
           {/* Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2" aria-label="User menu">
                 <Avatar className="w-8 h-8">
-                  <AvatarImage src="/placeholder.svg" alt={fullName} />
+                  <AvatarImage src={avatarUrl || '/placeholder.svg'} alt={fullName} />
                   <AvatarFallback className="bg-gradient-primary text-white text-sm font-bold">{initials}</AvatarFallback>
                 </Avatar>
                 <ChevronDown className="w-4 h-4" />
@@ -80,9 +75,24 @@ export const AdminHeader = () => {
             <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-              <DropdownMenuItem>System Preferences</DropdownMenuItem>
-              <DropdownMenuItem>Help & Support</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin/settings" className="cursor-pointer flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin/system" className="cursor-pointer flex items-center">
+                  <SettingsIcon className="w-4 h-4 mr-2" />
+                  System Preferences
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin/security" className="cursor-pointer flex items-center">
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  Help & Support
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="text-destructive cursor-pointer"

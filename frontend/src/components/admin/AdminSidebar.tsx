@@ -9,7 +9,8 @@ import {
   Server, 
   Shield,
   FileText,
-  Settings
+  Settings,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
@@ -20,7 +21,7 @@ const menuItems = [
   { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents', emoji: '📄' },
   { icon: Server, label: 'System', path: '/dashboard/admin/system', emoji: '🖥️' },
   { icon: Shield, label: 'Security', path: '/dashboard/admin/security', emoji: '🔒' },
-  { icon: Settings, label: 'Reports', path: '/dashboard/admin/reports', emoji: '📈' },
+  { icon: BarChart3, label: 'Reports', path: '/dashboard/admin/reports', emoji: '📈' },
   { icon: Settings, label: 'Settings', path: '/dashboard/admin/settings', emoji: '⚙️' },
 ];
 
@@ -37,6 +38,7 @@ export const AdminSidebar = () => {
   const initials = user && user.first_name && user.last_name 
     ? getInitials(user.first_name, user.last_name) 
     : 'AD';
+  const avatarUrl = user?.profile_data?.avatar_url;
 
   return (
     <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
@@ -44,7 +46,7 @@ export const AdminSidebar = () => {
       <div className="p-6 border-b border-border">
         <div className="flex items-center space-x-3">
           <Avatar className="w-12 h-12">
-            <AvatarImage src="/placeholder.svg" alt={fullName} />
+            <AvatarImage src={avatarUrl || '/placeholder.svg'} alt={fullName} />
             <AvatarFallback className="bg-gradient-primary text-white font-bold">{initials}</AvatarFallback>
           </Avatar>
           <div>

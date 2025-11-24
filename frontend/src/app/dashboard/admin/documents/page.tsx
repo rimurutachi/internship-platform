@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Search, 
   FileText, 
@@ -33,7 +33,6 @@ import {
   DocumentWithDetails,
   DocumentType,
   DocumentStatus,
-  DocumentStats,
   StatsResponse
 } from '@/types/documents';
 import { DocumentDetailDialog } from '@/components/admin/documents/DocumentDetailDialog';
@@ -52,7 +51,6 @@ export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterOwner, setFilterOwner] = useState<string>('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,14 +64,17 @@ export default function DocumentsPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch documents
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     try {
       setLoading(true);
       
-      const filters: any = {};
+      const filters: {
+        type?: string;
+        status?: string;
+        search?: string;
+      } = {};
       if (filterType !== 'all') filters.type = filterType;
       if (filterStatus !== 'all') filters.status = filterStatus;
-      if (filterOwner) filters.owner_id = filterOwner;
       if (searchQuery) filters.search = searchQuery;
       
       const response = await adminDocumentsAPI.getDocuments(
@@ -85,7 +86,8 @@ export default function DocumentsPage() {
       setDocuments(response.documents);
       setTotalPages(response.total_pages);
       setTotalDocuments(response.total);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch documents';
       toast({
         title: 'Error',
         description: error.message || 'Failed to fetch documents',
@@ -94,26 +96,26 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, filterType, filterStatus, searchQuery, toast]);
 
   // Fetch statistics
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setStatsLoading(true);
       const statsData = await adminDocumentsAPI.getStats();
       setStats(statsData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
       setStatsLoading(false);
     }
-  };
+  }, []);
 
   // Initial load
   useEffect(() => {
     fetchDocuments();
     fetchStats();
-  }, [currentPage, filterType, filterStatus, filterOwner]);
+  }, [currentPage, filterType, filterStatus, fetchDocuments, fetchStats]);
 
   // Search with debounce
   useEffect(() => {
@@ -126,7 +128,7 @@ export default function DocumentsPage() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, currentPage, fetchDocuments]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -145,10 +147,11 @@ export default function DocumentsPage() {
       const fullDoc = await adminDocumentsAPI.getDocument(doc.id);
       setSelectedDocument(fullDoc);
       setDetailDialogOpen(true);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load document details';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load document details',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -164,10 +167,11 @@ export default function DocumentsPage() {
       });
       fetchDocuments();
       fetchStats();
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to archive document';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to archive document',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -187,10 +191,11 @@ export default function DocumentsPage() {
       });
       fetchDocuments();
       fetchStats();
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete document';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete document',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
