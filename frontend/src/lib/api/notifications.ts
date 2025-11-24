@@ -1,6 +1,6 @@
 import { createSupabaseClient } from '../supabase';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export interface Notification {
   id: string;
@@ -60,7 +60,7 @@ export const notificationsAPI = {
    */
   getNotifications: async (limit: number = 50): Promise<Notification[]> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/communication/notifications?limit=${limit}`, {
+    const response = await fetch(`${API_BASE_URL}/communication/notifications?limit=${limit}`, {
       method: 'GET',
       headers
     });
@@ -79,7 +79,7 @@ export const notificationsAPI = {
    */
   getUnreadCount: async (): Promise<number> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/communication/notifications/unread/count`, {
+    const response = await fetch(`${API_BASE_URL}/communication/notifications/unread/count`, {
       method: 'GET',
       headers
     });
@@ -99,7 +99,7 @@ export const notificationsAPI = {
    */
   markAsRead: async (notificationId: string): Promise<void> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/communication/notifications/${notificationId}/read`, {
+    const response = await fetch(`${API_BASE_URL}/communication/notifications/${notificationId}/read`, {
       method: 'PATCH',
       headers
     });
@@ -115,7 +115,7 @@ export const notificationsAPI = {
    */
   markAllAsRead: async (): Promise<void> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/communication/notifications/read-all`, {
+    const response = await fetch(`${API_BASE_URL}/communication/notifications/read-all`, {
       method: 'PATCH',
       headers
     });
@@ -132,7 +132,7 @@ export const notificationsAPI = {
    */
   deleteNotification: async (notificationId: string): Promise<void> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/communication/notifications/${notificationId}`, {
+    const response = await fetch(`${API_BASE_URL}/communication/notifications/${notificationId}`, {
       method: 'DELETE',
       headers
     });
@@ -149,7 +149,7 @@ export const notificationsAPI = {
    */
   createNotification: async (data: CreateNotificationDTO): Promise<Notification> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/communication/notifications`, {
+    const response = await fetch(`${API_BASE_URL}/communication/notifications`, {
       method: 'POST',
       headers,
       body: JSON.stringify(data)
