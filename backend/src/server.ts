@@ -43,13 +43,31 @@ app.use(morgan("combined"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Rate Limiting (excluding admin settings routes)
+// Rate Limiting
+const rateLimitWindow = 15 * 60 * 1000; // 15 minutes
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: rateLimitWindow,
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
   skip: (req) => {
-    // Skip rate limiting for admin settings API calls
-    return req.path.startsWith('/api/admin/settings');
+    // Skip rate limiting for:
+    // - Admin routes (settings, reports, system)
+    // - Authentication routes
+    // - Communication routes (messages, notifications)
+    return (
+      req.path.startsWith('/api/admin/settings') ||
+      req.path.startsWith('/api/admin/reports') ||
+      req.path.startsWith('/api/admin/system') ||
+      req.path.startsWith('/api/auth') ||
+      req.path.startsWith('/api/communication')
+    );
+  },
+  // Return JSON response instead of HTML for rate limit errors
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error: 'Too many requests, please try again later.',
+      retryAfter: Math.ceil(rateLimitWindow / 1000)
+    });
   }
 });
 app.use(limiter);

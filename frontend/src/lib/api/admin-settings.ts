@@ -1,4 +1,4 @@
-import { createSupabaseClient } from '../supabase';
+import { apiClient } from './client';
 import type {
   AdminProfile,
   PlatformSettings,
@@ -12,236 +12,76 @@ import type {
   UploadAvatarResponse
 } from '../../types/settings';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const supabase = createSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
-  }
-
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`
-  };
-}
-
-async function getAuthHeadersMultipart(): Promise<HeadersInit> {
-  const supabase = createSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error('Not authenticated');
-  }
-
-  return {
-    'Authorization': `Bearer ${session.access_token}`
-  };
-}
-
 export const adminSettingsAPI = {
   getProfile: async (): Promise<AdminProfile> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/profile`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch profile');
-    }
-
-    return response.json();
+    const response = await apiClient.get('/admin/settings/profile');
+    return response.data;
   },
 
   updateProfile: async (data: UpdateProfileRequest): Promise<AdminProfile> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/profile`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update profile');
-    }
-
-    return response.json();
+    const response = await apiClient.patch('/admin/settings/profile', data);
+    return response.data;
   },
 
   uploadAvatar: async (file: File): Promise<UploadAvatarResponse> => {
-    const headers = await getAuthHeadersMultipart();
     const formData = new FormData();
     formData.append('avatar', file);
-
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/profile/upload-avatar`, {
-      method: 'POST',
-      headers,
-      body: formData
+    
+    const response = await apiClient.post('/admin/settings/profile/upload-avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload avatar');
-    }
-
-    return response.json();
+    return response.data;
   },
 
   getPlatformSettings: async (): Promise<PlatformSettings> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/platform`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch platform settings');
-    }
-
-    return response.json();
+    const response = await apiClient.get('/admin/settings/platform');
+    return response.data;
   },
 
-  updatePlatformSettings: async (settings: PlatformSettings): Promise<PlatformSettings> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/platform`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(settings)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update platform settings');
-    }
-
-    return response.json();
+  updatePlatformSettings: async (data: Partial<PlatformSettings>): Promise<PlatformSettings> => {
+    const response = await apiClient.patch('/admin/settings/platform', data);
+    return response.data;
   },
 
   getNotificationSettings: async (): Promise<NotificationSettings> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/notifications`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch notification settings');
-    }
-
-    return response.json();
+    const response = await apiClient.get('/admin/settings/notifications');
+    return response.data;
   },
 
-  updateNotificationSettings: async (settings: NotificationSettings): Promise<NotificationSettings> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/notifications`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(settings)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update notification settings');
-    }
-
-    return response.json();
+  updateNotificationSettings: async (data: Partial<NotificationSettings>): Promise<NotificationSettings> => {
+    const response = await apiClient.patch('/admin/settings/notifications', data);
+    return response.data;
   },
 
   getAdvancedSettings: async (): Promise<AdvancedSettings> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/advanced`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch advanced settings');
-    }
-
-    return response.json();
+    const response = await apiClient.get('/admin/settings/advanced');
+    return response.data;
   },
 
-  updateAdvancedSettings: async (settings: Partial<AdvancedSettings>): Promise<AdvancedSettings> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/advanced`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(settings)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update advanced settings');
-    }
-
-    return response.json();
+  updateAdvancedSettings: async (data: Partial<AdvancedSettings>): Promise<AdvancedSettings> => {
+    const response = await apiClient.patch('/admin/settings/advanced', data);
+    return response.data;
   },
 
   triggerBackup: async (): Promise<BackupStatus> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/backup/trigger`, {
-      method: 'POST',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to trigger backup');
-    }
-
-    return response.json();
+    const response = await apiClient.post('/admin/settings/backup/trigger');
+    return response.data;
   },
 
   clearCache: async (): Promise<CacheClearResult> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/cache/clear`, {
-      method: 'POST',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to clear cache');
-    }
-
-    return response.json();
+    const response = await apiClient.post('/admin/settings/cache/clear');
+    return response.data;
   },
 
   getSystemHealth: async (): Promise<SystemHealth> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/health`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch system health');
-    }
-
-    return response.json();
+    const response = await apiClient.get('/admin/settings/health');
+    return response.data;
   },
 
   getTimezones: async (): Promise<TimezonesResponse> => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/timezones`, {
-      method: 'GET',
-      headers
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch timezones');
-    }
-
-    return response.json();
-  }
+    const response = await apiClient.get('/admin/settings/timezones');
+    return response.data;
+  },
 };

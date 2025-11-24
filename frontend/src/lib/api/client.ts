@@ -35,10 +35,10 @@ export class ApiError extends Error {
  * Creates an axios instance configured for the backend API
  */
 const createApiClient = (): AxiosInstance => {
-  const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   
   const client = axios.create({
-    baseURL,
+    baseURL: `${baseURL}/api`, // Add /api prefix here
     timeout: 30000,
     headers: {
       'Content-Type': 'application/json',

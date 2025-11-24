@@ -62,7 +62,8 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // toast is stable from useToast hook
 
   useEffect(() => {
     fetchAllData();
