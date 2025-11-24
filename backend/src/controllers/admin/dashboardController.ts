@@ -46,7 +46,8 @@ export class DashboardController {
         .select('id', { count: 'exact', head: true })
         .gte('created_at', twentyFourHoursAgo);
 
-      if (alertsError) throw alertsError;
+      // Use default value if table doesn't exist
+      const alertsCount = alertsError ? 0 : (securityAlerts || 0);
 
       res.json({
         success: true,
@@ -56,7 +57,7 @@ export class DashboardController {
           response_time: responseTime,
           cpu_usage: cpuUsage,
           active_internships: activeInternships || 0,
-          security_alerts_24h: securityAlerts || 0
+          security_alerts_24h: alertsCount
         }
       });
     } catch (error) {
@@ -191,10 +192,13 @@ export class DashboardController {
       .eq('status', 'active');
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: securityAlerts } = await supabase
+    const { count: securityAlerts, error: alertsError } = await supabase
       .from('security_alerts')
       .select('id', { count: 'exact', head: true })
       .gte('created_at', twentyFourHoursAgo);
+
+    // Use default value if table doesn't exist
+    const alertsCount = alertsError ? 0 : (securityAlerts || 0);
 
     return {
       total_users: totalUsers || 0,
@@ -202,7 +206,7 @@ export class DashboardController {
       response_time: responseTime,
       cpu_usage: cpuUsage,
       active_internships: activeInternships || 0,
-      security_alerts_24h: securityAlerts || 0
+      security_alerts_24h: alertsCount
     };
   }
 }

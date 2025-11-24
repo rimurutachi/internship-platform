@@ -6,22 +6,7 @@ import {
   DashboardData,
   DashboardAPIResponse
 } from '@/types/dashboard';
-import { createSupabaseClient } from '@/lib/supabase';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-/**
- * Get authentication headers with Bearer token
- */
-const getAuthHeaders = async () => {
-  const supabase = createSupabaseClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  return {
-    'Content-Type': 'application/json',
-    ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
-  };
-};
+import { apiClient } from './client';
 
 /**
  * Admin Dashboard API Client
@@ -33,19 +18,8 @@ export const adminDashboardAPI = {
    */
   getKPIs: async (): Promise<DashboardKPI> => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/admin/dashboard/kpis`, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch KPIs: ${response.statusText}`);
-      }
-
-      const result: DashboardAPIResponse<DashboardKPI> = await response.json();
-      return result.data;
+      const response = await apiClient.get<DashboardAPIResponse<DashboardKPI>>('/admin/dashboard/kpis');
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching KPIs:', error);
       throw error;
@@ -58,22 +32,10 @@ export const adminDashboardAPI = {
    */
   getUsageEngagement: async (months: number = 6): Promise<UsageEngagementData[]> => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_BASE_URL}/admin/dashboard/usage-engagement?months=${months}`,
-        {
-          method: 'GET',
-          headers,
-          credentials: 'include',
-        }
+      const response = await apiClient.get<DashboardAPIResponse<UsageEngagementData[]>>(
+        `/admin/dashboard/usage-engagement?months=${months}`
       );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch usage engagement: ${response.statusText}`);
-      }
-
-      const result: DashboardAPIResponse<UsageEngagementData[]> = await response.json();
-      return result.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching usage engagement:', error);
       throw error;
@@ -86,22 +48,10 @@ export const adminDashboardAPI = {
    */
   getPerformanceMetrics: async (hours: number = 24): Promise<PerformanceMetric[]> => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_BASE_URL}/admin/dashboard/performance-metrics?hours=${hours}`,
-        {
-          method: 'GET',
-          headers,
-          credentials: 'include',
-        }
+      const response = await apiClient.get<DashboardAPIResponse<PerformanceMetric[]>>(
+        `/admin/dashboard/performance-metrics?hours=${hours}`
       );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch performance metrics: ${response.statusText}`);
-      }
-
-      const result: DashboardAPIResponse<PerformanceMetric[]> = await response.json();
-      return result.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching performance metrics:', error);
       throw error;
@@ -113,19 +63,10 @@ export const adminDashboardAPI = {
    */
   getFeatureUsage: async (): Promise<FeatureUsage[]> => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/admin/dashboard/feature-usage`, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch feature usage: ${response.statusText}`);
-      }
-
-      const result: DashboardAPIResponse<FeatureUsage[]> = await response.json();
-      return result.data;
+      const response = await apiClient.get<DashboardAPIResponse<FeatureUsage[]>>(
+        '/admin/dashboard/feature-usage'
+      );
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching feature usage:', error);
       throw error;
@@ -137,29 +78,10 @@ export const adminDashboardAPI = {
    */
   getDashboardOverview: async (): Promise<DashboardData> => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${API_BASE_URL}/admin/dashboard/overview`, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('Dashboard API Error Response:', text);
-        throw new Error(`Failed to fetch dashboard overview: ${response.status} ${response.statusText}`);
-      }
-
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('Non-JSON response received:', text);
-        throw new Error('Server returned non-JSON response');
-      }
-
-      const result: DashboardAPIResponse<DashboardData> = await response.json();
-      return result.data;
+      const response = await apiClient.get<DashboardAPIResponse<DashboardData>>(
+        '/admin/dashboard/overview'
+      );
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching dashboard overview:', error);
       throw error;
