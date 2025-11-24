@@ -6,6 +6,7 @@ import systemRoutes from './admin/system';
 import securityRoutes from './admin/security.routes';
 import reportsRoutes from './admin/reports.routes';
 import settingsRoutes from './admin/settings.routes';
+import dashboardRoutes from './admin/dashboard.routes';
 
 const router = Router();
 
@@ -55,5 +56,8 @@ router.use('/reports', reportsRoutes);
 
 // Settings and configuration routes
 router.use('/settings', settingsRoutes);
+
+// Dashboard analytics routes
+router.use('/dashboard', dashboardRoutes);
 
 export default router;
