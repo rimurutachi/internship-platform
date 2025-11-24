@@ -1,12 +1,13 @@
 'use client';
 
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, User, Settings as SettingsIcon, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { NotificationsDropdown } from "@/components/ui/NotificationsDropdown";
 import { logout } from "@/lib/auth";
 import { useUserContext } from "@/components/providers/UserProvider";
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +54,19 @@ export const MobileHeader = ({
     const lastInitial = user.last_name?.charAt(0) || '';
     return (firstInitial + lastInitial).toUpperCase() || 'U';
   };
+
+  // Get role-specific navigation paths
+  const getRolePaths = () => {
+    const role = user?.role || 'student';
+    return {
+      profile: `/dashboard/${role}/settings`,
+      preferences: `/dashboard/${role}/settings`,
+      help: `/dashboard/${role}`,
+    };
+  };
+
+  const paths = getRolePaths();
+
   return (
     <header className="lg:hidden bg-card border-b border-border z-40 px-4 py-3 flex-shrink-0">
       <div className="flex items-center justify-between">
@@ -100,9 +114,24 @@ export const MobileHeader = ({
             <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-              <DropdownMenuItem>Preferences</DropdownMenuItem>
-              <DropdownMenuItem>Help & Support</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={paths.profile} className="cursor-pointer flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={paths.preferences} className="cursor-pointer flex items-center">
+                  <SettingsIcon className="w-4 h-4 mr-2" />
+                  Preferences
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={paths.help} className="cursor-pointer flex items-center">
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  Help & Support
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="text-destructive cursor-pointer"
