@@ -40,6 +40,9 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const adminController = __importStar(require("../controllers/adminController"));
 const documents_1 = __importDefault(require("./admin/documents"));
+const system_1 = __importDefault(require("./admin/system"));
+const security_routes_1 = __importDefault(require("./admin/security.routes"));
+const reports_routes_1 = __importDefault(require("./admin/reports.routes"));
 const router = (0, express_1.Router)();
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
@@ -47,6 +50,8 @@ router.use((0, auth_1.requireRole)(['admin']));
 // IMPORTANT: Specific routes MUST come before parameterized routes
 // Get user statistics (BEFORE /users/:id)
 router.get('/users/stats/overview', adminController.getUserStats);
+// Migrate user names (one-time migration endpoint)
+router.post('/users/migrate-names', adminController.migrateUserNames);
 // Get all users with filtering and pagination
 router.get('/users', adminController.getAllUsers);
 // Get single user by ID (AFTER specific routes)
@@ -63,5 +68,11 @@ router.patch('/users/:id/role', adminController.updateUserRole);
 router.delete('/users/:id', adminController.deleteUser);
 // Document management routes
 router.use('/documents', documents_1.default);
+// System management routes
+router.use('/system', system_1.default);
+// Security management routes
+router.use('/security', security_routes_1.default);
+// Reports and analytics routes
+router.use('/reports', reports_routes_1.default);
 exports.default = router;
 //# sourceMappingURL=admin.js.map

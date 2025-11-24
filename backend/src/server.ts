@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import { initializeSocket } from "./socket/socketConfig";
+import { requestTracker } from "./middleware/requestTracker";
 
 // Load environment variables FIRST before importing any modules that need them
 dotenv.config();
@@ -16,6 +17,10 @@ import evaluationRoutes from "./routes/evaluations";
 import authRoutes from "./routes/authRoutes";
 import communicationRoutes from "./routes/communications";
 import adminRoutes from "./routes/admin";
+import systemMetricsService from "./services/systemMetricsService";
+
+// Initialize global system metrics tracker
+global.systemMetrics = systemMetricsService;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,12 +43,19 @@ app.use(morgan("combined"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Rate Limiting
+// Rate Limiting (excluding admin settings routes)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
+  skip: (req) => {
+    // Skip rate limiting for admin settings API calls
+    return req.path.startsWith('/api/admin/settings');
+  }
 });
 app.use(limiter);
+
+// Request Tracking Middleware (after rate limiting, before routes)
+app.use(requestTracker);
 
 // Routes
 app.get("/health", (req, res) => {
@@ -73,7 +85,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 // Start Server only if not in test environment
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log("Socket.io initialized and ready.");
   });

@@ -1,6 +1,6 @@
 import { Server as HTTPServer } from "http";
 import { Server, Socket } from "socket.io";
-import jwt from "jsonwebtoken";
+import { createClient } from "@supabase/supabase-js";
 import { setupSocketHandlers } from "./socketHandler";
 
 interface AuthenticatedSocket extends Socket {
@@ -12,6 +12,12 @@ interface AuthenticatedSocket extends Socket {
 }
 
 export const initializeSocket = (httpServer: HTTPServer) => {
+  // Initialize Supabase client inside the function to ensure env vars are loaded
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  );
+
   const io = new Server(httpServer, {
     cors: {
       origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -20,8 +26,8 @@ export const initializeSocket = (httpServer: HTTPServer) => {
     pingTimeout: 60000,
   });
 
-  // Middleware: JWT Authentication
-  io.use((socket: AuthenticatedSocket, next) => {
+  // Middleware: Supabase JWT Authentication
+  io.use(async (socket: AuthenticatedSocket, next) => {
     try {
       const token =
         socket.handshake.auth?.token || socket.handshake.query?.token;
@@ -30,17 +36,33 @@ export const initializeSocket = (httpServer: HTTPServer) => {
         return next(new Error("Authentication token required"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      // Verify Supabase JWT token
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+
+      if (error || !user) {
+        return next(new Error("Invalid authentication token"));
+      }
+
+      // Get user role from database
+      const { data: userData } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
       socket.user = {
-        id: decoded.id,
-        email: decoded.email,
-        role: decoded.role,
+        id: user.id,
+        email: user.email || "",
+        role: userData?.role || "student",
       };
+
+      // Join user's personal room for notifications
+      socket.join(`user:${user.id}`);
 
       next();
     } catch (error) {
-      next(new Error("Invalid authentication token"));
+      console.error("[Socket.io Auth Error]:", error);
+      next(new Error("Authentication failed"));
     }
   });
 

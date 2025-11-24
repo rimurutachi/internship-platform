@@ -56,6 +56,25 @@ export interface User {
 }
 
 /**
+ * Notification entity
+ */
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  action_url?: string;
+  reference_id?: string;
+  reference_type?: string;
+  metadata?: any;
+  is_read: boolean;
+  read_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * University entity
  */
 export interface University {

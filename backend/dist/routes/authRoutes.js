@@ -96,6 +96,11 @@ router.put("/auth/users/:userId/role", auth_1.authenticateToken, (0, auth_1.requ
  * @access  Private
  */
 router.post("/auth/logout", auth_1.authenticateToken, (0, responseUtils_1.asyncHandler)(async (req, res) => {
+    // Remove user session from active sessions tracker
+    const userId = req.user?.id;
+    if (userId && global.systemMetrics) {
+        global.systemMetrics.removeSession(userId);
+    }
     // Note: In a JWT-based system, logout is typically handled client-side
     // by removing the token from storage. This endpoint is for completeness
     // and potential future server-side token blacklisting.

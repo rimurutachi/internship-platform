@@ -1,4 +1,5 @@
 import { createSupabaseClient } from './supabase';
+import { apiClient } from './api/client';
 
 /**
  * Logout the current user and redirect to login page
@@ -9,6 +10,14 @@ export const logout = async (redirectPath: string = '/login') => {
   const supabase = createSupabaseClient();
   
   try {
+    // Notify backend to remove session from active sessions
+    try {
+      await apiClient.post('/auth/logout');
+    } catch (error) {
+      // Continue with logout even if backend call fails
+      console.warn('Failed to notify backend of logout:', error);
+    }
+    
     const { error } = await supabase.auth.signOut();
     
     if (error) {

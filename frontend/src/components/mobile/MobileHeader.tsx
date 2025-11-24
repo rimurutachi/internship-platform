@@ -1,10 +1,10 @@
 'use client';
 
-import { Bell, Menu, LogOut } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Menu, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { NotificationsDropdown } from "@/components/ui/NotificationsDropdown";
 import { logout } from "@/lib/auth";
 import { useUserContext } from "@/components/providers/UserProvider";
 import {
@@ -20,7 +20,6 @@ interface MobileHeaderProps {
   title: string;
   subtitle?: string;
   logo?: React.ReactNode;
-  notificationCount?: number;
   onMenuClick?: () => void;
 }
 
@@ -28,7 +27,6 @@ export const MobileHeader = ({
   title, 
   subtitle, 
   logo,
-  notificationCount = 0,
   onMenuClick 
 }: MobileHeaderProps) => {
   // Try to get user context if available (optional - won't break if not wrapped in UserProvider)
@@ -85,17 +83,7 @@ export const MobileHeader = ({
           <ThemeToggle />
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative h-9 w-9">
-            <Bell className="w-5 h-5" />
-            {notificationCount > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center p-0 text-xs"
-              >
-                {notificationCount > 9 ? "9+" : notificationCount}
-              </Badge>
-            )}
-          </Button>
+          <NotificationsDropdown />
 
           {/* Profile Dropdown */}
           <DropdownMenu>

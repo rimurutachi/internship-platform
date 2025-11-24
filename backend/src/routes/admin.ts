@@ -2,6 +2,10 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import * as adminController from '../controllers/adminController';
 import documentRoutes from './admin/documents';
+import systemRoutes from './admin/system';
+import securityRoutes from './admin/security.routes';
+import reportsRoutes from './admin/reports.routes';
+import settingsRoutes from './admin/settings.routes';
 
 const router = Router();
 
@@ -39,5 +43,17 @@ router.delete('/users/:id', adminController.deleteUser);
 
 // Document management routes
 router.use('/documents', documentRoutes);
+
+// System management routes
+router.use('/system', systemRoutes);
+
+// Security management routes
+router.use('/security', securityRoutes);
+
+// Reports and analytics routes
+router.use('/reports', reportsRoutes);
+
+// Settings and configuration routes
+router.use('/settings', settingsRoutes);
 
 export default router;
