@@ -11,12 +11,12 @@ export declare function getAllUsers(req: AuthRequest, res: Response): Promise<Re
 export declare function getUserById(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
  * Create new user (both Auth and database)
- * Body: { email, name, role, password }
+ * Body: { email, firstName, lastName, role, password }
  */
 export declare function createUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
- * Update user information (name, email)
- * Body: { name?, email? }
+ * Update user information (firstName, lastName, email)
+ * Body: { firstName?, lastName?, email? }
  */
 export declare function updateUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
@@ -38,4 +38,9 @@ export declare function deleteUser(req: AuthRequest, res: Response): Promise<Res
  * Returns: { total, active, students, advisors, supervisors, admins }
  */
 export declare function getUserStats(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Migrate existing users to split name into first_name and last_name
+ * This is a one-time migration endpoint
+ */
+export declare function migrateUserNames(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=adminController.d.ts.map

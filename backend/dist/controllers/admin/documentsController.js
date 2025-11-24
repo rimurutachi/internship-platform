@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDocumentStats = exports.deleteDocument = exports.archiveDocument = exports.getCollaborators = exports.updateWorkflow = exports.updateStatus = exports.getWorkflow = exports.getComments = exports.getVersions = exports.getDocument = exports.getAllDocuments = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 // Create admin client that bypasses RLS
-const supabaseAdmin = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+const supabaseAdmin = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
     auth: {
         autoRefreshToken: false,
         persistSession: false

@@ -12,6 +12,7 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const http_1 = require("http");
 const socketConfig_1 = require("./socket/socketConfig");
+const requestTracker_1 = require("./middleware/requestTracker");
 // Load environment variables FIRST before importing any modules that need them
 dotenv_1.default.config();
 // For Routes on top of dotenv
@@ -20,6 +21,9 @@ const evaluations_1 = __importDefault(require("./routes/evaluations"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const communications_1 = __importDefault(require("./routes/communications"));
 const admin_1 = __importDefault(require("./routes/admin"));
+const systemMetricsService_1 = __importDefault(require("./services/systemMetricsService"));
+// Initialize global system metrics tracker
+global.systemMetrics = systemMetricsService_1.default;
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 // Create HTTP server
@@ -41,6 +45,8 @@ const limiter = (0, express_rate_limit_1.default)({
     max: 100, // Limit each IP to 100 requests per windowMs
 });
 app.use(limiter);
+// Request Tracking Middleware (after rate limiting, before routes)
+app.use(requestTracker_1.requestTracker);
 // Routes
 app.get("/health", (req, res) => {
     res.json({ status: "OK", message: "Intern-Galing API is running smoothly." });
