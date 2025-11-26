@@ -13,7 +13,8 @@ export interface Internship {
   advisor_id: string;
   supervisor_id: string;
   company_id: string;
-  position_title: string;
+  position: string;
+  position_title?: string; // Legacy field
   description?: string;
   start_date: string;
   end_date: string;
@@ -22,6 +23,92 @@ export interface Internship {
   skills_gained?: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+/**
+ * Internship with related entities (for admin management)
+ */
+export interface InternshipWithRelations extends Internship {
+  student: {
+    id: string;
+    name: string;
+    email: string;
+    university_id?: string;
+  };
+  advisor: {
+    id: string;
+    name: string;
+    email: string;
+    university_id?: string;
+  };
+  supervisor: {
+    id: string;
+    name: string;
+    email: string;
+    company_id?: string;
+  };
+  company: {
+    id: string;
+    name: string;
+    industry?: string;
+  };
+}
+
+/**
+ * Internship creation input
+ */
+export interface InternshipCreateInput {
+  student_id: string;
+  company_id: string;
+  position: string;
+  advisor_id: string;
+  supervisor_id: string;
+  start_date: string;
+  end_date: string;
+  status?: 'pending' | 'active' | 'completed' | 'cancelled';
+}
+
+/**
+ * Internship update input
+ */
+export interface InternshipUpdateInput {
+  position?: string;
+  advisor_id?: string;
+  supervisor_id?: string;
+  start_date?: string;
+  end_date?: string;
+  status?: 'pending' | 'active' | 'completed' | 'cancelled';
+}
+
+/**
+ * Internship filters
+ */
+export interface InternshipFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  university_id?: string;
+  company_id?: string;
+  search?: string;
+}
+
+/**
+ * Activity log entry
+ */
+export interface ActivityLogEntry {
+  id: string;
+  user_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  internship_id?: string;
+  created_at: string;
+  description: string;
+  metadata?: Record<string, any>;
+  user?: {
+    name: string;
+    email: string;
+  };
 }
 
 /**

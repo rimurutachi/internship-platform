@@ -10,7 +10,8 @@ import {
   Shield,
   FileText,
   Settings,
-  BarChart3
+  BarChart3,
+  Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
@@ -18,6 +19,7 @@ import { useUserContext } from '@/components/providers/UserProvider';
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/admin', emoji: '📊' },
   { icon: Users, label: 'Users', path: '/dashboard/admin/users', emoji: '👥' },
+  { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships', emoji: '💼' },
   { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents', emoji: '📄' },
   { icon: Server, label: 'System', path: '/dashboard/admin/system', emoji: '🖥️' },
   { icon: Shield, label: 'Security', path: '/dashboard/admin/security', emoji: '🔒' },

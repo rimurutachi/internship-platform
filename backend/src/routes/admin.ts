@@ -7,6 +7,7 @@ import securityRoutes from './admin/security.routes';
 import reportsRoutes from './admin/reports.routes';
 import settingsRoutes from './admin/settings.routes';
 import dashboardRoutes from './admin/dashboard.routes';
+import internshipsRoutes from './admin/internships';
 
 const router = Router();
 
@@ -59,5 +60,8 @@ router.use('/settings', settingsRoutes);
 
 // Dashboard analytics routes
 router.use('/dashboard', dashboardRoutes);
+
+// Internships management routes
+router.use('/internships', internshipsRoutes);
 
 export default router;
