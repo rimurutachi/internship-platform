@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import systemMetricsService from './systemMetricsService';
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -176,11 +177,12 @@ export class SettingsService {
           description: 'Backup operation in progress flag'
         });
 
-      // Log in system events
-      await this.supabase.from('system_events').insert({
-        event_type: 'backup_triggered',
-        severity: 'info',
+      // Log in system events (use event_type matching logEvent pattern)
+      await systemMetricsService.logEvent({
+        type: 'backup',
+        service: 'Database',
         message: `Database backup ${backupId} completed successfully`,
+        severity: 'info',
         metadata: { backup_id: backupId, timestamp }
       });
 
@@ -228,11 +230,12 @@ export class SettingsService {
         clearedCaches.push('redis');
       }
 
-      // Log cache clear event
-      await this.supabase.from('system_events').insert({
-        event_type: 'cache_cleared',
+      // Log cache clear event using systemMetricsService
+      await systemMetricsService.logEvent({
+        type: 'system',
+        service: 'API Server',
+        message: 'Maintenance action performed: clear_cache',
         severity: 'info',
-        message: 'System caches cleared',
         metadata: { caches: clearedCaches, timestamp }
       });
 

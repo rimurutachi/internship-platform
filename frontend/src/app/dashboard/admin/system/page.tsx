@@ -30,6 +30,8 @@ export default function SystemPage() {
   const [selectedService, setSelectedService] = useState<ServiceStatus | null>(null);
   const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
   const [isPerformingAction, setIsPerformingAction] = useState(false);
+  const [serviceLogs, setServiceLogs] = useState<SystemEvent[]>([]);
+  const [isLogsDialogOpen, setIsLogsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch metrics on mount
@@ -78,6 +80,10 @@ export default function SystemPage() {
     };
 
     fetchEvents();
+
+    // Auto-refresh events every 15 seconds (more frequent than metrics)
+    const interval = setInterval(fetchEvents, 15000);
+    return () => clearInterval(interval);
   }, [eventFilter]);
 
   const handleAcknowledgeEvent = async (eventId: string) => {
@@ -158,6 +164,16 @@ export default function SystemPage() {
     }
   };
 
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'info': return 'bg-primary/10 text-primary dark:bg-primary/20';
+      case 'warning': return 'bg-warning/10 text-warning dark:bg-warning/20';
+      case 'error': return 'bg-error/10 text-error dark:bg-error/20';
+      case 'critical': return 'bg-error/10 text-error dark:bg-error/20';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
   const handleManageService = (service: ServiceStatus) => {
     setSelectedService(service);
     setIsServiceDialogOpen(true);
@@ -173,35 +189,50 @@ export default function SystemPage() {
           const restartResponse = await adminSystemAPI.restartService(selectedService.name);
           toast({
             title: 'Service Restart',
-            description: restartResponse.message || `${selectedService.name} restart initiated`,
+            description: `${selectedService.name} restart initiated. Check Recent Events for status.`,
           });
-          // Refresh metrics after restart
+          // Refresh metrics and events after restart
           setTimeout(async () => {
-            const response = await adminSystemAPI.getMetrics();
-            if (response.success) {
-              setMetrics(response.data);
+            const [metricsResponse, eventsResponse] = await Promise.all([
+              adminSystemAPI.getMetrics(),
+              adminSystemAPI.getEvents({ 
+                limit: 20,
+                severity: eventFilter === 'all' ? undefined : eventFilter
+              })
+            ]);
+            if (metricsResponse.success) {
+              setMetrics(metricsResponse.data);
             }
-          }, 2000);
+            if (eventsResponse.success) {
+              setEvents(eventsResponse.events);
+            }
+          }, 1000);
           break;
         case 'view_logs':
           // Fetch logs for this service
           const logsResponse = await adminSystemAPI.getServiceLogs(selectedService.name, { limit: 50 });
           if (logsResponse.success) {
-            // For now, show count in toast. Later you can display in a modal/dialog
-            toast({
-              title: 'Service Logs',
-              description: `Found ${logsResponse.logs.length} log entries for ${selectedService.name}`,
-            });
-            console.log('Service logs:', logsResponse.logs);
-            // TODO: Display logs in a scrollable dialog or open logs page
+            setServiceLogs(logsResponse.logs);
+            setIsServiceDialogOpen(false);
+            setIsLogsDialogOpen(true);
           }
           break;
         case 'clear_cache':
           await adminSystemAPI.performMaintenance('clear_cache');
           toast({
-            title: 'Success',
-            description: 'Cache cleared successfully',
+            title: 'Cache Cleared',
+            description: 'System cache cleared successfully. Check Recent Events for details.',
           });
+          // Refresh events to show the cache clear event
+          setTimeout(async () => {
+            const eventsResponse = await adminSystemAPI.getEvents({ 
+              limit: 20,
+              severity: eventFilter === 'all' ? undefined : eventFilter
+            });
+            if (eventsResponse.success) {
+              setEvents(eventsResponse.events);
+            }
+          }, 1000);
           break;
       }
       setIsServiceDialogOpen(false);
@@ -689,6 +720,67 @@ export default function SystemPage() {
               variant="outline" 
               onClick={() => setIsServiceDialogOpen(false)}
               disabled={isPerformingAction}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logs Dialog */}
+      <Dialog open={isLogsDialogOpen} onOpenChange={setIsLogsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Service Logs - {selectedService?.name}</DialogTitle>
+            <DialogDescription>
+              Recent log entries for this service
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            {serviceLogs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No logs found for this service
+              </div>
+            ) : (
+              serviceLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className={`p-3 rounded-lg border-l-4 bg-card ${getEventBorderColor(log.severity)}`}
+                >
+                  <div className="flex items-start justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Badge className={getSeverityColor(log.severity)}>
+                        {log.severity}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.created_at).toLocaleString()}
+                      </span>
+                      {log.count > 1 && (
+                        <Badge variant="outline" className="text-xs">
+                          x{log.count}
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {log.type}
+                    </Badge>
+                  </div>
+                  <p className="text-sm">{log.message}</p>
+                  {log.error_code && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Error Code: {log.error_code}
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsLogsDialogOpen(false)}
             >
               Close
             </Button>
