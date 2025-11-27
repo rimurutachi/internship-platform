@@ -44,6 +44,7 @@ const adminNavItems: NavItem[] = [
   { icon: BarChart3, label: 'Dashboard', path: '/dashboard/admin' },
   { icon: Users, label: 'Users', path: '/dashboard/admin/users' },
   { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships' },
+  { icon: Brain, label: 'Evaluations', path: '/dashboard/admin/evaluations' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/admin/documents' },
   { icon: Server, label: 'System', path: '/dashboard/admin/system' },
   { icon: Shield, label: 'Security', path: '/dashboard/admin/security' },
