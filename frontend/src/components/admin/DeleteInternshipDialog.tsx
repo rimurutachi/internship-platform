@@ -65,15 +65,15 @@ export function DeleteInternshipDialog({
         <div className="my-4 p-4 bg-muted rounded-lg space-y-2">
           <div>
             <span className="text-sm font-medium">Student:</span>{' '}
-            <span className="text-sm">{internship.student.name}</span>
+            <span className="text-sm">{internship.student?.name || 'N/A'}</span>
           </div>
           <div>
             <span className="text-sm font-medium">Position:</span>{' '}
-            <span className="text-sm">{internship.position}</span>
+            <span className="text-sm">{internship.position || 'N/A'}</span>
           </div>
           <div>
             <span className="text-sm font-medium">Company:</span>{' '}
-            <span className="text-sm">{internship.company.name}</span>
+            <span className="text-sm">{internship.company?.name || 'N/A'}</span>
           </div>
         </div>
 
