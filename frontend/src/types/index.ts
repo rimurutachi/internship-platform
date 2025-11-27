@@ -57,8 +57,9 @@ export interface User {
 
 /**
  * Notification entity
+ * @deprecated Use Notification from './api' instead
  */
-export interface Notification {
+export interface NotificationEntity {
   id: string;
   user_id: string;
   type: string;
