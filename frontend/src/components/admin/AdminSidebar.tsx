@@ -9,6 +9,7 @@ import {
   Server, 
   Shield,
   FileText,
+  Brain,
   Settings,
   BarChart3,
   Briefcase
@@ -20,6 +21,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/admin', emoji: '📊' },
   { icon: Users, label: 'Users', path: '/dashboard/admin/users', emoji: '👥' },
   { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships', emoji: '💼' },
+  { icon: Brain, label: 'Evaluations', path: '/dashboard/admin/evaluations', emoji: '🧠' },
   { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents', emoji: '📄' },
   { icon: Server, label: 'System', path: '/dashboard/admin/system', emoji: '🖥️' },
   { icon: Shield, label: 'Security', path: '/dashboard/admin/security', emoji: '🔒' },
