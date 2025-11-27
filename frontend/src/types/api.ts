@@ -117,22 +117,115 @@ export interface ActivityLogEntry {
 export interface Evaluation {
   id: string;
   internship_id: string;
-  evaluator_id: string;
-  evaluator_type: 'advisor' | 'supervisor' | 'self';
-  evaluation_type: 'midterm' | 'final' | 'weekly' | 'custom';
-  scores: Record<string, number>;
-  comments?: string;
-  strengths?: string[];
-  areas_for_improvement?: string[];
-  ai_sentiment?: {
-    overall: 'positive' | 'neutral' | 'negative';
-    score: number;
-    keywords: string[];
+  supervisor_id: string;
+  feedback_text: string;
+  rating_overall: number | null;
+  rating_technical: number | null;
+  rating_communication: number | null;
+  rating_work_ethic: number | null;
+  sentiment_scores: Record<string, number> | null;
+  lit_features: string[] | null;
+  recommended_grade: number | null;
+  confidence_score: number | null;
+  bias_check_passed: boolean | null;
+  final_grade: number | null;
+  status: 'draft' | 'submitted' | 'processed' | 'approved';
+  submitted_at: string | null;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Evaluation with related entities
+ */
+export interface EvaluationWithRelations extends Evaluation {
+  internship: {
+    id: string;
+    position: string;
+    student: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    supervisor: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    advisor: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    company: {
+      id: string;
+      name: string;
+    };
   };
-  status: 'draft' | 'submitted' | 'reviewed';
-  submitted_at?: string;
-  created_at?: string;
-  updated_at?: string;
+  avg_rating?: number;
+}
+
+/**
+ * AI Results from evaluation
+ */
+export interface AIResults {
+  sentiment_analysis: Record<string, number>;
+  features: string[];
+  recommended_grade: number;
+  confidence_score: number;
+  bias_check_passed: boolean;
+}
+
+/**
+ * Evaluation filters
+ */
+export interface EvaluationFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  supervisor_id?: string;
+  company_id?: string;
+  date_range?: { start: string; end: string };
+  search?: string;
+}
+
+/**
+ * Quality metrics for evaluations
+ */
+export interface QualityMetrics {
+  total_this_month: number;
+  total_processed: number;
+  avg_confidence: number;
+  bias_pass_rate: number;
+  sentiment_distribution: {
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+}
+
+/**
+ * Supervisor evaluation metrics
+ */
+export interface SupervisorMetrics {
+  id: string;
+  name: string;
+  email: string;
+  eval_count: number;
+  avg_ratings: number;
+  avg_confidence: number;
+}
+
+/**
+ * Company evaluation metrics
+ */
+export interface CompanyMetrics {
+  id: string;
+  name: string;
+  eval_count: number;
+  avg_ratings: number;
+  avg_confidence: number;
 }
 
 /**
