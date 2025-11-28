@@ -5,8 +5,6 @@
  */
 
 export * from './user';
-export * from './internships';
-export * from './evaluations';
 export * from './communications';
 export * from './documents';
 export * from './notifications';

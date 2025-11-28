@@ -27,6 +27,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { createSupabaseClient } from '@/lib/supabase';
+import CompanyStatusCard from './CompanyStatusCard';
+import adminInternshipsEnhancedAPI from '@/lib/api/admin-internships-enhanced';
+import type { CompanyCapacityInfo } from '@/types/internships-enhanced';
 
 interface CreateInternshipModalProps {
   open: boolean;
@@ -46,6 +49,8 @@ export function CreateInternshipModal({
   const [advisors, setAdvisors] = useState<User[]>([]);
   const [supervisors, setSupervisors] = useState<User[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+  const [companyCapacity, setCompanyCapacity] = useState<CompanyCapacityInfo | null>(null);
+  const [loadingCapacity, setLoadingCapacity] = useState(false);
 
   const [formData, setFormData] = useState<InternshipCreateInput>({
     student_id: '',
@@ -78,8 +83,24 @@ export function CreateInternshipModal({
   useEffect(() => {
     if (formData.company_id) {
       fetchSupervisors(formData.company_id);
+      loadCompanyCapacity(formData.company_id);
+    } else {
+      setCompanyCapacity(null);
     }
   }, [formData.company_id]);
+
+  const loadCompanyCapacity = async (companyId: string) => {
+    try {
+      setLoadingCapacity(true);
+      const companies = await adminInternshipsEnhancedAPI.getCapacityOverview();
+      const company = Array.isArray(companies) ? companies.find(c => c.id === companyId) : null;
+      setCompanyCapacity(company || null);
+    } catch (error) {
+      console.error('Failed to load company capacity:', error);
+    } finally {
+      setLoadingCapacity(false);
+    }
+  };
 
   const fetchAvailableStudents = async () => {
     try {
@@ -166,6 +187,16 @@ export function CreateInternshipModal({
       toast({
         title: 'Validation Error',
         description: 'Start date must be before end date',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check company capacity
+    if (companyCapacity?.is_at_capacity) {
+      toast({
+        title: 'Capacity Error',
+        description: 'This company is at full capacity and cannot accept more students',
         variant: 'destructive',
       });
       return;
@@ -266,6 +297,11 @@ export function CreateInternshipModal({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Company Capacity Card */}
+          {companyCapacity && !loadingCapacity && (
+            <CompanyStatusCard company={companyCapacity} compact />
+          )}
 
           {/* Position */}
           <div className="space-y-2">

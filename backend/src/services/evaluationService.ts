@@ -1,4 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
+/**
+ * Evaluation Service - Core CRUD & AI Processing
+ * 
+ * Handles evaluation creation, AI analysis, submission, and approval workflow.
+ * Use EvaluationServiceFacade (evaluation.service.ts) for a unified API that includes analytics.
+ * 
+ * @deprecated Consider using EvaluationServiceFacade for new code
+ */
+
+import { createClient } from '@supabase/supabase-js';
 import axios from "axios";
 import {
   Evaluation,
