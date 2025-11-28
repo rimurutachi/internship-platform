@@ -47,6 +47,8 @@ import { CreateInternshipModal } from '@/components/admin/CreateInternshipModal'
 import { EditInternshipModal } from '@/components/admin/EditInternshipModal';
 import { ViewInternshipModal } from '@/components/admin/ViewInternshipModal';
 import { DeleteInternshipDialog } from '@/components/admin/DeleteInternshipDialog';
+import BulkActionsToolbar from '@/components/admin/BulkActionsToolbar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -80,6 +82,9 @@ export default function AdminInternshipsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedInternship, setSelectedInternship] =
     useState<InternshipWithRelations | null>(null);
+
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Fetch internships
   const fetchInternships = async () => {
@@ -168,6 +173,29 @@ export default function AdminInternshipsPage() {
     setEditModalOpen(false);
     setDeleteDialogOpen(false);
     setSelectedInternship(null);
+  };
+
+  // Handle bulk actions
+  const handleSelectAll = () => {
+    if (selectedIds.length === internships.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(internships.map(i => i.id));
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleBulkActionComplete = () => {
+    setSelectedIds([]);
+    fetchInternships();
+    fetchStats();
   };
 
   // Format date
@@ -319,9 +347,21 @@ export default function AdminInternshipsPage() {
           <CardTitle className="text-base sm:text-lg">Internships List</CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             {pagination.total} total internship{pagination.total !== 1 ? 's' : ''}
+            {selectedIds.length > 0 && ` • ${selectedIds.length} selected`}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Bulk Actions Toolbar */}
+          {selectedIds.length > 0 && (
+            <div className="mb-4">
+              <BulkActionsToolbar
+                selectedIds={selectedIds}
+                onClearSelection={() => setSelectedIds([])}
+                onActionComplete={handleBulkActionComplete}
+              />
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -337,6 +377,12 @@ export default function AdminInternshipsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedIds.length === internships.length && internships.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>Student</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Position</TableHead>
@@ -352,6 +398,12 @@ export default function AdminInternshipsPage() {
                   <TableBody>
                     {internships.map((internship) => (
                       <TableRow key={internship.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.includes(internship.id)}
+                            onCheckedChange={() => handleSelectOne(internship.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           <div>
                             <div>{internship.student?.name || 'N/A'}</div>

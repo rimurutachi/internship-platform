@@ -1,3 +1,12 @@
+/**
+ * Internships Service - Validation & Business Logic
+ * 
+ * Handles validation of internship constraints, activity logging, and business rules.
+ * Use InternshipServiceFacade (internship.service.ts) for a unified API.
+ * 
+ * @deprecated Consider using InternshipServiceFacade for new code
+ */
+
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(

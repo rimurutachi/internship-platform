@@ -15,8 +15,11 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar, User, Building2, Briefcase } from 'lucide-react';
+import DocumentChecklist from './DocumentChecklist';
+import RemindersManagement from './RemindersManagement';
 
 interface ViewInternshipModalProps {
   open: boolean;
@@ -104,7 +107,14 @@ export function ViewInternshipModal({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : internship ? (
-          <div className="space-y-6">
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="reminders">Reminders</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-6 mt-6">
             {/* Overview Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -246,7 +256,16 @@ export function ViewInternshipModal({
                 </div>
               )}
             </div>
-          </div>
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-6">
+              <DocumentChecklist internshipId={internshipId} />
+            </TabsContent>
+
+            <TabsContent value="reminders" className="mt-6">
+              <RemindersManagement internshipId={internshipId} />
+            </TabsContent>
+          </Tabs>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             Internship not found
