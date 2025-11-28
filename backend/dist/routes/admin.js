@@ -43,6 +43,10 @@ const documents_1 = __importDefault(require("./admin/documents"));
 const system_1 = __importDefault(require("./admin/system"));
 const security_routes_1 = __importDefault(require("./admin/security.routes"));
 const reports_routes_1 = __importDefault(require("./admin/reports.routes"));
+const settings_routes_1 = __importDefault(require("./admin/settings.routes"));
+const dashboard_routes_1 = __importDefault(require("./admin/dashboard.routes"));
+const internships_1 = __importDefault(require("./admin/internships"));
+const evaluations_routes_1 = __importDefault(require("./admin/evaluations.routes"));
 const router = (0, express_1.Router)();
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
@@ -74,5 +78,13 @@ router.use('/system', system_1.default);
 router.use('/security', security_routes_1.default);
 // Reports and analytics routes
 router.use('/reports', reports_routes_1.default);
+// Settings and configuration routes
+router.use('/settings', settings_routes_1.default);
+// Dashboard analytics routes
+router.use('/dashboard', dashboard_routes_1.default);
+// Internships management routes
+router.use('/internships', internships_1.default);
+// Evaluations management routes
+router.use('/evaluations', evaluations_routes_1.default);
 exports.default = router;
 //# sourceMappingURL=admin.js.map

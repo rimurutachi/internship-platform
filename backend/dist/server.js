@@ -40,9 +40,29 @@ app.use((0, morgan_1.default)("combined"));
 app.use(express_1.default.json({ limit: "10mb" }));
 app.use(express_1.default.urlencoded({ extended: true }));
 // Rate Limiting
+const rateLimitWindow = 15 * 60 * 1000; // 15 minutes
 const limiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    windowMs: rateLimitWindow,
+    max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
+    skip: (req) => {
+        // Skip rate limiting for:
+        // - Admin routes (settings, reports, system)
+        // - Authentication routes
+        // - Communication routes (messages, notifications)
+        return (req.path.startsWith('/api/admin/settings') ||
+            req.path.startsWith('/api/admin/reports') ||
+            req.path.startsWith('/api/admin/system') ||
+            req.path.startsWith('/api/auth') ||
+            req.path.startsWith('/api/communication'));
+    },
+    // Return JSON response instead of HTML for rate limit errors
+    handler: (req, res) => {
+        res.status(429).json({
+            success: false,
+            error: 'Too many requests, please try again later.',
+            retryAfter: Math.ceil(rateLimitWindow / 1000)
+        });
+    }
 });
 app.use(limiter);
 // Request Tracking Middleware (after rate limiting, before routes)
@@ -68,7 +88,7 @@ app.use((err, req, res, next) => {
 });
 // Start Server only if not in test environment
 if (process.env.NODE_ENV !== "test") {
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
         console.log("Socket.io initialized and ready.");
     });

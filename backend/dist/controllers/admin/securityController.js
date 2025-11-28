@@ -59,7 +59,7 @@ class SecurityController {
                 user_email: log.user_id ? userEmailMap.get(log.user_id) || null : null,
                 action: `${log.method} ${log.path}`,
                 resource: log.path.split('/')[2] || 'api',
-                status: log.status_code >= 200 && log.status_code < 300 ? 'success' : 'failed',
+                status: (log.status_code >= 200 && log.status_code < 400) ? 'success' : 'failed',
                 ip_address: log.ip_address || '0.0.0.0',
                 user_agent: log.user_agent,
                 created_at: log.created_at
