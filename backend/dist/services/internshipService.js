@@ -1,4 +1,13 @@
 "use strict";
+/**
+ * Internship Service - Core CRUD Operations
+ *
+ * Handles basic Create, Read, Update, Delete operations for internships.
+ * Use InternshipServiceFacade (internship.service.ts) for a unified API that includes
+ * validation and enhanced features.
+ *
+ * @deprecated Consider using InternshipServiceFacade for new code
+ */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InternshipService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");

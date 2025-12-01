@@ -21,6 +21,7 @@ const evaluations_1 = __importDefault(require("./routes/evaluations"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const communications_1 = __importDefault(require("./routes/communications"));
 const admin_1 = __importDefault(require("./routes/admin"));
+const student_1 = __importDefault(require("./routes/student"));
 const systemMetricsService_1 = __importDefault(require("./services/systemMetricsService"));
 // Initialize global system metrics tracker
 global.systemMetrics = systemMetricsService_1.default;
@@ -81,6 +82,8 @@ app.use("/api", authRoutes_1.default);
 app.use("/api/communication", communications_1.default);
 // Admin APIs
 app.use("/api/admin", admin_1.default);
+// Student APIs
+app.use("/api/student", student_1.default);
 // Error Handling Middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);

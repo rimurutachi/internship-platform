@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Users, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -12,144 +12,342 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-interface DocumentVersion {
-  version: number;
-  updatedBy: string;
-  updatedDate: string;
-  changes: string;
-  size: string;
-}
-
-interface Document {
-  id: string;
-  name: string;
-  type: string;
-  size: string;
-  uploadedDate: string;
-  uploadedBy: string;
-  category: string;
-  shared: boolean;
-  sharedWith: string[];
-  currentVersion: number;
-  versions: DocumentVersion[];
-  lastModified: string;
-  lastModifiedBy: string;
-}
-
-const mockDocuments: Document[] = [
-  {
-    id: '1',
-    name: 'Internship_Agreement.pdf',
-    type: 'pdf',
-    size: '2.4 MB',
-    uploadedDate: '2025-09-01',
-    uploadedBy: 'HR Department',
-    category: 'Agreements',
-    shared: true,
-    sharedWith: ['You', 'Supervisor'],
-    currentVersion: 2,
-    versions: [
-      { version: 2, updatedBy: 'HR Department', updatedDate: '2025-10-01', changes: 'Updated terms and conditions', size: '2.4 MB' },
-      { version: 1, updatedBy: 'HR Department', updatedDate: '2025-09-01', changes: 'Initial version', size: '2.2 MB' }
-    ],
-    lastModified: '2025-10-01',
-    lastModifiedBy: 'HR Department'
-  },
-  {
-    id: '2',
-    name: 'Project_Proposal.docx',
-    type: 'docx',
-    size: '1.8 MB',
-    uploadedDate: '2025-10-15',
-    uploadedBy: 'You',
-    category: 'Projects',
-    shared: true,
-    sharedWith: ['Supervisor', 'Advisor'],
-    currentVersion: 3,
-    versions: [
-      { version: 3, updatedBy: 'You', updatedDate: '2025-11-10', changes: 'Added implementation details', size: '1.8 MB' },
-      { version: 2, updatedBy: 'You', updatedDate: '2025-10-20', changes: 'Updated project scope', size: '1.6 MB' },
-      { version: 1, updatedBy: 'You', updatedDate: '2025-10-15', changes: 'Initial draft', size: '1.4 MB' }
-    ],
-    lastModified: '2025-11-10',
-    lastModifiedBy: 'You'
-  },
-  {
-    id: '3',
-    name: 'Weekly_Report_Nov8.pdf',
-    type: 'pdf',
-    size: '892 KB',
-    uploadedDate: '2025-11-08',
-    uploadedBy: 'You',
-    category: 'Reports',
-    shared: false,
-    sharedWith: [],
-    currentVersion: 1,
-    versions: [
-      { version: 1, updatedBy: 'You', updatedDate: '2025-11-08', changes: 'Initial upload', size: '892 KB' }
-    ],
-    lastModified: '2025-11-08',
-    lastModifiedBy: 'You'
-  },
-  {
-    id: '4',
-    name: 'Design_Mockups.zip',
-    type: 'zip',
-    size: '15.3 MB',
-    uploadedDate: '2025-11-05',
-    uploadedBy: 'You',
-    category: 'Projects',
-    shared: true,
-    sharedWith: ['Supervisor', 'Design Team'],
-    currentVersion: 2,
-    versions: [
-      { version: 2, updatedBy: 'You', updatedDate: '2025-11-12', changes: 'Updated UI/UX designs based on feedback', size: '15.3 MB' },
-      { version: 1, updatedBy: 'You', updatedDate: '2025-11-05', changes: 'Initial mockups', size: '14.8 MB' }
-    ],
-    lastModified: '2025-11-12',
-    lastModifiedBy: 'You'
-  },
-  {
-    id: '5',
-    name: 'Training_Materials.pdf',
-    type: 'pdf',
-    size: '5.2 MB',
-    uploadedDate: '2025-09-05',
-    uploadedBy: 'HR Department',
-    category: 'Training',
-    shared: true,
-    sharedWith: ['All Interns'],
-    currentVersion: 1,
-    versions: [
-      { version: 1, updatedBy: 'HR Department', updatedDate: '2025-09-05', changes: 'Initial upload', size: '5.2 MB' }
-    ],
-    lastModified: '2025-09-05',
-    lastModifiedBy: 'HR Department'
-  },
-  {
-    id: '6',
-    name: 'Performance_Evaluation.pdf',
-    type: 'pdf',
-    size: '1.1 MB',
-    uploadedDate: '2025-10-15',
-    uploadedBy: 'John Doe',
-    category: 'Evaluations',
-    shared: false,
-    sharedWith: [],
-    currentVersion: 1,
-    versions: [
-      { version: 1, updatedBy: 'John Doe', updatedDate: '2025-10-15', changes: 'Initial evaluation', size: '1.1 MB' }
-    ],
-    lastModified: '2025-10-15',
-    lastModifiedBy: 'John Doe'
-  }
-];
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { documentsAPI } from '@/lib/api/documents';
+import { connectForUpdates } from '@/lib/documentSocket';
+import { useUser } from '@/hooks/use-user';
+import type { DocumentWithDetails } from '@/types/documents';
 
 export default function Documents() {
+  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Upload state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadType, setUploadType] = useState<string>('report');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Real-time state
+  const [wsConnected, setWsConnected] = useState(false);
+  const [realtimeUpdate, setRealtimeUpdate] = useState<string | null>(null);
+
+  // View document state
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState<DocumentWithDetails | null>(null);
+
+  // Edit document state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<DocumentWithDetails | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editType, setEditType] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  // Share dialog state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sharingDocument, setSharingDocument] = useState<DocumentWithDetails | null>(null);
+
+  // Load documents on mount
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔵 [WebSocket] Connecting to document service...');
+    
+    try {
+      // Connect for general updates (not joining specific document)
+      const socket = connectForUpdates();
+
+      socket.on('connect', () => {
+        console.log('🟢 [WebSocket] Connected to document service');
+        setWsConnected(true);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('⚠️ [WebSocket] Disconnected from document service');
+        setWsConnected(false);
+      });
+
+      socket.on('document:update', (data: any) => {
+        console.log('📥 [WebSocket] Document update received:', data);
+        setRealtimeUpdate(data.message || 'Document updated');
+        
+        // Reload documents to get latest data
+        loadDocuments();
+
+        // Clear notification after 3 seconds
+        setTimeout(() => setRealtimeUpdate(null), 3000);
+      });
+
+      socket.on('document:error', (error: any) => {
+        console.error('❌ [WebSocket] Error:', error);
+      });
+
+      // Cleanup on unmount
+      return () => {
+        console.log('🔌 [WebSocket] Disconnecting...');
+        if (socket && socket.connected) {
+          socket.disconnect();
+        }
+      };
+    } catch (err) {
+      console.error('❌ [WebSocket] Connection error:', err);
+    }
+  }, [user?.id]);
+
+  const loadDocuments = async () => {
+    try {
+      console.log('🔵 [Documents] Loading documents...');
+      setLoading(true);
+      setError(null);
+
+      const response = await documentsAPI.getDocuments();
+      console.log('🟢 [Documents] Documents loaded:', response);
+      
+      setDocuments(response.documents || []);
+    } catch (err) {
+      console.error('❌ [Documents] Load error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // File validation
+  const validateFile = (file: File): string | null => {
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'application/zip',
+      'application/x-zip-compressed'
+    ];
+
+    if (file.size > maxSize) {
+      return 'File size must be less than 50MB';
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return 'File type not supported. Please upload PDF, DOCX, images, or ZIP files.';
+    }
+
+    return null;
+  };
+
+  // Handle file selection
+  const handleFileSelect = (file: File) => {
+    const error = validateFile(file);
+    if (error) {
+      setUploadError(error);
+      return;
+    }
+
+    setUploadFile(file);
+    setUploadTitle(file.name.replace(/\.[^/.]+$/, '')); // Remove extension
+    setUploadError(null);
+  };
+
+  // Handle drag events
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileSelect(e.target.files[0]);
+    }
+  };
+
+  // Handle upload
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadTitle.trim()) {
+      setUploadError('Please select a file and provide a title');
+      return;
+    }
+
+    try {
+      console.log('🔵 [Upload] Starting upload...', uploadFile.name);
+      setUploading(true);
+      setUploadError(null);
+      setUploadProgress(10);
+
+      // Simulate progress for UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      // Create document in database
+      const newDocument = await documentsAPI.createDocument({
+        title: uploadTitle.trim(),
+        type: uploadType,
+        description: uploadDescription.trim() || undefined,
+        content: { fileName: uploadFile.name, fileSize: uploadFile.size },
+        metadata: { 
+          originalName: uploadFile.name,
+          mimeType: uploadFile.type,
+          size: uploadFile.size 
+        }
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      console.log('🟢 [Upload] Document created:', newDocument);
+
+      // Reset form
+      setTimeout(() => {
+        setUploadDialogOpen(false);
+        setUploadFile(null);
+        setUploadTitle('');
+        setUploadType('report');
+        setUploadDescription('');
+        setUploadProgress(0);
+        setUploading(false);
+        
+        // Reload documents
+        loadDocuments();
+      }, 500);
+
+    } catch (err) {
+      console.error('❌ [Upload] Error:', err);
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload document');
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Reset upload form when dialog closes
+  const handleDialogClose = () => {
+    if (!uploading) {
+      setUploadDialogOpen(false);
+      setUploadFile(null);
+      setUploadTitle('');
+      setUploadType('report');
+      setUploadDescription('');
+      setUploadError(null);
+      setUploadProgress(0);
+    }
+  };
+
+  // Handle delete document
+  const handleDelete = async (documentId: string, documentTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${documentTitle}"?`)) {
+      return;
+    }
+
+    try {
+      console.log('🔵 [Delete] Deleting document:', documentId);
+      await documentsAPI.deleteDocument(documentId);
+      console.log('🟢 [Delete] Document deleted successfully');
+      
+      // Reload documents
+      loadDocuments();
+    } catch (err) {
+      console.error('❌ [Delete] Error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete document');
+    }
+  };
+
+  // Handle view document
+  const handleViewDocument = (doc: DocumentWithDetails) => {
+    console.log('👁️ [View] Opening document:', doc.title);
+    setViewingDocument(doc);
+    setViewDialogOpen(true);
+  };
+
+  // Handle edit document
+  const handleEditDocument = (doc: DocumentWithDetails) => {
+    console.log('✏️ [Edit] Opening edit dialog:', doc.title);
+    setEditingDocument(doc);
+    setEditTitle(doc.title);
+    setEditType(doc.type);
+    setEditDescription(doc.metadata?.description || '');
+    setEditDialogOpen(true);
+  };
+
+  // Submit edit
+  const handleSubmitEdit = async () => {
+    if (!editingDocument || !editTitle.trim()) {
+      alert('Title is required');
+      return;
+    }
+
+    try {
+      console.log('🔵 [Edit] Updating document:', editingDocument.id);
+      setEditing(true);
+
+      await documentsAPI.updateDocument(editingDocument.id, {
+        title: editTitle.trim(),
+        type: editType as any, // Type conversion for document type
+        metadata: {
+          ...editingDocument.metadata,
+          description: editDescription.trim() || undefined
+        }
+      });
+
+      console.log('🟢 [Edit] Document updated successfully');
+      
+      // Close dialog and reload
+      setEditDialogOpen(false);
+      setEditingDocument(null);
+      loadDocuments();
+    } catch (err) {
+      console.error('❌ [Edit] Error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to update document');
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  // Handle share document
+  const handleShareDocument = (doc: DocumentWithDetails) => {
+    console.log('🔗 [Share] Opening share dialog:', doc.title);
+    setSharingDocument(doc);
+    setShareDialogOpen(true);
+  };
+
+  // Handle download document
+  const handleDownloadDocument = (doc: DocumentWithDetails) => {
+    console.log('⬇️ [Download] Document:', doc.title);
+    // Placeholder - file storage not implemented yet
+    alert('Download functionality will be available once file storage is integrated (Phase 3).\n\nFor now, documents are stored as metadata only.');
+  };
 
   const getFileIcon = (type: string) => {
     switch (type) {
@@ -157,29 +355,44 @@ export default function Documents() {
       case 'docx': return <FileText className="w-6 h-6 text-blue-500" />;
       case 'xlsx': return <FileText className="w-6 h-6 text-green-500" />;
       case 'zip': return <Archive className="w-6 h-6 text-yellow-500" />;
+      case 'evaluation': return <FileText className="w-6 h-6 text-purple-500" />;
+      case 'agreement': return <FileText className="w-6 h-6 text-indigo-500" />;
+      case 'report': return <FileText className="w-6 h-6 text-orange-500" />;
       default: return <File className="w-6 h-6 text-muted-foreground" />;
     }
   };
 
-  const categories = ['all', ...Array.from(new Set(mockDocuments.map(d => d.category)))];
+  const categories = ['all', ...Array.from(new Set(documents.map(d => d.type)))];
   
-  const filteredDocuments = mockDocuments.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || doc.type === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const stats = {
-    total: mockDocuments.length,
-    shared: mockDocuments.filter(d => d.shared).length,
+    total: documents.length,
+    shared: 0, // TODO: Add sharing feature later
     categories: categories.length - 1,
-    versions: mockDocuments.reduce((sum, doc) => sum + doc.versions.length, 0)
+    versions: documents.reduce((sum, doc) => sum + (doc.versions?.length || 0), 0)
   };
 
-  const currentDoc = selectedDocument ? mockDocuments.find(d => d.id === selectedDocument) : null;
+  const currentDoc = selectedDocument ? documents.find(d => d.id === selectedDocument) : null;
 
   return (
     <div className="h-screen bg-background overflow-hidden">
+      {/* Real-time Update Notification */}
+      {realtimeUpdate && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top">
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              {realtimeUpdate}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Desktop View */}
       <div className="hidden lg:flex h-full">
         {/* Left Sidebar */}
@@ -192,33 +405,442 @@ export default function Documents() {
           
           {/* Page Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-6">
+            {/* WebSocket Status */}
+            <div className="mb-4 flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+              <span className="text-xs text-muted-foreground">
+                {wsConnected ? 'Real-time updates enabled' : 'Connecting...'}
+              </span>
+            </div>
+            {/* Loading State */}
+            {loading && (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {error}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={loadDocuments}
+                    className="ml-4"
+                  >
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Content */}
+            {!loading && !error && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Documents</h1>
           <p className="text-muted-foreground mt-1">Manage and share your internship documents</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Document
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+        <Button 
+          className="bg-blue-600 hover:bg-blue-700"
+          onClick={() => {
+            console.log('🔵 [Upload] Button clicked!');
+            setUploadDialogOpen(true);
+          }}
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Upload Document
+        </Button>
+        <Dialog open={uploadDialogOpen} onOpenChange={handleDialogClose}>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Upload Document</DialogTitle>
               <DialogDescription>
-                Upload a new document to your internship file
+                Upload a new document to your internship file (Max 50MB)
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer">
-                <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-muted-foreground">Drag and drop your file here</p>
-                <p className="text-sm text-muted-foreground">or click to browse</p>
+              {/* File Drop Zone */}
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                  dragActive 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : uploadFile 
+                    ? 'border-green-500 bg-green-50' 
+                    : 'border-gray-300 hover:bg-slate-50'
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('file-input')?.click()}
+              >
+                <input
+                  id="file-input"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
+                  onChange={handleFileInputChange}
+                  disabled={uploading}
+                />
+                {uploadFile ? (
+                  <>
+                    <File className="w-8 h-8 mx-auto text-green-600 mb-2" />
+                    <p className="text-foreground font-medium">{uploadFile.name}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUploadFile(null);
+                        setUploadTitle('');
+                      }}
+                      disabled={uploading}
+                    >
+                      Change File
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Drag and drop your file here</p>
+                    <p className="text-sm text-muted-foreground">or click to browse</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Supported: PDF, DOCX, Images, ZIP
+                    </p>
+                  </>
+                )}
               </div>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700">Upload</Button>
+
+              {/* Title Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Title *</label>
+                <Input
+                  placeholder="Document title"
+                  value={uploadTitle}
+                  onChange={(e) => setUploadTitle(e.target.value)}
+                  disabled={uploading}
+                />
+              </div>
+
+              {/* Type Select */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type *</label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={uploadType}
+                  onChange={(e) => setUploadType(e.target.value)}
+                  disabled={uploading}
+                >
+                  <option value="report">Report</option>
+                  <option value="evaluation">Evaluation</option>
+                  <option value="agreement">Agreement</option>
+                  <option value="form">Form</option>
+                  <option value="certificate">Certificate</option>
+                  <option value="memorandum">Memorandum</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              {/* Description Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description (Optional)</label>
+                <textarea
+                  className="w-full p-2 border rounded-md min-h-[80px]"
+                  placeholder="Brief description of the document"
+                  value={uploadDescription}
+                  onChange={(e) => setUploadDescription(e.target.value)}
+                  disabled={uploading}
+                />
+              </div>
+
+              {/* Error Message */}
+              {uploadError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{uploadError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Progress Bar */}
+              {uploading && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Button */}
+              <Button 
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                onClick={handleUpload}
+                disabled={!uploadFile || !uploadTitle.trim() || uploading}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Document
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Document Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {viewingDocument && getFileIcon(viewingDocument.type)}
+                {viewingDocument?.title}
+              </DialogTitle>
+              <DialogDescription>
+                Document details and preview
+              </DialogDescription>
+            </DialogHeader>
+            
+            {viewingDocument && (
+              <div className="space-y-4 overflow-y-auto">
+                {/* Document Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Type</label>
+                    <p className="text-sm capitalize">{viewingDocument.type}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Version</label>
+                    <p className="text-sm">v{viewingDocument.version}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Status</label>
+                    <Badge variant="outline" className="capitalize">
+                      {viewingDocument.status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Created</label>
+                    <p className="text-sm">
+                      {new Date(viewingDocument.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {viewingDocument.metadata?.description && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Description</label>
+                    <p className="text-sm mt-1">{viewingDocument.metadata.description}</p>
+                  </div>
+                )}
+
+                {/* File Info */}
+                {viewingDocument.content && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">File Information</label>
+                    <div className="mt-2 p-4 bg-muted rounded-lg space-y-2">
+                      {viewingDocument.content.fileName && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Filename:</span>
+                          <span>{viewingDocument.content.fileName}</span>
+                        </div>
+                      )}
+                      {viewingDocument.content.fileSize && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Size:</span>
+                          <span>{(viewingDocument.content.fileSize / 1024).toFixed(2)} KB</span>
+                        </div>
+                      )}
+                      {viewingDocument.metadata?.mimeType && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Type:</span>
+                          <span>{viewingDocument.metadata.mimeType}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview Placeholder */}
+                <div className="border-2 border-dashed rounded-lg p-8 text-center bg-muted/50">
+                  <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Document preview will be available soon
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    File storage and preview functionality coming in next phase
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleDownloadDocument(viewingDocument)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      setViewDialogOpen(false);
+                      handleShareDocument(viewingDocument);
+                    }}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      setViewDialogOpen(false);
+                      handleEditDocument(viewingDocument);
+                    }}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Document Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Document</DialogTitle>
+              <DialogDescription>
+                Update document information
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Title *</label>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Document title"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Type *</label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                >
+                  <option value="report">Report</option>
+                  <option value="presentation">Presentation</option>
+                  <option value="certificate">Certificate</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  className="w-full p-2 border rounded-md"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Optional description"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setEditDialogOpen(false)}
+                  disabled={editing}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleSubmitEdit}
+                  disabled={editing || !editTitle.trim()}
+                >
+                  {editing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Share Document Dialog */}
+        <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Share2 className="w-5 h-5" />
+                Share Document
+              </DialogTitle>
+              <DialogDescription>
+                {sharingDocument?.title}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Placeholder for future sharing functionality */}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Coming Soon!</strong><br />
+                  Document sharing functionality will be available in the next phase.
+                  <br /><br />
+                  <strong>Planned features:</strong>
+                  <ul className="list-disc list-inside mt-2 text-sm">
+                    <li>Share with specific users (advisor, supervisor)</li>
+                    <li>Generate shareable links</li>
+                    <li>Set access permissions (view, edit)</li>
+                    <li>Track who accessed the document</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <Button
+                className="w-full"
+                onClick={() => setShareDialogOpen(false)}
+              >
+                Got it
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -293,41 +915,52 @@ export default function Documents() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">{doc.name}</h3>
-                      {doc.currentVersion > 1 && (
-                        <Badge variant="outline" className="text-xs">
-                          v{doc.currentVersion}
-                        </Badge>
-                      )}
+                      <h3 className="font-semibold text-foreground">{doc.title}</h3>
+                      <Badge variant="outline" className="text-xs">
+                        v{doc.version}
+                      </Badge>
+                      <Badge className="capitalize">{doc.status}</Badge>
                     </div>
                     <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                      <span>{doc.size}</span>
-                      <span>•</span>
-                      <span>Uploaded {new Date(doc.uploadedDate).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span>{doc.uploadedBy}</span>
-                      {doc.shared && (
+                      <span>Created {new Date(doc.created_at).toLocaleDateString()}</span>
+                      {doc.owner && (
                         <>
                           <span>•</span>
-                          <Badge className="bg-green-100 text-green-800 text-xs">
-                            <Users className="w-3 h-3 mr-1" />
-                            Shared
-                          </Badge>
+                          <span>{doc.owner.first_name} {doc.owner.last_name}</span>
                         </>
                       )}
+                      <span>•</span>
+                      <span className="capitalize">{doc.type}</span>
                     </div>
-                    {doc.lastModified !== doc.uploadedDate && (
+                    {doc.updated_at !== doc.created_at && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        Last modified: {new Date(doc.lastModified).toLocaleDateString()} by {doc.lastModifiedBy}
+                        Last modified: {new Date(doc.updated_at).toLocaleDateString()}
+                      </div>
+                    )}
+                    {doc.description && (
+                      <div className="text-sm text-muted-foreground mt-2">
+                        {doc.description}
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* View Button */}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      title="View document"
+                      onClick={() => handleViewDocument(doc)}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+
+                    {/* Version History Button */}
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button 
                           variant="ghost" 
                           size="sm"
+                          title="View version history"
                           onClick={() => setSelectedDocument(doc.id)}
                         >
                           <History className="w-4 h-4" />
@@ -335,44 +968,50 @@ export default function Documents() {
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                          <DialogTitle>Version History - {doc.name}</DialogTitle>
+                          <DialogTitle>Version History - {doc.title}</DialogTitle>
                           <DialogDescription>
                             View and manage document versions
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                          {doc.versions.map((version, idx) => (
-                            <Card key={idx} className={version.version === doc.currentVersion ? 'border-blue-600' : ''}>
+                          {doc.versions && doc.versions.length > 0 ? (
+                            doc.versions.map((version, idx) => (
+                            <Card key={version.id} className={version.version === doc.version ? 'border-blue-600' : ''}>
                               <CardContent className="pt-4">
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
-                                      <Badge variant={version.version === doc.currentVersion ? 'default' : 'outline'}>
+                                      <Badge variant={version.version === doc.version ? 'default' : 'outline'}>
                                         Version {version.version}
-                                        {version.version === doc.currentVersion && ' (Current)'}
+                                        {version.version === doc.version && ' (Current)'}
                                       </Badge>
                                     </div>
                                     <div className="mt-2 space-y-1">
-                                      <div className="text-sm text-foreground">
-                                        <span className="font-medium">Updated by:</span> {version.updatedBy}
-                                      </div>
+                                      {version.created_by_user && (
+                                        <div className="text-sm text-foreground">
+                                          <span className="font-medium">Updated by:</span> {version.created_by_user.first_name} {version.created_by_user.last_name}
+                                        </div>
+                                      )}
                                       <div className="text-sm text-muted-foreground">
-                                        <span className="font-medium">Date:</span> {new Date(version.updatedDate).toLocaleString()}
+                                        <span className="font-medium">Date:</span> {new Date(version.created_at).toLocaleString()}
                                       </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        <span className="font-medium">Changes:</span> {version.changes}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        <span className="font-medium">Size:</span> {version.size}
-                                      </div>
+                                      {version.change_summary && (
+                                        <div className="text-sm text-muted-foreground">
+                                          <span className="font-medium">Changes:</span> {version.change_summary}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="flex gap-2">
-                                    <Button variant="outline" size="sm">
-                                      <Download className="w-3 h-3 mr-1" />
-                                      Download
-                                    </Button>
-                                    {version.version === doc.currentVersion && (
+                                    {version.file_url && (
+                                      <Button variant="outline" size="sm" asChild>
+                                        <a href={version.file_url} download>
+                                          <Download className="w-3 h-3 mr-1" />
+                                          Download
+                                        </a>
+                                      </Button>
+                                    )}
+                                    {version.version === doc.version && (
                                       <Button variant="outline" size="sm">
                                         <Edit className="w-3 h-3 mr-1" />
                                         Edit
@@ -382,20 +1021,33 @@ export default function Documents() {
                                 </div>
                               </CardContent>
                             </Card>
-                          ))}
+                          ))
+                          ) : (
+                            <div className="py-8 text-center text-muted-foreground">
+                              No version history available
+                            </div>
+                          )}
                         </div>
                       </DialogContent>
                     </Dialog>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Download className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Share2 className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+
+                    {/* Download Button */}
+                    {doc.file_url && (
+                      <Button variant="ghost" size="sm" title="Download document" asChild>
+                        <a href={doc.file_url} download>
+                          <Download className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    )}
+
+                    {/* Delete Button */}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-red-600 hover:text-red-700"
+                      title="Delete document"
+                      onClick={() => handleDelete(doc.id, doc.title)}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -406,6 +1058,7 @@ export default function Documents() {
               )}
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -418,13 +1071,18 @@ export default function Documents() {
         />
         <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
           {/* Upload Button */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="w-full">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Document
-              </Button>
-            </DialogTrigger>
+          <Button 
+            className="w-full"
+            onClick={() => {
+              console.log('🔵 [Upload Mobile] Button clicked!');
+              setUploadDialogOpen(true);
+            }}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </Button>
+
+          <Dialog open={uploadDialogOpen} onOpenChange={handleDialogClose}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Upload Document</DialogTitle>
@@ -433,12 +1091,113 @@ export default function Documents() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted transition-colors cursor-pointer">
+                {/* Drag and Drop Area */}
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                    dragActive ? 'border-blue-500 bg-blue-50' : 'border-border hover:bg-muted'
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('mobile-file-input')?.click()}
+                >
                   <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Drag and drop your file here</p>
+                  <p className="text-muted-foreground">
+                    {uploadFile ? uploadFile.name : 'Drag and drop your file here'}
+                  </p>
                   <p className="text-sm text-muted-foreground">or click to browse</p>
+                  <input
+                    id="mobile-file-input"
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleFileSelect(e.target.files[0]);
+                      }
+                    }}
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
+                  />
                 </div>
-                <Button className="w-full">Upload</Button>
+
+                {/* Upload Error */}
+                {uploadError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{uploadError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* File Info */}
+                {uploadFile && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">Title *</label>
+                      <Input
+                        value={uploadTitle}
+                        onChange={(e) => setUploadTitle(e.target.value)}
+                        placeholder="Document title"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Type *</label>
+                      <select
+                        className="w-full p-2 border rounded-md"
+                        value={uploadType}
+                        onChange={(e) => setUploadType(e.target.value)}
+                      >
+                        <option value="report">Report</option>
+                        <option value="presentation">Presentation</option>
+                        <option value="certificate">Certificate</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Description</label>
+                      <textarea
+                        className="w-full p-2 border rounded-md"
+                        value={uploadDescription}
+                        onChange={(e) => setUploadDescription(e.target.value)}
+                        placeholder="Optional description"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Progress Bar */}
+                    {uploading && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Uploading...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <Button 
+                      className="w-full"
+                      onClick={handleUpload}
+                      disabled={uploading || !uploadTitle.trim()}
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
@@ -516,22 +1275,15 @@ export default function Documents() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground text-sm truncate">{doc.name}</h3>
-                          {doc.currentVersion > 1 && (
-                            <Badge variant="outline" className="text-xs">v{doc.currentVersion}</Badge>
-                          )}
+                          <h3 className="font-semibold text-foreground text-sm truncate">{doc.title}</h3>
+                          <Badge variant="outline" className="text-xs">v{doc.version}</Badge>
                         </div>
                         <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{doc.size}</span>
+                          <span>{new Date(doc.created_at).toLocaleDateString()}</span>
                           <span>•</span>
-                          <span>{new Date(doc.uploadedDate).toLocaleDateString()}</span>
+                          <span className="capitalize">{doc.type}</span>
                         </div>
-                        {doc.shared && (
-                          <Badge variant="success" className="text-xs mt-1">
-                            <Users className="w-3 h-3 mr-1" />
-                            Shared
-                          </Badge>
-                        )}
+                        <Badge className="capitalize text-xs mt-1">{doc.status}</Badge>
                       </div>
                       <div className="flex items-center gap-1">
                         <Dialog>
@@ -549,38 +1301,44 @@ export default function Documents() {
                             <DialogHeader>
                               <DialogTitle className="text-sm">Version History</DialogTitle>
                               <DialogDescription className="text-xs">
-                                {doc.name}
+                                {doc.title}
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                              {doc.versions.map((version, idx) => (
-                                <Card key={idx} className={version.version === doc.currentVersion ? 'border-blue-600' : ''}>
+                              {doc.versions && doc.versions.length > 0 ? (
+                                doc.versions.map((version) => (
+                                <Card key={version.id} className={version.version === doc.version ? 'border-blue-600' : ''}>
                                   <CardContent className="pt-3">
                                     <div className="space-y-2">
-                                      <Badge variant={version.version === doc.currentVersion ? 'default' : 'outline'} className="text-xs">
+                                      <Badge variant={version.version === doc.version ? 'default' : 'outline'} className="text-xs">
                                         v{version.version}
-                                        {version.version === doc.currentVersion && ' (Current)'}
+                                        {version.version === doc.version && ' (Current)'}
                                       </Badge>
                                       <div className="text-xs space-y-1">
-                                        <div className="text-foreground">
-                                          <span className="font-medium">Updated by:</span> {version.updatedBy}
-                                        </div>
+                                        {version.created_by_user && (
+                                          <div className="text-foreground">
+                                            <span className="font-medium">Updated by:</span> {version.created_by_user.first_name} {version.created_by_user.last_name}
+                                          </div>
+                                        )}
                                         <div className="text-muted-foreground">
-                                          <span className="font-medium">Date:</span> {new Date(version.updatedDate).toLocaleDateString()}
+                                          <span className="font-medium">Date:</span> {new Date(version.created_at).toLocaleDateString()}
                                         </div>
-                                        <div className="text-muted-foreground">
-                                          <span className="font-medium">Changes:</span> {version.changes}
-                                        </div>
-                                        <div className="text-muted-foreground">
-                                          <span className="font-medium">Size:</span> {version.size}
-                                        </div>
+                                        {version.change_summary && (
+                                          <div className="text-muted-foreground">
+                                            <span className="font-medium">Changes:</span> {version.change_summary}
+                                          </div>
+                                        )}
                                       </div>
                                       <div className="flex gap-2 pt-2">
-                                        <Button variant="outline" size="sm" className="text-xs h-7">
-                                          <Download className="w-3 h-3 mr-1" />
-                                          Download
-                                        </Button>
-                                        {version.version === doc.currentVersion && (
+                                        {version.file_url && (
+                                          <Button variant="outline" size="sm" className="text-xs h-7" asChild>
+                                            <a href={version.file_url} download>
+                                              <Download className="w-3 h-3 mr-1" />
+                                              Download
+                                            </a>
+                                          </Button>
+                                        )}
+                                        {version.version === doc.version && (
                                           <Button variant="outline" size="sm" className="text-xs h-7">
                                             <Edit className="w-3 h-3 mr-1" />
                                             Edit
@@ -590,11 +1348,21 @@ export default function Documents() {
                                     </div>
                                   </CardContent>
                                 </Card>
-                              ))}
+                              ))
+                              ) : (
+                                <div className="py-6 text-center text-muted-foreground text-xs">
+                                  No version history available
+                                </div>
+                              )}
                             </div>
                           </DialogContent>
                         </Dialog>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleViewDocument(doc)}
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

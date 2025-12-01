@@ -1,4 +1,12 @@
 "use strict";
+/**
+ * Evaluation Service - Core CRUD & AI Processing
+ *
+ * Handles evaluation creation, AI analysis, submission, and approval workflow.
+ * Use EvaluationServiceFacade (evaluation.service.ts) for a unified API that includes analytics.
+ *
+ * @deprecated Consider using EvaluationServiceFacade for new code
+ */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };

@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import { setupMessageHandlers } from "./handlers/messageHandler";
 import { setupNotificationHandlers } from "./handlers/notificationHandler";
 import { setupEvaluationHandlers } from "./handlers/evaluationHandler";
+import { setupStudentHandlers } from "./handlers/studentHandler";
 
 interface AuthenticatedSocket extends Socket {
   user?: {
@@ -15,13 +16,19 @@ export const setupSocketHandlers = (io: Server) => {
   io.on("connection", (socket: AuthenticatedSocket) => {
     const userId = socket.user?.id;
     const userEmail = socket.user?.email;
+    const userRole = socket.user?.role;
 
-    console.log(`User connected: ${userEmail} (${userId})`);
+    console.log(`User connected: ${userEmail} (${userId}) - Role: ${userRole}`);
 
     // Setup handlers for different features
     setupMessageHandlers(io, socket);
     setupNotificationHandlers(io, socket);
     setupEvaluationHandlers(io, socket);
+    
+    // Setup student-specific handlers if user is a student
+    if (userRole === 'student') {
+      setupStudentHandlers(io, socket);
+    }
 
     // Handle disconnection
     socket.on("disconnect", (reason) => {
