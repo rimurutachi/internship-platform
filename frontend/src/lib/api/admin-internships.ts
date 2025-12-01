@@ -3,7 +3,7 @@
  * Handles all API calls for admin internship management
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export interface Internship {
   id: string;
@@ -185,7 +185,7 @@ export const adminInternshipsAPI = {
     if (filters.search) queryParams.append('search', filters.search);
 
     const queryString = queryParams.toString();
-    const endpoint = `/api/admin/internships${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/admin/internships${queryString ? `?${queryString}` : ''}`;
 
     return fetchAPI(endpoint);
   },
@@ -202,7 +202,7 @@ export const adminInternshipsAPI = {
       activity_log: ActivityLogEntry[];
     };
   }> => {
-    return fetchAPI(`/api/admin/internships/${id}`);
+    return fetchAPI(`/admin/internships/${id}`);
   },
 
   /**
@@ -217,7 +217,7 @@ export const adminInternshipsAPI = {
       message: string;
     };
   }> => {
-    return fetchAPI('/api/admin/internships', {
+    return fetchAPI('/admin/internships', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -236,7 +236,7 @@ export const adminInternshipsAPI = {
       message: string;
     };
   }> => {
-    return fetchAPI(`/api/admin/internships/${id}`, {
+    return fetchAPI(`/admin/internships/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -253,7 +253,7 @@ export const adminInternshipsAPI = {
       message: string;
     };
   }> => {
-    return fetchAPI(`/api/admin/internships/${id}`, {
+    return fetchAPI(`/admin/internships/${id}`, {
       method: 'DELETE',
     });
   },
@@ -267,7 +267,7 @@ export const adminInternshipsAPI = {
       students: User[];
     };
   }> => {
-    return fetchAPI('/api/admin/internships/available-students');
+    return fetchAPI('/admin/internships/available-students');
   },
 
   /**
@@ -281,7 +281,7 @@ export const adminInternshipsAPI = {
       advisors: User[];
     };
   }> => {
-    return fetchAPI(`/api/admin/internships/advisors-by-university/${universityId}`);
+    return fetchAPI(`/admin/internships/advisors-by-university/${universityId}`);
   },
 
   /**
@@ -295,7 +295,7 @@ export const adminInternshipsAPI = {
       supervisors: User[];
     };
   }> => {
-    return fetchAPI(`/api/admin/internships/supervisors-by-company/${companyId}`);
+    return fetchAPI(`/admin/internships/supervisors-by-company/${companyId}`);
   },
 
   /**
@@ -309,7 +309,7 @@ export const adminInternshipsAPI = {
       activity_log: ActivityLogEntry[];
     };
   }> => {
-    return fetchAPI(`/api/admin/internships/${internshipId}/activity-log`);
+    return fetchAPI(`/admin/internships/${internshipId}/activity-log`);
   },
 
   /**
@@ -319,6 +319,6 @@ export const adminInternshipsAPI = {
     success: boolean;
     data: InternshipStats;
   }> => {
-    return fetchAPI('/api/admin/internships/stats/summary');
+    return fetchAPI('/admin/internships/stats/summary');
   },
 };

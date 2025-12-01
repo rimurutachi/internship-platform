@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 /**
  * Get authentication token from Supabase session
@@ -116,7 +116,7 @@ export const adminEvaluationsAPI = {
     if (filters.search) params.append('search', filters.search);
 
     const queryString = params.toString();
-    const endpoint = `/api/admin/evaluations${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/admin/evaluations${queryString ? `?${queryString}` : ''}`;
     return fetchAPI(endpoint);
   },
 
@@ -124,21 +124,21 @@ export const adminEvaluationsAPI = {
    * Get single evaluation with details
    */
   getEvaluation: async (id: string) => {
-    return fetchAPI(`/api/admin/evaluations/${id}`);
+    return fetchAPI(`/admin/evaluations/${id}`);
   },
 
   /**
    * Get AI results for evaluation
    */
   getAIResults: async (id: string) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/ai-results`);
+    return fetchAPI(`/admin/evaluations/${id}/ai-results`);
   },
 
   /**
    * Validate sentiment analysis
    */
   validateSentiment: async (id: string, data: ValidateSentimentData) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/validate-sentiment`, {
+    return fetchAPI(`/admin/evaluations/${id}/validate-sentiment`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -148,7 +148,7 @@ export const adminEvaluationsAPI = {
    * Validate feature extraction
    */
   validateFeatures: async (id: string, data: ValidateFeaturesData) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/validate-features`, {
+    return fetchAPI(`/admin/evaluations/${id}/validate-features`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -158,7 +158,7 @@ export const adminEvaluationsAPI = {
    * Validate bias check
    */
   validateBias: async (id: string, data: ValidateBiasData) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/validate-bias`, {
+    return fetchAPI(`/admin/evaluations/${id}/validate-bias`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -168,7 +168,7 @@ export const adminEvaluationsAPI = {
    * Approve evaluation
    */
   approveEvaluation: async (id: string, data: ApproveEvaluationData) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/approve`, {
+    return fetchAPI(`/admin/evaluations/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -178,7 +178,7 @@ export const adminEvaluationsAPI = {
    * Override grade
    */
   overrideGrade: async (id: string, data: OverrideGradeData) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/override-grade`, {
+    return fetchAPI(`/admin/evaluations/${id}/override-grade`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -188,7 +188,7 @@ export const adminEvaluationsAPI = {
    * Reject evaluation
    */
   rejectEvaluation: async (id: string, data: RejectEvaluationData) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/reject`, {
+    return fetchAPI(`/admin/evaluations/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -198,7 +198,7 @@ export const adminEvaluationsAPI = {
    * Request AI reprocess
    */
   requestReprocess: async (id: string, data: RequestReprocessData = {}) => {
-    return fetchAPI(`/api/admin/evaluations/${id}/request-reprocess`, {
+    return fetchAPI(`/admin/evaluations/${id}/request-reprocess`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -208,28 +208,28 @@ export const adminEvaluationsAPI = {
    * Get quality metrics
    */
   getQualityMetrics: async () => {
-    return fetchAPI('/api/admin/evaluations/metrics/quality');
+    return fetchAPI('/admin/evaluations/metrics/quality');
   },
 
   /**
    * Get metrics by supervisor
    */
   getMetricsBySupervisor: async () => {
-    return fetchAPI('/api/admin/evaluations/metrics/by-supervisor');
+    return fetchAPI('/admin/evaluations/metrics/by-supervisor');
   },
 
   /**
    * Get metrics by company
    */
   getMetricsByCompany: async () => {
-    return fetchAPI('/api/admin/evaluations/metrics/by-company');
+    return fetchAPI('/admin/evaluations/metrics/by-company');
   },
 
   /**
    * Bulk approve evaluations
    */
   bulkApprove: async (data: BulkApproveData) => {
-    return fetchAPI('/api/admin/evaluations/bulk-approve', {
+    return fetchAPI('/admin/evaluations/bulk-approve', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -241,7 +241,7 @@ export const adminEvaluationsAPI = {
   bulkExport: async (data: BulkExportData) => {
     const token = await getAuthToken();
     
-    const response = await fetch(`${API_BASE_URL}/api/admin/evaluations/bulk-export`, {
+    const response = await fetch(`${API_BASE_URL}/admin/evaluations/bulk-export`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
