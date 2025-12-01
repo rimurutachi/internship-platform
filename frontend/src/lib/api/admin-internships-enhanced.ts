@@ -23,7 +23,7 @@ import {
   DocumentSubmissionRateAnalytics
 } from '@/types/internships-enhanced';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 /**
  * Get authentication token from Supabase session
@@ -45,7 +45,7 @@ const getAuthToken = async (): Promise<string | null> => {
 const createAuthAxios = async () => {
   const token = await getAuthToken();
   return axios.create({
-    baseURL: `${API_BASE_URL}/api/admin/internships/enhanced`,
+    baseURL: `${API_BASE_URL}/admin/internships/enhanced`,
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` })
