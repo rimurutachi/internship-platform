@@ -11,9 +11,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new SocketServer(server, {
   cors: {
-    origin: env.FRONTEND_URL,
+    origin: env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST"],
     credentials: true,
   },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true, // Enable compatibility with older clients
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // Middleware
@@ -48,12 +53,15 @@ setupWebSocket(io);
 const PORT = env.PORT;
 const WS_PORT = env.WEBSOCKET_PORT;
 
-server.listen(WS_PORT, () => {
-  console.log(`WebSocket server is running on port ${WS_PORT}`);
+// Use single port for everything (Socket.io + HTTP API)
+// Note: Using same port for both to avoid browser unsafe port blocking
+const SERVER_PORT = WS_PORT || PORT;
+
+server.listen(SERVER_PORT, () => {
+  console.log(`🟢 Socket.io + HTTP server running on port ${SERVER_PORT}`);
+  console.log(`   - WebSocket: ws://localhost:${SERVER_PORT}`);
+  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/documents`);
+  console.log(`   - Health: http://localhost:${SERVER_PORT}/health`);
 });
 
-app.listen(PORT, () => {
-  console.log(`HTTP server is running on port ${PORT}`);
-});
-
-export { app, io };
+export { app, io, server };

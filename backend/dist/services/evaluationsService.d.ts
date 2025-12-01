@@ -1,3 +1,11 @@
+/**
+ * Evaluations Service - Analytics & Metrics
+ *
+ * Handles evaluation analytics, quality metrics, reporting, and data export.
+ * Use EvaluationServiceFacade (evaluation.service.ts) for a unified API.
+ *
+ * @deprecated Consider using EvaluationServiceFacade for new code
+ */
 interface Evaluation {
     id: string;
     rating_overall: number | null;
