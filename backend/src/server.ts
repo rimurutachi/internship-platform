@@ -17,6 +17,7 @@ import evaluationRoutes from "./routes/evaluations";
 import authRoutes from "./routes/authRoutes";
 import communicationRoutes from "./routes/communications";
 import adminRoutes from "./routes/admin";
+import studentRoutes from "./routes/student";
 import systemMetricsService from "./services/systemMetricsService";
 
 // Initialize global system metrics tracker
@@ -94,6 +95,9 @@ app.use("/api/communication", communicationRoutes);
 
 // Admin APIs
 app.use("/api/admin", adminRoutes);
+
+// Student APIs
+app.use("/api/student", studentRoutes);
 
 // Error Handling Middleware
 app.use((err: any, req: any, res: any, next: any) => {

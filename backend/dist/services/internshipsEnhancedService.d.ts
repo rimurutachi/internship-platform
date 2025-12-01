@@ -1,3 +1,16 @@
+/**
+ * Internships Enhanced Service - Advanced Features
+ *
+ * Handles advanced functionality:
+ * - Company capacity management
+ * - Document completion tracking
+ * - Data export (CSV/JSON/Excel)
+ * - Analytics and metrics
+ *
+ * Use InternshipServiceFacade (internship.service.ts) for a unified API.
+ *
+ * @deprecated Consider using InternshipServiceFacade for new code
+ */
 interface InternshipReminder {
     id?: string;
     internship_id: string;

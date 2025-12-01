@@ -1,4 +1,17 @@
 "use strict";
+/**
+ * Internships Enhanced Service - Advanced Features
+ *
+ * Handles advanced functionality:
+ * - Company capacity management
+ * - Document completion tracking
+ * - Data export (CSV/JSON/Excel)
+ * - Analytics and metrics
+ *
+ * Use InternshipServiceFacade (internship.service.ts) for a unified API.
+ *
+ * @deprecated Consider using InternshipServiceFacade for new code
+ */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InternshipsEnhancedService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");

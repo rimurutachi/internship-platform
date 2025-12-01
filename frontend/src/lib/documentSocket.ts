@@ -28,11 +28,14 @@ export function connectDocumentService(
   userId: string
 ): Socket {
   try {
-    const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:6000';
+    // Socket.io client uses HTTP protocol, NOT ws://
+    const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:6001';
+    
+    console.log('🔵 [DocumentSocket] Connecting to:', websocketUrl);
     
     if (!socket || !socket.connected) {
       socket = io(websocketUrl, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Allow fallback to polling
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
@@ -40,17 +43,64 @@ export function connectDocumentService(
 
       // Handle connection errors
       socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('❌ [DocumentSocket] Connection error:', error);
       });
 
       socket.on('disconnect', (reason) => {
-        console.warn('Socket disconnected:', reason);
+        console.warn('⚠️ [DocumentSocket] Disconnected:', reason);
+      });
+      
+      socket.on('connect', () => {
+        console.log('🟢 [DocumentSocket] Connected successfully');
       });
     }
 
-    // Join the document room
-    socket.emit('document:join', { documentId, userId });
+    // Only join specific document if it's a valid UUID (not a list page)
+    if (documentId && documentId !== 'documents-list') {
+      socket.emit('document:join', { documentId, userId });
+    }
 
+    return socket;
+  } catch (error) {
+    console.error('Error connecting to document service:', error);
+    throw new Error('Failed to connect to document service');
+  }
+}
+
+/**
+ * Connects to document service for general updates (not specific document)
+ * Use this for list pages where you just want to listen for updates
+ * 
+ * @returns Socket instance
+ */
+export function connectForUpdates(): Socket {
+  try {
+    const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:6001';
+    
+    console.log('🔵 [DocumentSocket] Connecting for general updates...');
+    
+    if (!socket || !socket.connected) {
+      socket = io(websocketUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error('❌ [DocumentSocket] Connection error:', error);
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.warn('⚠️ [DocumentSocket] Disconnected:', reason);
+      });
+      
+      socket.on('connect', () => {
+        console.log('🟢 [DocumentSocket] Connected for updates');
+      });
+    }
+
+    // Don't emit document:join for general updates
     return socket;
   } catch (error) {
     console.error('Error connecting to document service:', error);

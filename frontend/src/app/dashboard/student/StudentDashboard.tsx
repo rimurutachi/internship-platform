@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserProvider, useUserContext } from '@/components/providers/UserProvider';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
@@ -12,11 +12,12 @@ import { AIInsightsCard, RecentMessagesCard, UpcomingDeadlinesCard } from '@/com
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { QuickActionGrid } from '@/components/mobile/QuickActionGrid';
-import { StudentAnalytics } from '@/components/analytics/StudentAnalytics';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardList, MessageSquare, BarChart3, FileText } from 'lucide-react';
+import { ClipboardList, MessageSquare, BarChart3, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { studentAPI } from '@/lib/api/student';
+import type { DashboardData } from '@/types/student';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 /**
  * StudentDashboard Component
@@ -25,8 +26,41 @@ import { ClipboardList, MessageSquare, BarChart3, FileText } from 'lucide-react'
  * Includes tabs for dashboard and analytics views.
  */
 const StudentDashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
   const { user } = useUserContext();
+  
+  // Dashboard data state
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Load dashboard data on mount
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+  
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔵 Loading dashboard...');
+      const response = await studentAPI.getDashboard();
+      console.log('🟢 Dashboard API response:', response);
+      
+      if (response.success && response.data) {
+        console.log('✅ Dashboard data loaded:', response.data);
+        setDashboardData(response.data);
+      } else {
+        console.error('❌ Dashboard API error:', response.error);
+        setError(response.error || 'Failed to load dashboard data');
+      }
+    } catch (err: any) {
+      console.error('💥 Dashboard load exception:', err);
+      setError(err.message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const quickActions = [
     { icon: ClipboardList, label: 'Tasks', color: 'bg-primary' },
@@ -43,6 +77,71 @@ const StudentDashboard = () => {
     return (firstInitial + lastInitial).toUpperCase() || 'U';
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="h-screen bg-background overflow-hidden">
+        <div className="hidden lg:flex h-full">
+          <StudentSidebar />
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <StudentHeader />
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+                <p className="text-muted-foreground">Loading dashboard...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="lg:hidden flex flex-col h-full">
+          <MobileHeader title="Intern-Galing" />
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !dashboardData) {
+    return (
+      <div className="h-screen bg-background overflow-hidden">
+        <div className="hidden lg:flex h-full">
+          <StudentSidebar />
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <StudentHeader />
+            <div className="flex-1 flex items-center justify-center p-6">
+              <Alert variant="destructive" className="max-w-md">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error Loading Dashboard</AlertTitle>
+                <AlertDescription>
+                  {error || 'Failed to load dashboard data. Please try refreshing the page.'}
+                  <button 
+                    onClick={loadDashboard}
+                    className="mt-2 text-sm underline hover:no-underline"
+                  >
+                    Retry
+                  </button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+        </div>
+        <div className="lg:hidden flex flex-col h-full">
+          <MobileHeader title="Intern-Galing" />
+          <div className="flex-1 flex items-center justify-center p-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
       <div className="h-screen bg-background overflow-hidden">
         {/* Desktop View */}
@@ -57,22 +156,18 @@ const StudentDashboard = () => {
           
           {/* Dashboard Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="bg-muted mb-6">
-                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="dashboard">
                 <div className="grid lg:grid-cols-4 gap-6">
                   {/* Main Content Area */}
                   <div className="lg:col-span-3 space-y-6">
                     {/* Current Internship Card */}
-                    <CurrentInternshipCard />
+                    <CurrentInternshipCard 
+                      internship={dashboardData.internship}
+                      progress={dashboardData.progress}
+                    />
                     
                     {/* Two Column Layout for Cards */}
                     <div className="grid md:grid-cols-2 gap-6">
-                      <EvaluationsCard />
+                      <EvaluationsCard evaluations={dashboardData.recent_evaluations} />
                       <SkillsAssessmentCard />
                     </div>
                     
@@ -82,17 +177,11 @@ const StudentDashboard = () => {
                   
                   {/* Right Sidebar */}
                   <div className="space-y-6">
-                    <AIInsightsCard />
+                    <AIInsightsCard insights={dashboardData.ai_insights || null} />
                     <RecentMessagesCard />
-                    <UpcomingDeadlinesCard />
+                    <UpcomingDeadlinesCard tasks={dashboardData.upcoming_tasks} />
                   </div>
                 </div>
-              </TabsContent>
-
-              <TabsContent value="analytics">
-                <StudentAnalytics />
-              </TabsContent>
-            </Tabs>
           </div>
         </div>
       </div>
@@ -102,12 +191,6 @@ const StudentDashboard = () => {
         {/* Mobile Header */}
         <MobileHeader 
           title="Intern-Galing"
-          notificationCount={3}
-          logo={
-            <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">IG</span>
-            </div>
-          }
         />
 
         {/* Mobile Content - Scrollable */}
@@ -133,7 +216,10 @@ const StudentDashboard = () => {
           </Card>
 
           {/* Current Internship Status - Mobile Optimized */}
-          <CurrentInternshipCard />
+          <CurrentInternshipCard 
+            internship={dashboardData.internship}
+            progress={dashboardData.progress}
+          />
 
           {/* Quick Actions Grid - Mobile */}
           <Card>
@@ -146,10 +232,10 @@ const StudentDashboard = () => {
           </Card>
 
           {/* Latest Evaluation - Mobile */}
-          <EvaluationsCard />
+          <EvaluationsCard evaluations={dashboardData.recent_evaluations} />
 
           {/* AI Insights - Mobile */}
-          <AIInsightsCard />
+          <AIInsightsCard insights={dashboardData.ai_insights || null} />
         </div>
 
         {/* Bottom Navigation */}

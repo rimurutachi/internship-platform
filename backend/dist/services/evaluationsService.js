@@ -1,4 +1,12 @@
 "use strict";
+/**
+ * Evaluations Service - Analytics & Metrics
+ *
+ * Handles evaluation analytics, quality metrics, reporting, and data export.
+ * Use EvaluationServiceFacade (evaluation.service.ts) for a unified API.
+ *
+ * @deprecated Consider using EvaluationServiceFacade for new code
+ */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EvaluationsService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");

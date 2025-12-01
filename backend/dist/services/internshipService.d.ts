@@ -1,3 +1,12 @@
+/**
+ * Internship Service - Core CRUD Operations
+ *
+ * Handles basic Create, Read, Update, Delete operations for internships.
+ * Use InternshipServiceFacade (internship.service.ts) for a unified API that includes
+ * validation and enhanced features.
+ *
+ * @deprecated Consider using InternshipServiceFacade for new code
+ */
 import { Internship, CreateInternshipDTO, UpdateInternshipDTO } from '../models/internship';
 export declare class InternshipService {
     create(data: CreateInternshipDTO): Promise<Internship>;
