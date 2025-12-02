@@ -58,19 +58,82 @@ export class ConversationService {
 
   // Get user conversations
   async getUserConversations(userId: string): Promise<any[]> {
-    const { data, error } = await supabase
+    console.log("getUserConversations called for userId:", userId);
+    
+    // Step 1: Get conversation IDs for this user
+    const { data: userParticipations, error: participationError } = await supabase
       .from("conversation_participants")
-      .select(
-        `*, 
-        conversation:conversations(*), 
-        participants:conversation_participants(user:users(id, first_name, last_name, email))`
-      )
+      .select("conversation_id, role, last_read_at, joined_at")
       .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("last_read_at", { ascending: false, nullsFirst: false });
+      .eq("is_active", true);
 
-    if (error) throw new Error(error.message);
-    return data || [];
+    console.log("User participations:", { count: userParticipations?.length, error: participationError?.message });
+
+    if (participationError) throw new Error(participationError.message);
+    if (!userParticipations || userParticipations.length === 0) return [];
+
+    const conversationIds = userParticipations.map((p: any) => p.conversation_id);
+
+    // Step 2: Get conversation details
+    const { data: conversations, error: convError } = await supabase
+      .from("conversations")
+      .select("id, type, name, internship_id, created_by, created_at, updated_at, last_message_at, last_message_id")
+      .in("id", conversationIds);
+
+    console.log("Conversations:", { count: conversations?.length, error: convError?.message });
+
+    if (convError) throw new Error(convError.message);
+    if (!conversations) return [];
+
+    // Step 3: Get all participants for these conversations
+    const { data: allParticipants, error: partError } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id, user_id, role, last_read_at, is_active, users(id, first_name, last_name, email, role)")
+      .in("conversation_id", conversationIds)
+      .eq("is_active", true);
+
+    console.log("All participants:", { count: allParticipants?.length, error: partError?.message });
+
+    if (partError) {
+      console.error("Error fetching participants:", partError);
+    }
+
+    // Step 4: Combine data into expected format
+    const result = conversations.map((conv: any) => {
+      const userParticipation = userParticipations.find((p: any) => p.conversation_id === conv.id);
+      const participants = allParticipants?.filter((p: any) => p.conversation_id === conv.id) || [];
+      
+      return {
+        id: userParticipation?.conversation_id,
+        user_id: userId,
+        role: userParticipation?.role,
+        last_read_at: userParticipation?.last_read_at,
+        joined_at: userParticipation?.joined_at,
+        is_active: true,
+        conversation: {
+          ...conv,
+          participants: participants.map((p: any) => ({
+            id: p.user_id,
+            conversation_id: p.conversation_id,
+            user_id: p.user_id,
+            role: p.role,
+            last_read_at: p.last_read_at,
+            is_active: p.is_active,
+            user: p.users
+          }))
+        }
+      };
+    });
+
+    // Sort by last_read_at (most recent first)
+    result.sort((a, b) => {
+      const aTime = a.last_read_at ? new Date(a.last_read_at).getTime() : 0;
+      const bTime = b.last_read_at ? new Date(b.last_read_at).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    console.log("Returning", result.length, "conversations");
+    return result;
   }
 
   // Get conversation by ID

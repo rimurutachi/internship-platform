@@ -4,6 +4,7 @@ import {
   emitNewMessage,
   emitMessageEdited,
   emitMessageDeleted,
+  emitConversationUpdate,
 } from "../socket/emitters";
 
 const supabase = createClient(
@@ -46,8 +47,25 @@ export class MessageService {
       );
     }
 
-    // Emit real-time event
+    // Get all participants to notify them
+    const { data: participants } = await supabase
+      .from("conversation_participants")
+      .select("user_id")
+      .eq("conversation_id", data.conversation_id)
+      .eq("is_active", true);
+
+    // Emit real-time event to conversation room
     emitNewMessage(data.conversation_id, message);
+
+    // Emit conversation update to all participants
+    if (participants) {
+      participants.forEach((participant) => {
+        emitConversationUpdate(participant.user_id, data.conversation_id, {
+          last_message_at: new Date().toISOString(),
+          last_message: message.content,
+        });
+      });
+    }
 
     return message;
   }

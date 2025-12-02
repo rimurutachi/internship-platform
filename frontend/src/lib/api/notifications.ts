@@ -60,7 +60,7 @@ export const notificationsAPI = {
    */
   getNotifications: async (limit: number = 50): Promise<Notification[]> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/communication/notifications?limit=${limit}`, {
+    const response = await fetch(`${API_BASE_URL}/communications/notifications?limit=${limit}`, {
       method: 'GET',
       headers
     });
@@ -79,7 +79,7 @@ export const notificationsAPI = {
    */
   getUnreadCount: async (): Promise<number> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/communication/notifications/unread/count`, {
+    const response = await fetch(`${API_BASE_URL}/communications/notifications/unread/count`, {
       method: 'GET',
       headers
     });
@@ -99,7 +99,7 @@ export const notificationsAPI = {
    */
   markAsRead: async (notificationId: string): Promise<void> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/communication/notifications/${notificationId}/read`, {
+    const response = await fetch(`${API_BASE_URL}/communications/notifications/${notificationId}/read`, {
       method: 'PATCH',
       headers
     });
@@ -115,7 +115,7 @@ export const notificationsAPI = {
    */
   markAllAsRead: async (): Promise<void> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/communication/notifications/read-all`, {
+    const response = await fetch(`${API_BASE_URL}/communications/notifications/read-all`, {
       method: 'PATCH',
       headers
     });
@@ -132,7 +132,7 @@ export const notificationsAPI = {
    */
   deleteNotification: async (notificationId: string): Promise<void> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/communication/notifications/${notificationId}`, {
+    const response = await fetch(`${API_BASE_URL}/communications/notifications/${notificationId}`, {
       method: 'DELETE',
       headers
     });
@@ -149,7 +149,7 @@ export const notificationsAPI = {
    */
   createNotification: async (data: CreateNotificationDTO): Promise<Notification> => {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/communication/notifications`, {
+    const response = await fetch(`${API_BASE_URL}/communications/notifications`, {
       method: 'POST',
       headers,
       body: JSON.stringify(data)

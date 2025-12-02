@@ -214,7 +214,15 @@ class StudentService {
         // Get internship
         const internship = await this.getCurrentInternship(studentId);
         if (!internship) {
-            return null;
+            // Return empty dashboard data if no internship
+            return {
+                internship: null,
+                progress: null,
+                recent_evaluations: [],
+                upcoming_tasks: [],
+                ai_insights: undefined,
+                notifications_count: 0,
+            };
         }
         // Get progress metrics
         const progress = this.calculateProgressMetrics(internship.start_date, internship.end_date);
