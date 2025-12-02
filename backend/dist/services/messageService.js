@@ -30,8 +30,23 @@ class MessageService {
             // Log error but don't fail the message send
             console.error("Failed to update conversation last_message_at:", convError);
         }
-        // Emit real-time event
+        // Get all participants to notify them
+        const { data: participants } = await supabase
+            .from("conversation_participants")
+            .select("user_id")
+            .eq("conversation_id", data.conversation_id)
+            .eq("is_active", true);
+        // Emit real-time event to conversation room
         (0, emitters_1.emitNewMessage)(data.conversation_id, message);
+        // Emit conversation update to all participants
+        if (participants) {
+            participants.forEach((participant) => {
+                (0, emitters_1.emitConversationUpdate)(participant.user_id, data.conversation_id, {
+                    last_message_at: new Date().toISOString(),
+                    last_message: message.content,
+                });
+            });
+        }
         return message;
     }
     // Get conversation messages

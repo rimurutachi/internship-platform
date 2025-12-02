@@ -68,7 +68,7 @@ const getDocument = async (req, res) => {
         *,
         owner:users!documents_owner_id_fkey(id, first_name, last_name, email),
         versions:document_versions(*, created_by:users(id, first_name, last_name, email)),
-        comments:document_comments(*, user:users(id, first_name, last_name, email), replies:document_comments(*, user:users(id, first_name, last_name, email))),
+        comments:document_comments(*, user:users!document_comments_user_id_fkey(id, first_name, last_name, email), resolved_by_user:users!document_comments_resolved_by_fkey(id, first_name, last_name, email), replies:document_comments(*, user:users!document_comments_user_id_fkey(id, first_name, last_name, email))),
         workflow:document_workflows(*, approvals:document_approvals(*, approver:users(id, first_name, last_name, email)))
       `)
             .eq('id', id)
@@ -126,19 +126,40 @@ exports.getVersions = getVersions;
 const getComments = async (req, res) => {
     try {
         const { id } = req.params;
-        const { data: comments, error } = await supabaseAdmin
+        // First, get all comments for the document
+        const { data: allComments, error: commentsError } = await supabaseAdmin
             .from('document_comments')
             .select(`
         *,
-        user:users(id, first_name, last_name, email),
-        replies:document_comments!document_comments_parent_comment_id_fkey(
-          *,
-          user:users(id, first_name, last_name, email)
-        )
+        user:users!document_comments_user_id_fkey(id, first_name, last_name, email),
+        resolved_by_user:users!document_comments_resolved_by_fkey(id, first_name, last_name, email)
       `)
             .eq('document_id', id)
-            .is('parent_comment_id', null)
             .order('created_at', { ascending: false });
+        if (commentsError)
+            throw commentsError;
+        // Organize comments into parent-child structure
+        const commentMap = new Map();
+        const rootComments = [];
+        // First pass: create map of all comments
+        allComments?.forEach(comment => {
+            commentMap.set(comment.id, { ...comment, replies: [] });
+        });
+        // Second pass: organize into tree structure
+        allComments?.forEach(comment => {
+            const commentWithReplies = commentMap.get(comment.id);
+            if (comment.parent_comment_id) {
+                const parent = commentMap.get(comment.parent_comment_id);
+                if (parent) {
+                    parent.replies.push(commentWithReplies);
+                }
+            }
+            else {
+                rootComments.push(commentWithReplies);
+            }
+        });
+        const comments = rootComments;
+        const error = null;
         if (error)
             throw error;
         res.json(comments);
@@ -165,7 +186,7 @@ const getWorkflow = async (req, res) => {
         )
       `)
             .eq('document_id', id)
-            .order('created_at', { ascending: false });
+            .order('started_at', { ascending: false });
         if (error)
             throw error;
         res.json(workflow);

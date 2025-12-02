@@ -54,7 +54,7 @@ const limiter = (0, express_rate_limit_1.default)({
             req.path.startsWith('/api/admin/reports') ||
             req.path.startsWith('/api/admin/system') ||
             req.path.startsWith('/api/auth') ||
-            req.path.startsWith('/api/communication'));
+            req.path.startsWith('/api/communications'));
     },
     // Return JSON response instead of HTML for rate limit errors
     handler: (req, res) => {
@@ -76,14 +76,14 @@ app.get("/health", (req, res) => {
 app.use("/api/internships", internships_1.default);
 // Evaluation APIs
 app.use("/api/evaluations", evaluations_1.default);
-// Auth APIs
-app.use("/api", authRoutes_1.default);
-// Communication APIs
-app.use("/api/communication", communications_1.default);
+// Communication APIs - Register BEFORE auth to prevent route conflict
+app.use("/api/communications", communications_1.default);
 // Admin APIs
 app.use("/api/admin", admin_1.default);
 // Student APIs
 app.use("/api/student", student_1.default);
+// Auth APIs - Register LAST since it uses /api prefix (catch-all)
+app.use("/api", authRoutes_1.default);
 // Error Handling Middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);

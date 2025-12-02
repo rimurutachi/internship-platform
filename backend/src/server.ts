@@ -59,7 +59,7 @@ const limiter = rateLimit({
       req.path.startsWith('/api/admin/reports') ||
       req.path.startsWith('/api/admin/system') ||
       req.path.startsWith('/api/auth') ||
-      req.path.startsWith('/api/communication')
+      req.path.startsWith('/api/communications')
     );
   },
   // Return JSON response instead of HTML for rate limit errors
@@ -87,17 +87,17 @@ app.use("/api/internships", internshipRoutes);
 // Evaluation APIs
 app.use("/api/evaluations", evaluationRoutes);
 
-// Auth APIs
-app.use("/api", authRoutes);
-
-// Communication APIs
-app.use("/api/communication", communicationRoutes);
+// Communication APIs - Register BEFORE auth to prevent route conflict
+app.use("/api/communications", communicationRoutes);
 
 // Admin APIs
 app.use("/api/admin", adminRoutes);
 
 // Student APIs
 app.use("/api/student", studentRoutes);
+
+// Auth APIs - Register LAST since it uses /api prefix (catch-all)
+app.use("/api", authRoutes);
 
 // Error Handling Middleware
 app.use((err: any, req: any, res: any, next: any) => {
