@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Search, Phone, Video, MoreVertical, Paperclip, Smile, ArrowLeft } from 'lucide-react';
+import { Send, Search, Phone, Video, MoreVertical, Paperclip, Smile, ArrowLeft, PenSquare, Edit, Trash2, Check, X, FileText, Image as ImageIcon, File, Download } from 'lucide-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -17,6 +18,13 @@ import { messagesAPI, Message, Conversation } from '@/lib/api/messages';
 import { connectBackendSocket, disconnectBackendSocket } from '@/lib/backendSocket';
 import { useUser } from '@/hooks/use-user';
 import { Socket } from 'socket.io-client';
+import NewMessageModal from '@/components/student/NewMessageModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Messages() {
   const { user } = useUser();
@@ -30,10 +38,17 @@ export default function Messages() {
   const [error, setError] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -73,12 +88,16 @@ export default function Messages() {
     }
   }, []);
 
-  // Send message
+  // Send message (with optional file)
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !selectedConversation || sending) return;
+    if ((!messageInput.trim() && !selectedFile) || !selectedConversation || sending) return;
 
     const content = messageInput.trim();
+    const file = selectedFile;
+    
     setMessageInput(''); // Clear input immediately for better UX
+    setSelectedFile(null);
+    setFilePreview(null);
 
     try {
       setSending(true);
@@ -91,18 +110,74 @@ export default function Messages() {
 
       await messagesAPI.sendMessage({
         conversation_id: selectedConversation,
-        content,
-        message_type: 'text',
-      });
+        content: content || (file ? file.name : ''),
+        message_type: file ? 'file' : 'text',
+      }, file || undefined);
 
       // Message will be added via socket event
     } catch (err: any) {
       console.error('Failed to send message:', err);
       setError(err.message || 'Failed to send message');
       setMessageInput(content); // Restore input on error
+      if (file) setSelectedFile(file);
     } finally {
       setSending(false);
     }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    setError(null);
+
+    // Generate preview for images
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  // Remove selected file
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Get file icon based on mime type
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) return <ImageIcon className="w-4 h-4" />;
+    if (mimeType.includes('pdf')) return <FileText className="w-4 h-4" />;
+    return <File className="w-4 h-4" />;
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // Handle emoji selection
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setMessageInput((prev) => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
   };
 
   // Handle typing indicator
@@ -156,6 +231,9 @@ export default function Messages() {
           console.log('New message received:', message);
           setMessages((prev) => [...prev, message]);
           scrollToBottom();
+
+          // Refresh conversation list to update last message preview
+          loadConversations();
 
           // If message is in current conversation, mark as read
           if (message.conversation_id === selectedConversation) {
@@ -219,6 +297,24 @@ export default function Messages() {
       }
     };
   }, [user?.id]);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showEmojiPicker && !target.closest('.emoji-picker-container')) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   // Join/leave conversation rooms
   useEffect(() => {
@@ -291,6 +387,66 @@ export default function Messages() {
     }
   };
 
+  // Handle new conversation created
+  const handleConversationCreated = async (conversationId: string) => {
+    // Reload conversations
+    await loadConversations();
+    // Select the new conversation
+    setSelectedConversation(conversationId);
+    // Load messages for the new conversation
+    await loadMessages(conversationId);
+  };
+
+  // Start editing a message
+  const handleStartEdit = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditContent(message.content);
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditContent('');
+  };
+
+  // Save edited message
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editContent.trim()) return;
+
+    try {
+      await messagesAPI.editMessage(messageId, editContent);
+      setEditingMessageId(null);
+      setEditContent('');
+      // Message will update via socket event
+    } catch (err: any) {
+      console.error('Failed to edit message:', err);
+      setError(err.message || 'Failed to edit message');
+    }
+  };
+
+  // Delete a message
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+
+    try {
+      await messagesAPI.deleteMessage(messageId);
+      // Message will be removed via socket event
+    } catch (err: any) {
+      console.error('Failed to delete message:', err);
+      setError(err.message || 'Failed to delete message');
+    }
+  };
+
+  // Handle key press for editing
+  const handleEditKeyPress = (e: React.KeyboardEvent, messageId: string) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEdit(messageId);
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
   // Format timestamp
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -348,9 +504,19 @@ export default function Messages() {
               {/* Conversations List */}
               <Card className="md:col-span-1 flex flex-col overflow-hidden">
                 <CardHeader className="flex-shrink-0">
-                  <CardTitle className="text-lg">
-                    Conversations ({conversations.length})
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      Conversations ({conversations.length})
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowNewMessageModal(true)}
+                      className="gap-2"
+                    >
+                      <PenSquare className="h-4 w-4" />
+                      <span className="hidden sm:inline">New</span>
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col space-y-3 overflow-hidden pb-4">
                   <div className="relative flex-shrink-0">
@@ -485,7 +651,7 @@ export default function Messages() {
                             return (
                               <div
                                 key={msg.id}
-                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
                               >
                                 <div
                                   className={`flex gap-2 max-w-xs ${
@@ -503,16 +669,130 @@ export default function Messages() {
                                       {avatar}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <div className={isOwn ? 'items-end' : 'items-start'}>
-                                    <div
-                                      className={`px-4 py-2 rounded-lg ${
-                                        isOwn
-                                          ? 'bg-primary text-primary-foreground rounded-br-none'
-                                          : 'bg-muted text-foreground rounded-bl-none'
-                                      }`}
-                                    >
-                                      {msg.content}
-                                    </div>
+                                  <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+                                    {/* Message Bubble or Edit Mode */}
+                                    {editingMessageId === msg.id ? (
+                                      // Edit Mode
+                                      <div className="w-full max-w-xs">
+                                        <textarea
+                                          value={editContent}
+                                          onChange={(e) => setEditContent(e.target.value)}
+                                          onKeyDown={(e) => handleEditKeyPress(e, msg.id)}
+                                          className="w-full px-3 py-2 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                                          rows={3}
+                                          autoFocus
+                                        />
+                                        <div className="flex justify-end gap-2 mt-2">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleCancelEdit}
+                                          >
+                                            <X className="w-4 h-4 mr-1" />
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleSaveEdit(msg.id)}
+                                            disabled={!editContent.trim()}
+                                          >
+                                            <Check className="w-4 h-4 mr-1" />
+                                            Save
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      // Normal Message Display
+                                      <div className="relative">
+                                        <div
+                                          className={`rounded-lg ${
+                                            isOwn
+                                              ? 'bg-primary text-primary-foreground rounded-br-none'
+                                              : 'bg-muted text-foreground rounded-bl-none'
+                                          }`}
+                                        >
+                                          {/* File Attachment */}
+                                          {msg.message_type === 'file' && msg.file_url && (
+                                            <div className="p-3">
+                                              {msg.metadata?.mimeType?.startsWith('image/') ? (
+                                                // Image preview
+                                                <div className="mb-2">
+                                                  <img 
+                                                    src={msg.file_url} 
+                                                    alt={msg.metadata?.originalName || 'Image'} 
+                                                    className="max-w-xs rounded cursor-pointer hover:opacity-90"
+                                                    onClick={() => window.open(msg.file_url, '_blank')}
+                                                  />
+                                                </div>
+                                              ) : (
+                                                // File card
+                                                <div className="flex items-center gap-3 mb-2">
+                                                  <div className={`p-2 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-background'}`}>
+                                                    {getFileIcon(msg.metadata?.mimeType || '')}
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium truncate">
+                                                      {msg.metadata?.originalName || msg.content}
+                                                    </div>
+                                                    {msg.metadata?.size && (
+                                                      <div className={`text-xs ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                                        {formatFileSize(msg.metadata.size)}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                  <a
+                                                    href={msg.file_url}
+                                                    download
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={`p-1.5 rounded hover:bg-opacity-80 ${isOwn ? 'hover:bg-primary-foreground/10' : 'hover:bg-background'}`}
+                                                  >
+                                                    <Download className="w-4 h-4" />
+                                                  </a>
+                                                </div>
+                                              )}
+                                              {/* Caption/Text content */}
+                                              {msg.content && msg.content !== msg.metadata?.originalName && (
+                                                <div className="text-sm">{msg.content}</div>
+                                              )}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Text Message */}
+                                          {msg.message_type === 'text' && (
+                                            <div className="px-4 py-2">{msg.content}</div>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Dropdown Menu for Own Messages */}
+                                        {isOwn && msg.message_type === 'text' && (
+                                          <div className={`absolute top-0 ${isOwn ? 'left-0 -translate-x-8' : 'right-0 translate-x-8'} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6">
+                                                  <MoreVertical className="h-3 w-3" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align={isOwn ? 'start' : 'end'}>
+                                                <DropdownMenuItem onClick={() => handleStartEdit(msg)}>
+                                                  <Edit className="w-4 h-4 mr-2" />
+                                                  Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                  onClick={() => handleDeleteMessage(msg.id)}
+                                                  className="text-destructive focus:text-destructive"
+                                                >
+                                                  <Trash2 className="w-4 h-4 mr-2" />
+                                                  Delete
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Timestamp */}
                                     <div className="text-xs text-muted-foreground mt-1">
                                       {formatTime(msg.created_at)}
                                       {msg.is_edited && ' (edited)'}
@@ -536,8 +816,41 @@ export default function Messages() {
 
                     {/* Input Area */}
                     <div className="border-t p-4 flex-shrink-0">
+                      {/* File Preview */}
+                      {selectedFile && (
+                        <div className="mb-3 p-3 bg-muted rounded-lg flex items-center gap-3">
+                          {filePreview ? (
+                            <img src={filePreview} alt="Preview" className="w-16 h-16 object-cover rounded" />
+                          ) : (
+                            <div className="w-16 h-16 bg-background rounded flex items-center justify-center">
+                              {getFileIcon(selectedFile.type)}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{selectedFile.name}</div>
+                            <div className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</div>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={handleRemoveFile}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Input Row */}
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" title="Attach File (Coming Soon)">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          title="Attach File"
+                        >
                           <Paperclip className="w-4 h-4" />
                         </Button>
                         <Input
@@ -551,11 +864,34 @@ export default function Messages() {
                           disabled={sending}
                           className="flex-1"
                         />
-                        <Button variant="ghost" size="sm" title="Emoji (Coming Soon)">
-                          <Smile className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" onClick={handleSendMessage} disabled={sending || !messageInput.trim()}>
-                          <Send className="w-4 h-4" />
+                        
+                        {/* Emoji Picker */}
+                        <div className="relative emoji-picker-container">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            title="Add Emoji"
+                          >
+                            <Smile className="w-4 h-4" />
+                          </Button>
+                          {showEmojiPicker && (
+                            <div className="absolute bottom-12 right-0 z-50">
+                              <EmojiPicker
+                                onEmojiClick={handleEmojiClick}
+                                width={350}
+                                height={400}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <Button 
+                          size="sm" 
+                          onClick={handleSendMessage} 
+                          disabled={sending || (!messageInput.trim() && !selectedFile)}
+                        >
+                          {sending ? '...' : <Send className="w-4 h-4" />}
                         </Button>
                       </div>
                     </div>
@@ -781,6 +1117,13 @@ export default function Messages() {
         )}
         <BottomNavigation type="student" />
       </div>
+
+      {/* New Message Modal */}
+      <NewMessageModal
+        isOpen={showNewMessageModal}
+        onClose={() => setShowNewMessageModal(false)}
+        onConversationCreated={handleConversationCreated}
+      />
     </div>
   );
 }

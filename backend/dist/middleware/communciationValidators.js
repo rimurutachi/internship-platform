@@ -34,11 +34,10 @@ exports.validateCreateMessage = [
         .isUUID()
         .withMessage("Invalid conversation ID format."),
     (0, express_validator_1.body)("content")
+        .optional() // Content is optional when file is attached
         .trim()
-        .notEmpty()
-        .withMessage("Message content is required.")
-        .isLength({ min: 1, max: 5000 })
-        .withMessage("Message must be between to 1 and 5000 characters."),
+        .isLength({ max: 5000 })
+        .withMessage("Message must be 5000 characters or less."),
     (0, express_validator_1.body)("message_type")
         .optional()
         .isIn(["text", "file", "system"])
@@ -273,7 +272,8 @@ exports.validateCreateNotification = [
 ];
 /* Sanitization Helpers */
 const sanitizeMessageInput = (req, res, next) => {
-    if (req.body.content) {
+    // Handle both JSON body and FormData (file uploads)
+    if (req.body && req.body.content) {
         // Remove potentially harmful character while preserving basic formatting.
         req.body.content = req.body.content.trim().slice(0, 5000);
     }

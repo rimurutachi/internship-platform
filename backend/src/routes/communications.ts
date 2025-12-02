@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import multer from "multer";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import communicationController from "../controllers/communicationController";
 import {
@@ -19,6 +20,36 @@ import {
   validateNotificationOwnership,
 } from "../middleware/communciationValidators";
 
+// Configure multer for file uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow common file types
+    const allowedMimes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+      "application/zip",
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only images, PDFs, and documents are allowed."));
+    }
+  },
+});
+
 const router = Router();
 
 // All routes require authentication
@@ -26,9 +57,21 @@ router.use(authenticateToken);
 
 /* Message Routes */
 
-// Send message
+// Send message (with optional file upload)
 router.post(
   "/messages",
+  (req: Request, res: Response, next: NextFunction) => {
+    upload.single("file")(req, res, (err: any) => {
+      if (err) {
+        console.error("Multer error:", err);
+        return res.status(400).json({
+          success: false,
+          error: err.message || "File upload error",
+        });
+      }
+      next();
+    });
+  },
   sanitizeMessageInput,
   validateCreateMessage,
   validateConversationAccess,
@@ -72,6 +115,12 @@ router.post(
 
 // Get user conversations
 router.get("/conversations", communicationController.getUserConversations);
+
+// Search users for new conversations
+router.get("/users/search", communicationController.searchUsers);
+
+// Create or get direct conversation
+router.post("/conversations/direct", communicationController.createDirectConversation);
 
 // Get single conversation
 router.get(

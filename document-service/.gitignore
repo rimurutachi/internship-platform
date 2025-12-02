@@ -5,8 +5,14 @@
 !.env.example
 
 # dependencies
-node_modules/
-dist/
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
 # Logs
 logs/
