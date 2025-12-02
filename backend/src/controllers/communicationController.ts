@@ -170,6 +170,7 @@ export class CommunicationController {
 
       return res.json({ success: true, data: conversations });
     } catch (error: any) {
+      console.error("Error in getUserConversations:", error);
       return res.status(400).json({
         success: false,
         error: error.message || "Failed to retrieve conversations",
