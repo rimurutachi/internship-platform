@@ -19,7 +19,16 @@ class CommunicationController {
                     error: "User not authenticated",
                 });
             }
-            const message = await messageService_1.default.sendMessage(userId, req.body);
+            // Get file from multer if exists
+            const file = req.file;
+            // Validate: must have either content or file
+            if (!req.body.content && !file) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Message must have content or file attachment",
+                });
+            }
+            const message = await messageService_1.default.sendMessage(userId, req.body, file);
             return res.status(201).json({ success: true, data: message });
         }
         catch (error) {
@@ -214,6 +223,60 @@ class CommunicationController {
             return res.status(400).json({
                 success: false,
                 error: error.message || "Failed to get unread count",
+            });
+        }
+    }
+    // Search users for starting conversations
+    async searchUsers(req, res) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    error: "User not authenticated",
+                });
+            }
+            const { q: searchQuery, role: roleFilter } = req.query;
+            const users = await conversationService_1.default.searchUsers(userId, searchQuery, roleFilter);
+            return res.json({ success: true, data: users });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message || "Failed to search users",
+            });
+        }
+    }
+    // Create or get direct conversation
+    async createDirectConversation(req, res) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    error: "User not authenticated",
+                });
+            }
+            const { otherUserId } = req.body;
+            if (!otherUserId) {
+                return res.status(400).json({
+                    success: false,
+                    error: "otherUserId is required",
+                });
+            }
+            if (otherUserId === userId) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Cannot create conversation with yourself",
+                });
+            }
+            const conversation = await conversationService_1.default.createDirectConversation(userId, otherUserId);
+            return res.status(201).json({ success: true, data: conversation });
+        }
+        catch (error) {
+            return res.status(400).json({
+                success: false,
+                error: error.message || "Failed to create conversation",
             });
         }
     }

@@ -3,19 +3,61 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessageService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const emitters_1 = require("../socket/emitters");
+const uuid_1 = require("uuid");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 class MessageService {
+    // Upload file to Supabase Storage
+    async uploadFile(file, conversationId) {
+        try {
+            const fileExt = file.originalname.split(".").pop();
+            const fileName = `${(0, uuid_1.v4)()}.${fileExt}`;
+            const filePath = `${conversationId}/${fileName}`;
+            // Upload to Supabase Storage
+            const { data, error } = await supabase.storage
+                .from("message-attachments")
+                .upload(filePath, file.buffer, {
+                contentType: file.mimetype,
+                upsert: false,
+            });
+            if (error)
+                throw error;
+            // Get public URL
+            const { data: { publicUrl }, } = supabase.storage.from("message-attachments").getPublicUrl(filePath);
+            const metadata = {
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+                size: file.size,
+                extension: fileExt,
+            };
+            return { url: publicUrl, metadata };
+        }
+        catch (error) {
+            throw new Error(`File upload failed: ${error.message}`);
+        }
+    }
     // Send message
-    async sendMessage(senderId, data) {
+    async sendMessage(senderId, data, file) {
+        let fileUrl;
+        let metadata = data.metadata || {};
+        // If file is provided, upload it first
+        if (file) {
+            const uploadResult = await this.uploadFile(file, data.conversation_id);
+            fileUrl = uploadResult.url;
+            metadata = { ...metadata, ...uploadResult.metadata };
+        }
+        // Determine message type and content
+        const messageType = file ? "file" : data.message_type || "text";
+        const content = data.content || (file ? file.originalname : "");
         // Insert message
         const { data: message, error: messageError } = await supabase
             .from("messages")
             .insert({
             conversation_id: data.conversation_id,
             sender_id: senderId,
-            content: data.content,
-            message_type: data.message_type || "text",
-            file_url: data.file_url,
+            content,
+            message_type: messageType,
+            file_url: fileUrl || data.file_url,
+            metadata,
         })
             .select()
             .single();

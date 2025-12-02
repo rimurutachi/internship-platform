@@ -215,6 +215,111 @@ export class ConversationService {
     });
     return unreadCount;
   }
+
+  // Search users for starting conversations
+  async searchUsers(currentUserId: string, searchQuery?: string, roleFilter?: string): Promise<any[]> {
+    let query = supabase
+      .from("users")
+      .select("id, first_name, last_name, email, role")
+      .neq("id", currentUserId) // Exclude current user
+      .order("first_name", { ascending: true })
+      .limit(20);
+
+    // Apply role filter if provided
+    if (roleFilter && roleFilter !== 'all') {
+      query = query.eq("role", roleFilter);
+    }
+
+    // Apply search filter if provided
+    if (searchQuery && searchQuery.trim()) {
+      const search = searchQuery.trim();
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
+  // Create or get existing direct conversation (1-on-1)
+  async createDirectConversation(userId1: string, userId2: string): Promise<any> {
+    // Check if a direct conversation already exists between these two users
+    const { data: existingParticipants, error: searchError } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id, conversations(type)")
+      .eq("user_id", userId1)
+      .eq("is_active", true);
+
+    if (searchError) throw new Error(searchError.message);
+
+    // Find a direct conversation that includes both users
+    if (existingParticipants && existingParticipants.length > 0) {
+      for (const participant of existingParticipants) {
+        const conversationId = participant.conversation_id;
+        const conversation: any = participant.conversations;
+        const conversationType = conversation?.type;
+
+        // Only check direct conversations
+        if (conversationType === "direct") {
+          // Check if userId2 is also a participant in this conversation
+          const { data: otherParticipant, error: checkError } = await supabase
+            .from("conversation_participants")
+            .select("id")
+            .eq("conversation_id", conversationId)
+            .eq("user_id", userId2)
+            .eq("is_active", true)
+            .single();
+
+          if (!checkError && otherParticipant) {
+            // Conversation exists, return it
+            return await this.getConversation(conversationId);
+          }
+        }
+      }
+    }
+
+    // No existing conversation found, create a new one
+    const { data: newConversation, error: createError } = await supabase
+      .from("conversations")
+      .insert({
+        type: "direct",
+        created_by: userId1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (createError) throw new Error(createError.message);
+
+    // Add both users as participants
+    const participants = [
+      {
+        conversation_id: newConversation.id,
+        user_id: userId1,
+        role: "member",
+        joined_at: new Date().toISOString(),
+        is_active: true,
+      },
+      {
+        conversation_id: newConversation.id,
+        user_id: userId2,
+        role: "member",
+        joined_at: new Date().toISOString(),
+        is_active: true,
+      },
+    ];
+
+    const { error: participantsError } = await supabase
+      .from("conversation_participants")
+      .insert(participants);
+
+    if (participantsError) throw new Error(participantsError.message);
+
+    // Return the newly created conversation with participants
+    return await this.getConversation(newConversation.id);
+  }
 }
 
 export default new ConversationService();

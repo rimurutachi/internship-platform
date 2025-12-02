@@ -10,6 +10,8 @@ export declare class CommunicationController {
     getConversation(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     markAsRead(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
     getUnreadCount(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+    searchUsers(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+    createDirectConversation(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
     createNotification(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     getNotifications(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
     getUnreadNotificationsCount(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
