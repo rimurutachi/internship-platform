@@ -69,6 +69,7 @@ export interface CreateMessageDTO {
   content: string;
   message_type?: "text" | "file" | "system";
   file_url?: string;
+  metadata?: any;
 }
 
 export interface CreateConversationDTO {

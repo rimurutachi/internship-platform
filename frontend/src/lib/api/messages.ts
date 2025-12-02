@@ -25,6 +25,15 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 }
 
 /**
+ * Get auth token only (for FormData uploads)
+ */
+async function getAuthToken(): Promise<string> {
+  const supabase = createSupabaseClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || '';
+}
+
+/**
  * Message type definition
  */
 export interface Message {
@@ -117,7 +126,17 @@ export const messagesAPI = {
     }
 
     const result = await response.json();
-    return result.data || [];
+    const data = result.data || [];
+    
+    // Transform backend structure to frontend Conversation interface
+    // Backend returns: { id, conversation: { id, type, ..., participants } }
+    // Frontend expects: { id, type, ..., participants }
+    return data.map((item: any) => ({
+      ...item.conversation,
+      // Include any participant-specific data if needed
+      last_read_at: item.last_read_at,
+      user_role: item.role,
+    }));
   },
 
   /**
@@ -188,9 +207,37 @@ export const messagesAPI = {
   },
 
   /**
-   * Send a message
+   * Send a message (with optional file)
    */
-  async sendMessage(data: SendMessageData): Promise<Message> {
+  async sendMessage(data: SendMessageData, file?: File): Promise<Message> {
+    const token = await getAuthToken();
+    
+    // Use FormData if file is provided
+    if (file) {
+      const formData = new FormData();
+      formData.append('conversation_id', data.conversation_id);
+      if (data.content) formData.append('content', data.content);
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/communications/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type - browser will set it with boundary for FormData
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+
+      const result = await response.json();
+      return result.data;
+    }
+    
+    // Regular JSON request for text-only messages
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/communications/messages`, {
       method: 'POST',
@@ -267,4 +314,69 @@ export const messagesAPI = {
       throw new Error(error.error || 'Failed to mark as read');
     }
   },
+
+  /**
+   * Search users for starting new conversations
+   * @param searchQuery - Search term for name or email
+   * @param roleFilter - Filter by role (student, advisor, supervisor, admin) or 'all'
+   */
+  async searchUsers(searchQuery?: string, roleFilter?: string): Promise<User[]> {
+    const headers = await getAuthHeaders();
+    const params = new URLSearchParams();
+    
+    if (searchQuery) params.append('q', searchQuery);
+    if (roleFilter && roleFilter !== 'all') params.append('role', roleFilter);
+
+    const response = await fetch(
+      `${API_BASE_URL}/communications/users/search?${params.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to search users');
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  },
+
+  /**
+   * Create or get existing direct conversation with another user
+   * @param otherUserId - ID of the user to start conversation with
+   */
+  async createDirectConversation(otherUserId: string): Promise<Conversation> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(
+      `${API_BASE_URL}/communications/conversations/direct`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ otherUserId }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create conversation');
+    }
+
+    const result = await response.json();
+    return result.data;
+  },
 };
+
+/**
+ * User type for search results
+ */
+export interface User {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+}
+
