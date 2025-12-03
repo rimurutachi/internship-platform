@@ -4,11 +4,17 @@
   "python.analysis.extraPaths": [
     "${workspaceFolder}/ai-service"
   ],
+  "python.analysis.exclude": [
+    "**/.venv/**",
+    "**/node_modules/**"
+  ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.python",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
     }
-  }
+  },
+  "python.analysis.autoSearchPaths": false,
+  "python.languageServer": "Pylance"
 }
