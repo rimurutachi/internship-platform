@@ -9,6 +9,7 @@ import settingsRoutes from './admin/settings.routes';
 import dashboardRoutes from './admin/dashboard.routes';
 import internshipsRoutes from './admin/internships';
 import evaluationsRoutes from './admin/evaluations.routes';
+import companiesRoutes from './admin/companies';
 
 const router = Router();
 
@@ -67,5 +68,8 @@ router.use('/internships', internshipsRoutes);
 
 // Evaluations management routes
 router.use('/evaluations', evaluationsRoutes);
+
+// Companies management routes
+router.use('/companies', companiesRoutes);
 
 export default router;
