@@ -23,6 +23,8 @@ import {
   CreateUserRequest,
   UpdateUserRequest 
 } from '@/lib/api/services/admin';
+import { adminCompaniesAPI, Company } from '@/lib/api/admin-companies';
+import { createSupabaseClient } from '@/lib/supabase';
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -56,6 +58,13 @@ export default function UsersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  
+  // Companies state for supervisor assignment
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  
+  // Universities state for student/advisor assignment
+  const [universities, setUniversities] = useState<Array<{id: string, name: string, code: string}>>([]);
   
   // Form states
   const [createForm, setCreateForm] = useState<CreateUserRequest>({
@@ -117,6 +126,43 @@ export default function UsersPage() {
     }
   };
 
+  // Fetch companies for supervisor assignment
+  const fetchCompanies = async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await adminCompaniesAPI.getCompanies({});
+      setCompanies(response.data.companies);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to fetch companies',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  // Fetch universities for student/advisor assignment
+  const fetchUniversities = async () => {
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase
+        .from('universities')
+        .select('id, name, code')
+        .order('name');
+      
+      if (error) throw error;
+      setUniversities(data || []);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to fetch universities',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Initial load
   useEffect(() => {
     fetchUsers();
@@ -129,6 +175,16 @@ export default function UsersPage() {
       toast({
         title: 'Validation Error',
         description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate supervisor has company
+    if (createForm.role === 'supervisor' && !createForm.company_id) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a company for the supervisor',
         variant: 'destructive',
       });
       return;
@@ -158,7 +214,7 @@ export default function UsersPage() {
 
   // Update user handler
   const handleUpdateUser = async () => {
-    if (!selectedUser || (!editForm.firstName && !editForm.lastName && !editForm.email)) {
+    if (!selectedUser || (!editForm.firstName && !editForm.lastName && !editForm.email && !editForm.company_id)) {
       toast({
         title: 'Validation Error',
         description: 'Please provide at least one field to update',
@@ -241,8 +297,22 @@ export default function UsersPage() {
     const nameParts = (user.name || '').trim().split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
-    setEditForm({ firstName, lastName, email: user.email });
+    setEditForm({ 
+      firstName, 
+      lastName, 
+      email: user.email,
+      company_id: user.company_id, // Pre-populate company if supervisor
+      university_id: user.university_id // Pre-populate university if student/advisor
+    });
     setEditDialogOpen(true);
+    // Fetch companies when editing supervisor
+    if (user.role === 'supervisor') {
+      fetchCompanies();
+    }
+    // Fetch universities when editing student/advisor
+    if (user.role === 'student' || user.role === 'advisor') {
+      fetchUniversities();
+    }
   };
 
   // Open delete dialog
@@ -314,7 +384,13 @@ export default function UsersPage() {
                     {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                     Refresh
                   </Button>
-                  <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                  <Dialog open={createDialogOpen} onOpenChange={(open) => {
+                    setCreateDialogOpen(open);
+                    if (open) {
+                      fetchCompanies(); // Fetch companies when dialog opens
+                      fetchUniversities(); // Fetch universities for students/advisors
+                    }
+                  }}>
                     <DialogTrigger asChild>
                       <Button className="bg-primary hover:bg-primary/90">
                         <UserPlus className="w-4 h-4 mr-2" />
@@ -369,7 +445,9 @@ export default function UsersPage() {
                         <Label>Role</Label>
                         <Select 
                           value={createForm.role}
-                          onValueChange={(value: any) => setCreateForm({ ...createForm, role: value })}
+                          onValueChange={(value: any) => {
+                            setCreateForm({ ...createForm, role: value, company_id: undefined });
+                          }}
                         >
                           <SelectTrigger className="mt-2">
                             <SelectValue placeholder="Select role" />
@@ -382,6 +460,39 @@ export default function UsersPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                      
+                      {/* Company dropdown - only show for supervisors */}
+                      {createForm.role === 'supervisor' && (
+                        <div>
+                          <Label>Company <span className="text-destructive">*</span></Label>
+                          {loadingCompanies ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : companies.length === 0 ? (
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              No companies available. Please create a company first.
+                            </div>
+                          ) : (
+                            <Select 
+                              value={createForm.company_id}
+                              onValueChange={(value: string) => setCreateForm({ ...createForm, company_id: value })}
+                            >
+                              <SelectTrigger className="mt-2">
+                                <SelectValue placeholder="Select company" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {companies.map((company) => (
+                                  <SelectItem key={company.id} value={company.id}>
+                                    {company.name} {company.code ? `(${company.code})` : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      )}
+                      
                       <Button 
                         className="w-full bg-primary hover:bg-primary/90" 
                         onClick={handleCreateUser}
@@ -653,85 +764,17 @@ export default function UsersPage() {
         <div className="flex-1 overflow-y-auto p-4 pb-20">
           <div className="space-y-4">
             {/* Mobile Add Button */}
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-full bg-primary hover:bg-primary/90">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add User
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New User</DialogTitle>
-                  <DialogDescription>Add a new user to the platform</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>First Name</Label>
-                    <Input 
-                      placeholder="John" 
-                      className="mt-2"
-                      value={createForm.firstName}
-                      onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Last Name</Label>
-                    <Input 
-                      placeholder="Doe" 
-                      className="mt-2"
-                      value={createForm.lastName}
-                      onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Email</Label>
-                    <Input 
-                      type="email" 
-                      placeholder="john@example.com" 
-                      className="mt-2"
-                      value={createForm.email}
-                      onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Password</Label>
-                    <Input 
-                      type="password" 
-                      placeholder="Enter password" 
-                      className="mt-2"
-                      value={createForm.password}
-                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Role</Label>
-                    <Select 
-                      value={createForm.role}
-                      onValueChange={(value: any) => setCreateForm({ ...createForm, role: value })}
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="advisor">Advisor</SelectItem>
-                        <SelectItem value="supervisor">Supervisor</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button 
-                    className="w-full bg-primary hover:bg-primary/90" 
-                    onClick={handleCreateUser}
-                    disabled={submitting}
-                  >
-                    {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Create User
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              className="w-full bg-primary hover:bg-primary/90"
+              onClick={() => {
+                setCreateDialogOpen(true);
+                fetchCompanies();
+                fetchUniversities();
+              }}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add User
+            </Button>
 
             {/* Mobile Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
@@ -898,7 +941,7 @@ export default function UsersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information</DialogDescription>
+            <DialogDescription>Update user information for {selectedUser?.name}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -929,6 +972,69 @@ export default function UsersPage() {
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
               />
             </div>
+            
+            {/* Company dropdown - only show for supervisors */}
+            {selectedUser?.role === 'supervisor' && (
+              <div>
+                <Label>Company</Label>
+                {loadingCompanies ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : companies.length === 0 ? (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    No companies available. Please create a company first.
+                  </div>
+                ) : (
+                  <Select 
+                    value={editForm.company_id}
+                    onValueChange={(value: string) => setEditForm({ ...editForm, company_id: value })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name} {company.code ? `(${company.code})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+            
+            {/* University dropdown - show for students and advisors */}
+            {(selectedUser?.role === 'student' || selectedUser?.role === 'advisor') && (
+              <div>
+                <Label>University</Label>
+                {universities.length === 0 ? (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Loading university...
+                  </div>
+                ) : (
+                  <Select 
+                    value={editForm.university_id}
+                    onValueChange={(value: string) => setEditForm({ ...editForm, university_id: value })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select university" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {universities.map((university) => (
+                        <SelectItem key={university.id} value={university.id}>
+                          {university.name} {university.code ? `(${university.code})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="mt-1 text-xs text-muted-foreground">
+                  All students and advisors are assigned to CVSU-Bacoor Campus
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button 

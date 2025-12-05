@@ -6,6 +6,15 @@ const router = Router();
 
 router.use(authenticateToken);
 
+// Get evaluations with filters (must be before /:id)
+router.get('/', evaluationController.getEvaluations);
+
+// Analyze draft evaluation (supervisor) - MUST be before /:id routes
+router.post('/analyze-draft',
+    requireRole(['supervisor']),
+    evaluationController.analyzeDraftEvaluation
+);
+
 // Create evaluation (supervisor)
 router.post('/',
     requireRole(['supervisor']),

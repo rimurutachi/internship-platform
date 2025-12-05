@@ -64,15 +64,59 @@ export function CreateInternshipModal({
     status: 'pending',
   });
 
+  // Helper function to fetch CVSU-BC advisors
+  const fetchCVSUAdvisors = async () => {
+    try {
+      // Fetch CVSU-BC university
+      const supabase = createSupabaseClient();
+      const { data: university, error } = await supabase
+        .from('universities')
+        .select('id')
+        .eq('code', 'CVSU-BC')
+        .single();
+      
+      if (error) throw error;
+      
+      if (university) {
+        // Fetch advisors for CVSU-BC
+        try {
+          console.log('Fetching advisors for CVSU-BC university:', university.id);
+          const response = await adminInternshipsAPI.getAdvisorsByUniversity(university.id);
+          console.log('CVSU-BC Advisors fetched:', response.data.advisors);
+          setAdvisors(response.data.advisors);
+          
+          if (response.data.advisors.length === 0) {
+            toast({
+              title: 'No Advisors Found',
+              description: 'There are no advisors registered for CVSU-BC yet.',
+              variant: 'destructive',
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching advisors:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to fetch advisors',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching CVSU university:', error);
+    }
+  };
+
   // Fetch available students
   useEffect(() => {
     if (open) {
       fetchAvailableStudents();
       fetchCompanies();
+      // Auto-fetch CVSU-BC advisors since all advisors belong to this university
+      fetchCVSUAdvisors();
     }
   }, [open]);
 
-  // Fetch advisors when student is selected
+  // Fetch advisors when student is selected (for legacy support)
   useEffect(() => {
     if (selectedStudent?.university_id) {
       fetchAdvisors(selectedStudent.university_id);
@@ -132,9 +176,20 @@ export function CreateInternshipModal({
 
   const fetchAdvisors = async (universityId: string) => {
     try {
+      console.log('Fetching advisors for university:', universityId);
       const response = await adminInternshipsAPI.getAdvisorsByUniversity(universityId);
+      console.log('Advisors fetched:', response.data.advisors);
       setAdvisors(response.data.advisors);
+      
+      if (response.data.advisors.length === 0) {
+        toast({
+          title: 'No Advisors Found',
+          description: 'There are no advisors registered for this university yet.',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
+      console.error('Error fetching advisors:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch advisors',
@@ -145,9 +200,20 @@ export function CreateInternshipModal({
 
   const fetchSupervisors = async (companyId: string) => {
     try {
+      console.log('Fetching supervisors for company:', companyId);
       const response = await adminInternshipsAPI.getSupervisorsByCompany(companyId);
+      console.log('Supervisors fetched:', response.data.supervisors);
       setSupervisors(response.data.supervisors);
+      
+      if (response.data.supervisors.length === 0) {
+        toast({
+          title: 'No Supervisors Found',
+          description: 'There are no supervisors registered for this company yet.',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
+      console.error('Error fetching supervisors:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch supervisors',
@@ -158,8 +224,11 @@ export function CreateInternshipModal({
 
   const handleStudentChange = (studentId: string) => {
     const student = availableStudents.find((s) => s.id === studentId);
+    console.log('Selected student:', student);
+    console.log('Student university_id:', student?.university_id);
     setSelectedStudent(student || null);
     setFormData({ ...formData, student_id: studentId, advisor_id: '' });
+    setAdvisors([]); // Reset advisors when student changes
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -334,22 +403,46 @@ export function CreateInternshipModal({
             <Select
               value={formData.advisor_id}
               onValueChange={(value) => setFormData({ ...formData, advisor_id: value })}
-              disabled={loading || !selectedStudent}
+              disabled={loading || !selectedStudent || advisors.length === 0}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select an advisor" />
+                <SelectValue placeholder={
+                  !selectedStudent 
+                    ? "Select a student first" 
+                    : advisors.length === 0 
+                    ? "No advisors available"
+                    : "Select an advisor"
+                } />
               </SelectTrigger>
               <SelectContent>
-                {advisors.map((advisor) => (
-                  <SelectItem key={advisor.id} value={advisor.id}>
-                    {advisor.name} ({advisor.email})
-                  </SelectItem>
-                ))}
+                {advisors.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No advisors found for this university
+                  </div>
+                ) : (
+                  advisors.map((advisor) => (
+                    <SelectItem key={advisor.id} value={advisor.id}>
+                      {advisor.name} ({advisor.email})
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
-            {!selectedStudent && (
+            {!selectedStudent ? (
               <p className="text-sm text-muted-foreground">
                 Select a student first to see available advisors
+              </p>
+            ) : !selectedStudent.university_id ? (
+              <p className="text-sm text-yellow-600">
+                ⚠️ This student has no university assigned. Please update student profile first.
+              </p>
+            ) : advisors.length === 0 ? (
+              <p className="text-sm text-yellow-600">
+                ⚠️ No advisors registered for this university. Please add advisors first.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {advisors.length} advisor{advisors.length !== 1 ? 's' : ''} available from student's university
               </p>
             )}
           </div>
@@ -360,22 +453,42 @@ export function CreateInternshipModal({
             <Select
               value={formData.supervisor_id}
               onValueChange={(value) => setFormData({ ...formData, supervisor_id: value })}
-              disabled={loading || !formData.company_id}
+              disabled={loading || !formData.company_id || supervisors.length === 0}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a supervisor" />
+                <SelectValue placeholder={
+                  !formData.company_id 
+                    ? "Select a company first" 
+                    : supervisors.length === 0 
+                    ? "No supervisors available"
+                    : "Select a supervisor"
+                } />
               </SelectTrigger>
               <SelectContent>
-                {supervisors.map((supervisor) => (
-                  <SelectItem key={supervisor.id} value={supervisor.id}>
-                    {supervisor.name} ({supervisor.email})
-                  </SelectItem>
-                ))}
+                {supervisors.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground">
+                    No supervisors found for this company
+                  </div>
+                ) : (
+                  supervisors.map((supervisor) => (
+                    <SelectItem key={supervisor.id} value={supervisor.id}>
+                      {supervisor.name} ({supervisor.email})
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
-            {!formData.company_id && (
+            {!formData.company_id ? (
               <p className="text-sm text-muted-foreground">
                 Select a company first to see available supervisors
+              </p>
+            ) : supervisors.length === 0 ? (
+              <p className="text-sm text-yellow-600">
+                ⚠️ No supervisors registered for this company. Please add supervisors first.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {supervisors.length} supervisor{supervisors.length !== 1 ? 's' : ''} available from selected company
               </p>
             )}
           </div>

@@ -3,6 +3,45 @@ import { EvaluationService } from "../services/evaluationService";
 
 const evaluationService = new EvaluationService();
 
+/**
+ * Analyze draft evaluation text (real-time feedback)
+ * POST /api/evaluations/analyze-draft
+ */
+export async function analyzeDraftEvaluation(req: Request, res: Response) {
+    try {
+        const { text } = req.body;
+
+        // Validation
+        if (!text || typeof text !== 'string') {
+            return res.status(400).json({
+                success: false,
+                error: 'Text field is required and must be a string',
+            });
+        }
+
+        if (text.trim().length < 5) {
+            return res.status(400).json({
+                success: false,
+                error: 'Text is too short for analysis (minimum 5 characters)',
+            });
+        }
+
+        // Call service
+        const result = await evaluationService.analyzeDraft(text);
+
+        res.json({
+            success: true,
+            data: result,
+        });
+    } catch (error: any) {
+        console.error('Draft analysis error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to analyze draft evaluation',
+        });
+    }
+}
+
 export async function createEvaluation(req: Request, res: Response) {
     try {
         const evaluation = await evaluationService.create(req.body);
@@ -49,5 +88,27 @@ export async function getInternshipEvaluations(req: Request, res: Response) {
         res.json({success: true, data: evaluations})
     } catch (error: any) {
         res.status(500).json({success: false, error: error.message})
+    }
+}
+
+/**
+ * Get evaluations with optional filters
+ * GET /api/evaluations?supervisor_id=xxx&status=draft
+ */
+export async function getEvaluations(req: Request, res: Response) {
+    try {
+        const { supervisor_id, status, limit, offset } = req.query;
+
+        const evaluations = await evaluationService.getAll({
+            supervisor_id: supervisor_id as string,
+            status: status as string,
+            limit: limit ? parseInt(limit as string) : undefined,
+            offset: offset ? parseInt(offset as string) : undefined,
+        });
+
+        res.json({ success: true, data: evaluations });
+    } catch (error: any) {
+        console.error('Get evaluations error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 }

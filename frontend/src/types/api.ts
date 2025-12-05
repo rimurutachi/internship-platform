@@ -371,3 +371,98 @@ export interface ListParams extends Record<string, unknown> {
   search?: string;
   filters?: Record<string, unknown>;
 }
+
+/**
+ * Enhanced AI Analysis Types for Supervisor Evaluations
+ */
+
+/**
+ * Bias flag detected by AI
+ */
+export interface BiasFlag {
+  type: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  location?: string;
+}
+
+/**
+ * Complete AI analysis result with bias check
+ */
+export interface AIAnalysisResultComplete {
+  features: {
+    technical_skills: string[];
+    soft_skills: string[];
+  };
+  sentiment: {
+    score: number;
+    label: 'positive' | 'neutral' | 'negative';
+    breakdown: {
+      positive?: number;
+      neutral?: number;
+      negative?: number;
+    };
+  };
+  bias_check: {
+    passed: boolean;
+    flags: string[];
+    severity?: 'low' | 'medium' | 'high';
+    consistency_score?: number;
+  };
+  confidence_score: number;
+  processing_time_ms: number;
+  recommended_grade?: number;
+}
+
+/**
+ * Draft analysis result (lightweight, real-time)
+ */
+export interface DraftAnalysisResultType {
+  status: string;
+  features: {
+    technical_skills: string[];
+    soft_skills: string[];
+  };
+  sentiment: {
+    score: number;
+    label: 'positive' | 'neutral' | 'negative';
+    breakdown: Record<string, number>;
+  };
+  processing_time_ms?: number;
+}
+
+/**
+ * Evaluation form data for supervisor
+ */
+export interface EvaluationFormDataType {
+  internship_id: string;
+  supervisor_id: string;
+  feedback_text: string;
+  rating_overall?: number | null;
+  rating_technical?: number | null;
+  rating_communication?: number | null;
+  rating_work_ethic?: number | null;
+}
+
+/**
+ * Evaluation AI analysis stored in database
+ */
+export interface EvaluationAIAnalysisRecord {
+  id: string;
+  evaluation_id: string;
+  extracted_technical_skills: string[];
+  extracted_soft_skills: string[];
+  key_achievements: string[];
+  areas_for_improvement: string[];
+  sentiment_positive_score: number;
+  sentiment_neutral_score: number;
+  sentiment_negative_score: number;
+  overall_sentiment: string;
+  ai_recommendations: string[];
+  suggested_improvements: string[];
+  potential_biases: string[];
+  ai_model_version: string;
+  processing_time_ms: number;
+  overall_confidence_score: number;
+  created_at: string;
+}
