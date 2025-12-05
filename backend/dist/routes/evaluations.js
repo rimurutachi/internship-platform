@@ -38,6 +38,10 @@ const auth_1 = require("../middleware/auth");
 const evaluationController = __importStar(require("../controllers/evaluationController"));
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticateToken);
+// Get evaluations with filters (must be before /:id)
+router.get('/', evaluationController.getEvaluations);
+// Analyze draft evaluation (supervisor) - MUST be before /:id routes
+router.post('/analyze-draft', (0, auth_1.requireRole)(['supervisor']), evaluationController.analyzeDraftEvaluation);
 // Create evaluation (supervisor)
 router.post('/', (0, auth_1.requireRole)(['supervisor']), evaluationController.createEvaluation);
 // Get evaluation

@@ -12,7 +12,8 @@ import {
   Brain,
   Settings,
   BarChart3,
-  Briefcase
+  Briefcase,
+  Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
@@ -20,6 +21,7 @@ import { useUserContext } from '@/components/providers/UserProvider';
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/admin', emoji: '📊' },
   { icon: Users, label: 'Users', path: '/dashboard/admin/users', emoji: '👥' },
+  { icon: Building2, label: 'Companies', path: '/dashboard/admin/companies', emoji: '🏢' },
   { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships', emoji: '💼' },
   { icon: Brain, label: 'Evaluations', path: '/dashboard/admin/evaluations', emoji: '🧠' },
   { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents', emoji: '📄' },

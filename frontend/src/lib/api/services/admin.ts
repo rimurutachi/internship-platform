@@ -19,6 +19,8 @@ export interface AdminUser {
   created_at: string;
   updated_at: string;
   last_login?: string;
+  company_id?: string; // For supervisors
+  university_id?: string; // For students/advisors
 }
 
 /**
@@ -54,6 +56,8 @@ export interface CreateUserRequest {
   lastName: string;
   role: 'student' | 'advisor' | 'supervisor' | 'admin';
   password: string;
+  company_id?: string; // For supervisors - link to their company
+  university_id?: string; // For students/advisors
 }
 
 /**
@@ -63,6 +67,8 @@ export interface UpdateUserRequest {
   firstName?: string;
   lastName?: string;
   email?: string;
+  company_id?: string; // For updating supervisor's company
+  university_id?: string; // For updating student/advisor university
 }
 
 /**
