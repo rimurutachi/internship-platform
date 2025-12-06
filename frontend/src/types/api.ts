@@ -387,7 +387,7 @@ export interface BiasFlag {
 }
 
 /**
- * Complete AI analysis result with bias check
+ * Complete AI analysis result with Phase 1 enhancements
  */
 export interface AIAnalysisResultComplete {
   features: {
@@ -397,6 +397,22 @@ export interface AIAnalysisResultComplete {
   sentiment: {
     score: number;
     label: 'positive' | 'neutral' | 'negative';
+    tone?: 'praise' | 'constructive' | 'harsh' | 'balanced' | 'neutral';
+    intensity?: 'mild' | 'moderate' | 'strong';
+    subjectivity?: number;
+    context_flags?: {
+      has_praise: boolean;
+      has_concerns: boolean;
+      has_constructive: boolean;
+      is_balanced: boolean;
+      mentions_improvement: boolean;
+      mentions_excellence: boolean;
+    };
+    insights?: Array<{
+      type: string;
+      message: string;
+      suggestion?: string;
+    }>;
     breakdown: {
       positive?: number;
       neutral?: number;
@@ -405,9 +421,55 @@ export interface AIAnalysisResultComplete {
   };
   bias_check: {
     passed: boolean;
-    flags: string[];
-    severity?: 'low' | 'medium' | 'high';
+    flags: Array<{
+      type: string;
+      severity: string;
+      message: string;
+    }>;
+    severity?: 'low' | 'medium' | 'high' | 'none';
     consistency_score?: number;
+  };
+  llt_guidance?: {
+    suggested_rating: number;
+    range: {
+      min: number;
+      max: number;
+    };
+    confidence: number;
+    breakdown: {
+      sentiment_contribution: number;
+      skill_contribution: number;
+      text_quality_contribution: number;
+      consistency_contribution: number;
+    };
+    explanation: string;
+    guidance: Array<{
+      type: string;
+      message: string;
+      priority: 'low' | 'medium' | 'high';
+    }>;
+  };
+  feedback_quality?: {
+    suggestions: Array<{
+      type: string;
+      severity: 'low' | 'medium' | 'high';
+      message: string;
+      current?: number;
+      target?: number;
+      examples?: string[];
+      tip?: string;
+      prompt?: string;
+    }>;
+    strengths: string[];
+    quality_score: number;
+    readiness: boolean;
+    metrics: {
+      word_count: number;
+      sentence_count: number;
+      skill_count: number;
+      sentiment_balance: string;
+      has_specific_examples: boolean;
+    };
   };
   confidence_score: number;
   processing_time_ms: number;
@@ -415,7 +477,7 @@ export interface AIAnalysisResultComplete {
 }
 
 /**
- * Draft analysis result (lightweight, real-time)
+ * Draft analysis result (lightweight, real-time) - Phase 1 Enhanced
  */
 export interface DraftAnalysisResultType {
   status: string;
@@ -426,7 +488,28 @@ export interface DraftAnalysisResultType {
   sentiment: {
     score: number;
     label: 'positive' | 'neutral' | 'negative';
+    tone?: 'praise' | 'constructive' | 'harsh' | 'balanced' | 'neutral';
+    intensity?: 'mild' | 'moderate' | 'strong';
     breakdown: Record<string, number>;
+  };
+  feedback_quality?: {
+    suggestions: Array<{
+      type: string;
+      severity: 'low' | 'medium' | 'high';
+      message: string;
+      examples?: string[];
+    }>;
+    quality_score: number;
+    readiness: boolean;
+    metrics?: {
+      word_count: number;
+      skill_count: number;
+    };
+  };
+  llt_guidance?: {
+    suggested_rating: number;
+    range: { min: number; max: number };
+    confidence: number;
   };
   processing_time_ms?: number;
 }

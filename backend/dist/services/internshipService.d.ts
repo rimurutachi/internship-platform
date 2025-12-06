@@ -16,5 +16,6 @@ export declare class InternshipService {
     delete(id: string): Promise<void>;
     getStudentInternships(studentId: string): Promise<Internship[]>;
     getAdvisorInternships(advisorId: string): Promise<Internship[]>;
+    getSupervisorInternships(supervisorId: string): Promise<Internship[]>;
 }
 //# sourceMappingURL=internshipService.d.ts.map

@@ -107,7 +107,7 @@ async function getUserById(req, res) {
  */
 async function createUser(req, res) {
     try {
-        const { email, firstName, lastName, role, password } = req.body;
+        const { email, firstName, lastName, role, password, company_id, university_id } = req.body;
         // Validate required fields
         if (!email || !firstName || !lastName || !role || !password) {
             return res.status(400).json({
@@ -123,6 +123,14 @@ async function createUser(req, res) {
                 success: false,
                 error: 'Validation error',
                 message: 'Invalid role. Must be one of: student, advisor, supervisor, admin',
+            });
+        }
+        // Validate supervisor has company
+        if (role === 'supervisor' && !company_id) {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation error',
+                message: 'Company ID is required for supervisors',
             });
         }
         // Construct full name
@@ -147,9 +155,7 @@ async function createUser(req, res) {
             });
         }
         // Create user in database
-        const { data: dbUser, error: dbError } = await supabase
-            .from('users')
-            .insert({
+        const dbInsert = {
             id: authData.user.id,
             email,
             name: fullName,
@@ -158,7 +164,30 @@ async function createUser(req, res) {
             role,
             status: 'active',
             verified: true,
-        })
+        };
+        // Add role-specific fields
+        if (role === 'supervisor' && company_id) {
+            dbInsert.company_id = company_id;
+        }
+        // Auto-assign CVSU-Bacoor Campus to students and advisors
+        if (role === 'student' || role === 'advisor') {
+            // Get CVSU-BC university ID
+            const { data: university } = await supabase
+                .from('universities')
+                .select('id')
+                .eq('code', 'CVSU-BC')
+                .single();
+            if (university) {
+                dbInsert.university_id = university.id;
+            }
+            else if (university_id) {
+                // Fallback to provided university_id if CVSU-BC not found
+                dbInsert.university_id = university_id;
+            }
+        }
+        const { data: dbUser, error: dbError } = await supabase
+            .from('users')
+            .insert(dbInsert)
             .select()
             .single();
         if (dbError) {
@@ -186,18 +215,18 @@ async function createUser(req, res) {
     }
 }
 /**
- * Update user information (firstName, lastName, email)
- * Body: { firstName?, lastName?, email? }
+ * Update user information (firstName, lastName, email, company_id, university_id)
+ * Body: { firstName?, lastName?, email?, company_id?, university_id? }
  */
 async function updateUser(req, res) {
     try {
         const { id } = req.params;
-        const { firstName, lastName, email } = req.body;
-        if (!firstName && !lastName && !email) {
+        const { firstName, lastName, email, company_id, university_id } = req.body;
+        if (!firstName && !lastName && !email && !company_id && !university_id) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'At least one field (firstName, lastName, or email) is required',
+                message: 'At least one field to update is required',
             });
         }
         const updates = { updated_at: new Date().toISOString() };
@@ -218,6 +247,10 @@ async function updateUser(req, res) {
         }
         if (email)
             updates.email = email;
+        if (company_id !== undefined)
+            updates.company_id = company_id;
+        if (university_id !== undefined)
+            updates.university_id = university_id;
         // Update database
         const { data: user, error } = await supabase
             .from('users')

@@ -33,12 +33,16 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { AIResultsPanel } from '@/components/supervisor/AIResultsPanel';
 import { BiasWarningModal } from '@/components/supervisor/BiasWarningModal';
+import { NewEvaluationModal } from '@/components/supervisor/NewEvaluationModal';
 import { 
   useEvaluationAnalysis, 
   useSubmitEvaluation, 
   useSupervisorEvaluations 
 } from '@/hooks/use-supervisor-evaluations';
-import { SupervisorEvaluation } from '@/lib/api/supervisor-evaluations';
+import { 
+  SupervisorEvaluation, 
+  updateEvaluation 
+} from '@/lib/api/supervisor-evaluations';
 
 export default function SupervisorAIEvaluations() {
   const { toast } = useToast();
@@ -50,6 +54,9 @@ export default function SupervisorAIEvaluations() {
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null);
   const selectedEval = evaluations.find(e => e.id === selectedEvalId) || null;
 
+  // New evaluation modal state
+  const [showNewEvalModal, setShowNewEvalModal] = useState(false);
+
   // Form state
   const [feedbackText, setFeedbackText] = useState('');
   const [ratings, setRatings] = useState({
@@ -57,6 +64,9 @@ export default function SupervisorAIEvaluations() {
     communication: 5,
     workEthic: 5,
   });
+
+  // Calculate overall rating (average of all ratings)
+  const overallRating = Math.round((ratings.technical + ratings.communication + ratings.workEthic) / 3);
 
   // Real-time AI analysis (debounced)
   const { analysis, isLoading: isAnalyzing, error: analysisError } = useEvaluationAnalysis(feedbackText, 500);
@@ -124,10 +134,19 @@ export default function SupervisorAIEvaluations() {
       return;
     }
 
-    // TODO: Update evaluation with current form data before submitting
-    // For now, we'll just submit the existing evaluation
-
     try {
+      // Step 1: Update evaluation with current form data before submitting
+      await updateEvaluation(selectedEval.id, {
+        feedback_text: feedbackText,
+        rating_technical: ratings.technical,
+        rating_communication: ratings.communication,
+        rating_work_ethic: ratings.workEthic,
+        rating_overall: overallRating,
+        internship_id: selectedEval.internship_id,
+        supervisor_id: selectedEval.supervisor_id,
+      });
+
+      // Step 2: Submit for AI processing
       const result = await submit(selectedEval.id);
 
       // Check for high bias severity
@@ -162,6 +181,16 @@ export default function SupervisorAIEvaluations() {
     refetch();
   };
 
+  // Handle new evaluation creation success
+  const handleNewEvaluationSuccess = (evaluationId: string) => {
+    toast({
+      title: 'Evaluation Created',
+      description: 'New evaluation draft created successfully.',
+    });
+    refetch(); // Refresh evaluations list
+    setSelectedEvalId(evaluationId); // Auto-select the new evaluation
+  };
+
   // Calculate stats
   const stats = {
     total: evaluations.length,
@@ -183,6 +212,13 @@ export default function SupervisorAIEvaluations() {
 
   return (
     <>
+      {/* New Evaluation Modal */}
+      <NewEvaluationModal
+        isOpen={showNewEvalModal}
+        onClose={() => setShowNewEvalModal(false)}
+        onSuccess={handleNewEvaluationSuccess}
+      />
+
       {/* Bias Warning Modal */}
       {submitResult?.ai_analysis && (
         <BiasWarningModal
@@ -211,7 +247,10 @@ export default function SupervisorAIEvaluations() {
                     <h1 className="text-3xl font-bold text-foreground">AI Evaluations</h1>
                     <p className="text-muted-foreground mt-1">Create and submit AI-powered evaluations</p>
                   </div>
-                  <Button className="bg-primary hover:bg-primary/90" disabled>
+                  <Button 
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={() => setShowNewEvalModal(true)}
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     New Evaluation
                   </Button>
@@ -402,13 +441,14 @@ export default function SupervisorAIEvaluations() {
                     )}
                   </Card>
 
-                  {/* AI Results Panel */}
+                  {/* AI Results Panel - Phase 1 Enhanced */}
                   <div className="lg:col-span-4">
                     {selectedEval && selectedEval.status === 'draft' ? (
                       <AIResultsPanel
                         analysis={analysis}
                         isLoading={isAnalyzing}
                         error={analysisError}
+                        currentRating={overallRating}
                       />
                     ) : selectedEval && submitResult?.ai_analysis ? (
                       <Card>
@@ -547,7 +587,14 @@ export default function SupervisorAIEvaluations() {
                   <Tabs defaultValue="form" className="space-y-4">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="form">Form</TabsTrigger>
-                      <TabsTrigger value="ai-results">AI Results</TabsTrigger>
+                      <TabsTrigger value="ai-results" className="flex items-center gap-2">
+                        AI Results
+                        {isAnalyzing && (
+                          <Badge variant="secondary" className="ml-1 px-1.5 py-0">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          </Badge>
+                        )}
+                      </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="form" className="space-y-4">
@@ -610,11 +657,12 @@ export default function SupervisorAIEvaluations() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="ai-results">
+                    <TabsContent value="ai-results" className="space-y-4">
                       <AIResultsPanel
                         analysis={analysis}
                         isLoading={isAnalyzing}
                         error={analysisError}
+                        currentRating={overallRating}
                       />
                     </TabsContent>
                   </Tabs>

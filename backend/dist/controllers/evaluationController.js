@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeDraftEvaluation = analyzeDraftEvaluation;
 exports.createEvaluation = createEvaluation;
 exports.getEvaluation = getEvaluation;
+exports.updateEvaluation = updateEvaluation;
 exports.submitEvaluation = submitEvaluation;
 exports.approveEvaluation = approveEvaluation;
 exports.getInternshipEvaluations = getInternshipEvaluations;
@@ -65,12 +66,24 @@ async function getEvaluation(req, res) {
         res.status(500).json({ success: false, error: error.message });
     }
 }
+async function updateEvaluation(req, res) {
+    try {
+        const evaluation = await evaluationService.update(req.params.id, req.body);
+        res.json({ success: true, data: evaluation });
+    }
+    catch (error) {
+        console.error('Update evaluation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+}
 async function submitEvaluation(req, res) {
     try {
         const evaluation = await evaluationService.submit(req.params.id);
         res.json({ success: true, data: evaluation, message: 'Evaluation submitted and processing!' });
     }
     catch (error) {
+        console.error('Submit evaluation error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({ success: false, error: error.message });
     }
 }
