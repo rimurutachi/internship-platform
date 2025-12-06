@@ -66,8 +66,10 @@ export async function getMyInternships(req: AuthRequest, res: Response) {
             internships = await internshipService.getStudentInternships(userId);
         } else if (userRole === 'advisor') {
             internships = await internshipService.getAdvisorInternships(userId);
+        } else if (userRole === 'supervisor') {
+            internships = await internshipService.getSupervisorInternships(userId);
         } else {
-            return res.status(403).json({success: false, error: 'Unauthorized'});
+            return res.status(403).json({success: false, error: 'Unauthorized role'});
         }
 
     res.json({success: true, data: internships});

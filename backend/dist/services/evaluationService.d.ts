@@ -17,6 +17,7 @@ export declare class EvaluationService {
      */
     analyzeDraft(text: string): Promise<import("./aiService").DraftAnalysisResult>;
     getById(id: string): Promise<Evaluation | null>;
+    update(id: string, data: any): Promise<Evaluation>;
     processWithAI(evaluationId: string): Promise<ProcessEvaluationResult>;
     submit(evaluationId: string): Promise<any>;
     approve(evaluationId: string, finalGrade: number): Promise<Evaluation>;

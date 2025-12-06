@@ -46,6 +46,8 @@ router.post('/analyze-draft', (0, auth_1.requireRole)(['supervisor']), evaluatio
 router.post('/', (0, auth_1.requireRole)(['supervisor']), evaluationController.createEvaluation);
 // Get evaluation
 router.get('/:id', evaluationController.getEvaluation);
+// Update evaluation (supervisor, draft only)
+router.put('/:id', (0, auth_1.requireRole)(['supervisor']), evaluationController.updateEvaluation);
 // Submit evaluation for AI Processing
 router.post('/:id/submit', (0, auth_1.requireRole)(['supervisor']), evaluationController.submitEvaluation);
 // Approve evaluation (advisor)

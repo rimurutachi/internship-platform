@@ -107,6 +107,20 @@ class InternshipService {
             throw new Error(error.message);
         return data || [];
     }
+    async getSupervisorInternships(supervisorId) {
+        const { data, error } = await supabase
+            .from('internships')
+            .select(`
+                *,
+                student:users!student_id(id, email, first_name, last_name),
+                company:companies(id, name, industry)
+                `)
+            .eq('supervisor_id', supervisorId)
+            .order('created_at', { ascending: false });
+        if (error)
+            throw new Error(error.message);
+        return data || [];
+    }
 }
 exports.InternshipService = InternshipService;
 //# sourceMappingURL=internshipService.js.map

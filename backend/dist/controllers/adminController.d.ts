@@ -15,8 +15,8 @@ export declare function getUserById(req: AuthRequest, res: Response): Promise<Re
  */
 export declare function createUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
- * Update user information (firstName, lastName, email)
- * Body: { firstName?, lastName?, email? }
+ * Update user information (firstName, lastName, email, company_id, university_id)
+ * Body: { firstName?, lastName?, email?, company_id?, university_id? }
  */
 export declare function updateUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
