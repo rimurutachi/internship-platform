@@ -8,6 +8,7 @@ import { get, post, put } from './client';
 
 /**
  * Draft analysis result from AI service (lightweight, real-time)
+ * Phase 1: Enhanced with LLT guidance and feedback quality
  */
 export interface DraftAnalysisResult {
   status: string;
@@ -19,6 +20,47 @@ export interface DraftAnalysisResult {
     score: number;
     label: string;
     breakdown: Record<string, number>;
+    tone?: string; // Phase 1: praise, constructive, harsh, balanced
+    intensity?: string; // Phase 1: mild, moderate, strong
+  };
+  llt_guidance?: {
+    suggested_rating: number;
+    confidence: number;
+    range: { min: number; max: number };
+    breakdown: {
+      sentiment_contribution: number;
+      skill_contribution: number;
+      text_quality_contribution: number;
+      consistency_contribution: number;
+    };
+    explanation: string;
+    guidance: Array<{
+      type: string;
+      message: string;
+      priority: 'low' | 'medium' | 'high';
+    }>;
+  };
+  feedback_quality?: {
+    quality_score: number;
+    readiness: boolean;
+    suggestions: Array<{
+      type: string;
+      message: string;
+      severity: 'low' | 'medium' | 'high';
+      current?: number;
+      target?: number;
+      examples?: string[];
+      tip?: string;
+      prompt?: string;
+    }>;
+    strengths: string[];
+    metrics: {
+      word_count: number;
+      sentence_count: number;
+      skill_count: number;
+      sentiment_balance: string;
+      has_specific_examples: boolean;
+    };
   };
   processing_time_ms?: number;
 }

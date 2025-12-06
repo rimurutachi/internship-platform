@@ -1,30 +1,44 @@
 /**
- * AI Results Panel Component
+ * AI Results Panel Component - Phase 1 Enhanced
  * 
  * Displays real-time AI analysis results for supervisor evaluations
- * Shows skills detected, sentiment analysis, confidence scores, and bias warnings
+ * Phase 1 Features:
+ * - Enhanced sentiment with tone and intensity
+ * - LLT rating guidance
+ * - Feedback quality scoring
+ * - Real-time improvement suggestions
  */
 
 'use client';
 
 import React from 'react';
-import { Brain, Sparkles, AlertTriangle, CheckCircle, TrendingUp, Award, Clock } from 'lucide-react';
+import { Brain, Sparkles, AlertTriangle, CheckCircle, TrendingUp, Award, Clock, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { DraftAnalysisResult } from '@/lib/api/supervisor-evaluations';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LLTRatingGuidance } from './LLTRatingGuidance';
+import { FeedbackQualityScore } from './FeedbackQualityScore';
 
 interface AIResultsPanelProps {
   analysis: DraftAnalysisResult | null;
   isLoading: boolean;
   error?: string | null;
+  currentRating?: number; // For LLT comparison
 }
 
 /**
- * Get sentiment color based on label
+ * Get sentiment color based on label (Phase 1 enhanced)
  */
-function getSentimentColor(label: string): string {
+function getSentimentColor(label: string, tone?: string): string {
+  // Consider tone for more nuanced colors
+  if (tone === 'harsh') return 'text-red-700 bg-red-50 border-red-300';
+  if (tone === 'praise') return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+  if (tone === 'constructive') return 'text-blue-600 bg-blue-50 border-blue-200';
+  if (tone === 'balanced') return 'text-purple-600 bg-purple-50 border-purple-200';
+  
+  // Fallback to basic sentiment
   switch (label.toLowerCase()) {
     case 'positive':
       return 'text-green-600 bg-green-50 border-green-200';
@@ -144,9 +158,9 @@ function AIResultsError({ error }: { error: string }) {
 }
 
 /**
- * Main AI Results Panel Component
+ * Main AI Results Panel Component - Phase 1 Enhanced
  */
-export function AIResultsPanel({ analysis, isLoading, error }: AIResultsPanelProps) {
+export function AIResultsPanel({ analysis, isLoading, error, currentRating }: AIResultsPanelProps) {
   // Loading state
   if (isLoading) {
     return (
@@ -192,7 +206,7 @@ export function AIResultsPanel({ analysis, isLoading, error }: AIResultsPanelPro
 
   // Calculate confidence score percentage
   const confidenceScore = Math.round((analysis.sentiment.score + 1) * 50); // Convert -1 to 1 scale to 0-100
-  const sentimentColor = getSentimentColor(analysis.sentiment.label);
+  const sentimentColor = getSentimentColor(analysis.sentiment.label, analysis.sentiment.tone);
   const sentimentIcon = getSentimentIcon(analysis.sentiment.label);
 
   return (
@@ -202,6 +216,7 @@ export function AIResultsPanel({ analysis, isLoading, error }: AIResultsPanelPro
         <div className="flex items-center space-x-2">
           <Brain className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold text-foreground">AI Analysis</h3>
+          <Badge variant="outline" className="text-xs">Phase 1</Badge>
         </div>
         {analysis.processing_time_ms && (
           <Badge variant="outline" className="text-xs">
@@ -211,29 +226,64 @@ export function AIResultsPanel({ analysis, isLoading, error }: AIResultsPanelPro
         )}
       </div>
 
-      {/* Confidence Score Card */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-4xl font-bold text-primary mb-1">
-              {confidenceScore}%
-            </div>
-            <div className="text-sm text-muted-foreground">AI Confidence</div>
-          </CardContent>
-        </Card>
+      {/* Phase 1: LLT Rating Guidance */}
+      {analysis.llt_guidance && (
+        <LLTRatingGuidance 
+          guidance={analysis.llt_guidance} 
+          currentRating={currentRating}
+        />
+      )}
 
-        {/* Sentiment Score Card */}
-        <Card className={sentimentColor}>
-          <CardContent className="pt-6 text-center">
-            <div className="text-4xl font-bold mb-1">
-              {sentimentIcon}
+      {/* Phase 1: Feedback Quality Score */}
+      {analysis.feedback_quality && (
+        <FeedbackQualityScore quality={analysis.feedback_quality} />
+      )}
+
+      {/* Enhanced Sentiment Card */}
+      <Card className={sentimentColor}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Sentiment & Tone
+            </span>
+            {analysis.sentiment.intensity && (
+              <Badge variant="outline" className="text-xs capitalize">
+                {analysis.sentiment.intensity}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-2xl font-bold">
+              {sentimentIcon} {analysis.sentiment.label}
+            </span>
+            {analysis.sentiment.tone && (
+              <Badge variant="secondary" className="capitalize">
+                {analysis.sentiment.tone}
+              </Badge>
+            )}
+          </div>
+
+          {/* Sentiment Breakdown */}
+          {analysis.sentiment.breakdown && (
+            <div className="space-y-2">
+              {Object.entries(analysis.sentiment.breakdown).map(([key, value]) => (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-muted-foreground capitalize">{key}</span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {Math.round((value as number) * 100)}%
+                    </span>
+                  </div>
+                  <Progress value={(value as number) * 100} className="h-1.5" />
+                </div>
+              ))}
             </div>
-            <div className="text-sm font-medium capitalize">
-              {analysis.sentiment.label}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Skills Detected Section */}
       <Card>
@@ -294,50 +344,15 @@ export function AIResultsPanel({ analysis, isLoading, error }: AIResultsPanelPro
         </CardContent>
       </Card>
 
-      {/* Sentiment Analysis Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center">
-            <TrendingUp className="w-4 h-4 mr-2 text-primary" />
-            Sentiment Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Overall Sentiment</span>
-            <Badge className={sentimentColor}>
-              {sentimentIcon} {analysis.sentiment.label}
-            </Badge>
-          </div>
-
-          {/* Sentiment Breakdown */}
-          {analysis.sentiment.breakdown && (
-            <div className="space-y-2">
-              {Object.entries(analysis.sentiment.breakdown).map(([key, value]) => (
-                <div key={key}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs text-muted-foreground capitalize">{key}</span>
-                    <span className="text-xs font-semibold text-foreground">
-                      {Math.round((value as number) * 100)}%
-                    </span>
-                  </div>
-                  <Progress value={(value as number) * 100} className="h-1.5" />
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* AI Assistant Note */}
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="pt-4 pb-4">
           <div className="flex gap-3">
             <CheckCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-foreground">Real-time Analysis Active</p>
+              <p className="text-sm font-medium text-foreground">Real-time Phase 1 Analysis Active</p>
               <p className="text-xs text-muted-foreground mt-1">
-                AI is analyzing your feedback in real-time. This is a guide only – your final decision matters most.
+                Enhanced AI with LLT guidance, quality scoring, and contextual understanding. Your final decision matters most.
               </p>
             </div>
           </div>

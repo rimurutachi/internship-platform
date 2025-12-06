@@ -73,6 +73,41 @@ class EvaluationService {
             throw new Error(error.message);
         return data;
     }
+    async update(id, data) {
+        // Check if evaluation exists and is still in draft status
+        const existing = await this.getById(id);
+        if (!existing) {
+            throw new Error('Evaluation not found');
+        }
+        if (existing.status !== 'draft') {
+            throw new Error('Can only update draft evaluations');
+        }
+        // Update evaluation
+        const { data: updated, error } = await supabase
+            .from('evaluations')
+            .update({
+            feedback_text: data.feedback_text,
+            rating_overall: data.rating_overall,
+            rating_technical: data.rating_technical,
+            rating_communication: data.rating_communication,
+            rating_work_ethic: data.rating_work_ethic,
+            updated_at: new Date().toISOString(),
+        })
+            .eq('id', id)
+            .select(`
+                *,
+                internship:internships(
+                *,
+                student:users!student_id(id, first_name, last_name),
+                company:companies(id, name)
+                ),
+                supervisor:users!supervisor_id(id, first_name, last_name)
+                `)
+            .single();
+        if (error)
+            throw new Error(error.message);
+        return updated;
+    }
     async processWithAI(evaluationId) {
         // Get evaluation
         const evaluation = await this.getById(evaluationId);
@@ -136,6 +171,10 @@ class EvaluationService {
             });
             // Step 3: Insert AI analysis result into evaluations_ai_analysis table
             // Map AI service response to database schema
+            // Phase 1: Extract bias flags - handle both string[] and object[] formats
+            const biasFlags = Array.isArray(aiResult.bias_check.flags)
+                ? aiResult.bias_check.flags.map((flag) => typeof flag === 'string' ? flag : (flag.type || flag.description || JSON.stringify(flag)))
+                : [];
             const { data: aiAnalysisRecord, error: aiError } = await supabase
                 .from('evaluations_ai_analysis')
                 .insert({
@@ -150,8 +189,8 @@ class EvaluationService {
                 overall_sentiment: aiResult.sentiment.label,
                 ai_recommendations: [], // Can be generated from bias check or additional processing
                 suggested_improvements: [], // Can be generated from additional processing
-                potential_biases: aiResult.bias_check.flags,
-                ai_model_version: 'v1.0.0',
+                potential_biases: biasFlags,
+                ai_model_version: 'v1.1.0-phase1', // Updated version
                 processing_time_ms: aiResult.processing_time_ms,
                 overall_confidence_score: aiResult.confidence_score,
             })

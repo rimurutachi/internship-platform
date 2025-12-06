@@ -24,6 +24,12 @@ router.post('/',
 // Get evaluation
 router.get('/:id', evaluationController.getEvaluation);
 
+// Update evaluation (supervisor, draft only)
+router.put('/:id',
+    requireRole(['supervisor']),
+    evaluationController.updateEvaluation
+);
+
 // Submit evaluation for AI Processing
 router.post('/:id/submit',
     requireRole(['supervisor']),

@@ -16,11 +16,20 @@ export interface AIAnalysisResult {
         score: number;
         label: string;
         breakdown: Record<string, any>;
+        tone?: string;
+        intensity?: string;
+        subjectivity?: number;
+        context_flags?: string[];
+        insights?: string[];
     };
     bias_check: {
         passed: boolean;
-        flags: string[];
+        flags: any[];
+        consistency_score?: number;
+        severity?: string;
     };
+    llt_guidance?: any;
+    feedback_quality?: any;
     confidence_score: number;
     processing_time_ms: number;
 }

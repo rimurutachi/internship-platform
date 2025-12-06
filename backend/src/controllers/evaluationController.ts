@@ -63,11 +63,23 @@ export async function getEvaluation(req: Request, res: Response) {
     }
 }
 
+export async function updateEvaluation(req: Request, res: Response) {
+    try {
+        const evaluation = await evaluationService.update(req.params.id, req.body);
+        res.json({success: true, data: evaluation});
+    } catch (error: any) {
+        console.error('Update evaluation error:', error);
+        res.status(500).json({success: false, error: error.message});
+    }
+}
+
 export async function submitEvaluation(req: Request, res: Response) {
     try {
         const evaluation = await evaluationService.submit(req.params.id);
         res.json({success: true, data: evaluation, message: 'Evaluation submitted and processing!'});
     } catch (error: any) {
+        console.error('Submit evaluation error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({success: false, error: error.message});
     }
 }

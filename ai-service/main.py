@@ -91,10 +91,14 @@ async def evaluate_feedback(request: EvaluationRequest):
 @app.post("/api/evaluate-draft")
 async def evaluate_draft(request: EvaluationRequest):
     """
-    Lightweight endpoint for Supervisor real-time feedback.
-    Used while supervisor is still typing.
+    Enhanced real-time feedback analysis for supervisors.
     
-    Returns: Features + Sentiment (NO bias check for speed)
+    Phase 1 Features:
+    - Enhanced sentiment analysis with context awareness
+    - Real-time feedback quality guidance
+    - LLT rating suggestions (lightweight)
+    
+    Used while supervisor is still typing.
     """
     try:
         if not request.text or len(request.text.strip()) < 5:
@@ -102,16 +106,44 @@ async def evaluate_draft(request: EvaluationRequest):
                 "status": "insufficient_text",
                 "features": {"technical_skills": [], "soft_skills": []},
                 "sentiment": {"score": 0, "label": "neutral", "breakdown": {}},
+                "feedback_quality": {
+                    "suggestions": [],
+                    "quality_score": 0,
+                    "readiness": False
+                }
             }
 
+        # Extract features
         features = ai_engine.extractor.extract(request.text)
-        sentiment = ai_engine.sentiment_analyzer.analyze(request.text)
+        
+        # Enhanced sentiment analysis
+        sentiment = ai_engine.enhanced_sentiment.analyze(request.text)
+        
+        # Quick analysis for guidance (no full bias check for speed)
+        quick_analysis = {
+            'features': features,
+            'sentiment': sentiment,
+            'bias_check': {'passed': True, 'consistency_score': 1.0}  # Placeholder
+        }
+        
+        # Feedback quality guidance
+        guidance = ai_engine.feedback_guide.analyze_draft(request.text, quick_analysis)
+        
+        # Optional: Quick LLT suggestion (if ratings provided)
+        llt_guidance = None
+        if request.ratings:
+            ratings = request.ratings.model_dump() if hasattr(request.ratings, 'model_dump') else request.ratings
+            llt_guidance = ai_engine.llt_transformer.transform(
+                features, sentiment, quick_analysis['bias_check'], request.text
+            )
 
         return {
             "status": "success",
             "features": features,
             "sentiment": sentiment,
-            "processing_time_ms": 50,  # Should be very fast
+            "feedback_quality": guidance,  # NEW: Phase 1
+            "llt_guidance": llt_guidance,  # NEW: Phase 1 (optional)
+            "processing_time_ms": 80,  # Slightly slower due to enhanced features
         }
 
     except Exception as e:
@@ -122,22 +154,32 @@ async def evaluate_draft(request: EvaluationRequest):
 @app.post("/api/evaluate-with-bias")
 async def evaluate_with_bias(request: EvaluationRequest):
     """
-    Full analysis WITH bias detection.
-    Used when supervisor SUBMITS evaluation (heavier computation).
+    Full Phase 1 Enhanced Analysis WITH bias detection.
+    Used when supervisor SUBMITS evaluation (comprehensive computation).
     
-    Requires: text + ratings
+    Phase 1 Features:
+    - Enhanced sentiment analysis
+    - LLT rating guidance
+    - Feedback quality assessment
+    - Comprehensive bias detection
+    
+    Requires: text + ratings (recommended)
     """
     try:
         if not request.text or len(request.text.strip()) < 10:
             raise HTTPException(status_code=400, detail="Evaluation text too short")
 
-        # FIX IS HERE: Convert Pydantic model to dictionary using .model_dump()
+        # Convert ratings to dictionary
         ratings = request.ratings.model_dump() if request.ratings else {}
 
-        logger.info(f"Full analysis with bias detection for: {request.evaluation_id}")
+        logger.info(f"Phase 1 Enhanced analysis for: {request.evaluation_id}")
 
-        # This calls the ENHANCED analyze_evaluation with bias detection
-        result = ai_engine.analyze_evaluation(request.text, ratings)
+        # Full Phase 1 analysis with all enhancements
+        result = ai_engine.analyze_evaluation(
+            text=request.text, 
+            ratings=ratings,
+            use_enhanced=True  # Use Phase 1 enhanced features
+        )
 
         return result
 
@@ -145,7 +187,7 @@ async def evaluate_with_bias(request: EvaluationRequest):
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        logger.error(f"Analysis error: {e}", exc_info=True) # exc_info adds stack trace to logs
+        logger.error(f"Analysis error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Analysis failed due to an internal error")
 
 

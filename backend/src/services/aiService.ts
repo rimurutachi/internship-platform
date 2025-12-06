@@ -21,11 +21,20 @@ export interface AIAnalysisResult {
     score: number;
     label: string;
     breakdown: Record<string, any>;
+    tone?: string; // Phase 1
+    intensity?: string; // Phase 1
+    subjectivity?: number; // Phase 1
+    context_flags?: string[]; // Phase 1
+    insights?: string[]; // Phase 1
   };
   bias_check: {
     passed: boolean;
-    flags: string[];
+    flags: any[]; // Changed from string[] to handle objects
+    consistency_score?: number;
+    severity?: string;
   };
+  llt_guidance?: any; // Phase 1: LLT rating guidance
+  feedback_quality?: any; // Phase 1: Quality assessment
   confidence_score: number;
   processing_time_ms: number;
 }
