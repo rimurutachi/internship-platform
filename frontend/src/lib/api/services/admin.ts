@@ -14,8 +14,12 @@ export interface AdminUser {
   email: string;
   name: string;
   role: 'student' | 'advisor' | 'supervisor' | 'admin';
-  status: 'active' | 'inactive' | 'suspended';
+  status: 'active' | 'inactive' | 'suspended' | 'archived';
   verified: boolean;
+  verification_status?: 'pending_verification' | 'verified' | 'rejected';
+  verification_rejection_reason?: string;
+  is_archived?: boolean;
+  archived_at?: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
@@ -208,6 +212,57 @@ export const getUserStats = async (): Promise<UserStats> => {
   }
 };
 
+/**
+ * Verify user profile (NEW - replaces edit functionality)
+ */
+export const verifyUser = async (id: string, comments?: string): Promise<AdminUser> => {
+  try {
+    const response = await post<AdminUser>(`/admin/users/${id}/verify`, { comments });
+    return response;
+  } catch (error: any) {
+    console.error(`Failed to verify user ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Reject user profile with reason (NEW)
+ */
+export const rejectUser = async (id: string, rejection_reason: string): Promise<AdminUser> => {
+  try {
+    const response = await post<AdminUser>(`/admin/users/${id}/reject`, { rejection_reason });
+    return response;
+  } catch (error: any) {
+    console.error(`Failed to reject user ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Archive user (soft delete) (NEW - replaces hard delete)
+ */
+export const archiveUser = async (id: string): Promise<void> => {
+  try {
+    await post(`/admin/users/${id}/archive`, {});
+  } catch (error: any) {
+    console.error(`Failed to archive user ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Unarchive user (restore from archive) (NEW)
+ */
+export const unarchiveUser = async (id: string): Promise<AdminUser> => {
+  try {
+    const response = await post<AdminUser>(`/admin/users/${id}/unarchive`, {});
+    return response;
+  } catch (error: any) {
+    console.error(`Failed to unarchive user ${id}:`, error);
+    throw error;
+  }
+};
+
 // Export all functions as named exports for convenience
 export const adminAPI = {
   getUsers,
@@ -218,4 +273,8 @@ export const adminAPI = {
   updateUserRole,
   deleteUser,
   getUserStats,
+  verifyUser,
+  rejectUser,
+  archiveUser,
+  unarchiveUser,
 };

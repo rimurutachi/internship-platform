@@ -3,6 +3,7 @@
 import { Bell, ChevronDown, Sparkles, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { logout } from '@/lib/auth';
@@ -47,10 +48,19 @@ export const SupervisorHeader = () => {
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* Welcome Message */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.first_name || 'Supervisor'}!</h1>
-          <p className="text-muted-foreground">{user?.email || 'Supervisor Portal'}</p>
+        {/* Welcome Message with CvSU Logo */}
+        <div className="flex items-center space-x-4">
+          <Image 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
+            width={40} 
+            height={40}
+            className="object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.first_name || 'Supervisor'}!</h1>
+            <p className="text-muted-foreground">{user?.email || 'Supervisor Portal'}</p>
+          </div>
         </div>
 
         {/* Right Side Actions */}

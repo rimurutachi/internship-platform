@@ -18,6 +18,7 @@ import authRoutes from "./routes/authRoutes";
 import communicationRoutes from "./routes/communications";
 import adminRoutes from "./routes/admin";
 import studentRoutes from "./routes/student";
+import advisorRoutes from "./routes/advisor";
 import systemMetricsService from "./services/systemMetricsService";
 
 // Initialize global system metrics tracker
@@ -95,6 +96,9 @@ app.use("/api/admin", adminRoutes);
 
 // Student APIs
 app.use("/api/student", studentRoutes);
+
+// Advisor APIs
+app.use("/api/advisor", advisorRoutes);
 
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes);

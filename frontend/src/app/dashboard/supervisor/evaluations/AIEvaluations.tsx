@@ -210,6 +210,16 @@ export default function SupervisorAIEvaluations() {
     }
   };
 
+  // Type badge color
+  const getTypeColor = (type?: string) => {
+    switch (type) {
+      case 'weekly': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'midterm': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'final': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      default: return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+    }
+  };
+
   return (
     <>
       {/* New Evaluation Modal */}
@@ -314,17 +324,24 @@ export default function SupervisorAIEvaluations() {
                             }`}
                           >
                             <div className="flex items-start justify-between mb-2">
-                              <div className="font-semibold text-foreground text-sm">
-                                {evaluation.internship?.student 
-                                  ? `${evaluation.internship.student.first_name} ${evaluation.internship.student.last_name}`
-                                  : 'Unknown Student'}
+                              <div className="flex-1">
+                                <div className="font-semibold text-foreground text-sm">
+                                  {evaluation.internship?.student 
+                                    ? `${evaluation.internship.student.first_name} ${evaluation.internship.student.last_name}`
+                                    : 'Unknown Student'}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {evaluation.internship?.position || 'No position'}
+                                </div>
                               </div>
-                              <Badge className={getStatusColor(evaluation.status)}>
-                                {evaluation.status}
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {evaluation.internship?.position || 'No position'}
+                              <div className="flex flex-col gap-1 items-end">
+                                <Badge className={getStatusColor(evaluation.status)}>
+                                  {evaluation.status}
+                                </Badge>
+                                <Badge variant="outline" className={getTypeColor(evaluation.evaluation_type)}>
+                                  {evaluation.evaluation_period || evaluation.evaluation_type?.toUpperCase() || 'FINAL'}
+                                </Badge>
+                              </div>
                             </div>
                           </button>
                         ))
@@ -338,7 +355,7 @@ export default function SupervisorAIEvaluations() {
                       <>
                         <CardHeader>
                           <div className="flex items-start justify-between">
-                            <div>
+                            <div className="flex-1">
                               <CardTitle>
                                 {selectedEval.internship?.student
                                   ? `${selectedEval.internship.student.first_name} ${selectedEval.internship.student.last_name}`
@@ -348,9 +365,14 @@ export default function SupervisorAIEvaluations() {
                                 {selectedEval.internship?.position || 'No position'}
                               </p>
                             </div>
-                            <Badge className={getStatusColor(selectedEval.status)}>
-                              {selectedEval.status}
-                            </Badge>
+                            <div className="flex flex-col gap-2 items-end">
+                              <Badge className={getStatusColor(selectedEval.status)}>
+                                {selectedEval.status}
+                              </Badge>
+                              <Badge variant="outline" className={getTypeColor(selectedEval.evaluation_type)}>
+                                {selectedEval.evaluation_period || selectedEval.evaluation_type?.toUpperCase() || 'FINAL'}
+                              </Badge>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-6">

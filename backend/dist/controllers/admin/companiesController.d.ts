@@ -36,4 +36,20 @@ export declare function getCompanyStats(req: Request, res: Response): Promise<vo
  * GET /admin/companies/:id/supervisors
  */
 export declare function getCompanySupervisors(req: Request, res: Response): Promise<void>;
+/**
+ * Archive a company (soft delete)
+ * POST /admin/companies/:id/archive
+ */
+export declare function archiveCompany(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Unarchive a company (restore from archive)
+ * POST /admin/companies/:id/unarchive
+ */
+export declare function unarchiveCompany(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Get current students count for a company
+ * This updates the current_students field based on active internships
+ * GET /admin/companies/:id/students-count
+ */
+export declare function updateCompanyStudentsCount(req: Request, res: Response): Promise<void>;
 //# sourceMappingURL=companiesController.d.ts.map

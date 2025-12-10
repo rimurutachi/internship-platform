@@ -14,7 +14,7 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/dashboard/student' },
   { icon: Briefcase, label: 'Internship', path: '/dashboard/student/current-internship' },
-  { icon: TrendingUp, label: 'Evaluations', path: '/dashboard/student/evaluations' },
+  { icon: FileText, label: 'Reports', path: '/dashboard/student/weekly-reports' },
   { icon: MessageSquare, label: 'Messages', path: '/dashboard/student/messages' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents' },
   { icon: Settings, label: 'Settings', path: '/dashboard/student/settings' },
@@ -31,10 +31,8 @@ const supervisorNavItems: NavItem[] = [
 ];
 
 const advisorNavItems: NavItem[] = [
-  { icon: Home, label: 'Home', path: '/dashboard/advisor' },
   { icon: Users, label: 'Students', path: '/dashboard/advisor/students' },
-  { icon: Brain, label: 'Evaluations', path: '/dashboard/advisor/evaluations' },
-  { icon: BarChart3, label: 'Analytics', path: '/dashboard/advisor/analytics' },
+  { icon: FileText, label: 'Evaluations', path: '/dashboard/advisor/evaluations' },
   { icon: MessageSquare, label: 'Messages', path: '/dashboard/advisor/messages' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/advisor/documents' },
   { icon: Settings, label: 'Settings', path: '/dashboard/advisor/settings' },
@@ -71,7 +69,7 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
   const minWidth = itemCount <= 5 ? `${100 / itemCount}%` : 'auto';
 
   return (
-    <nav className="lg:hidden bg-card border-t border-border z-50 safe-area-inset-bottom">
+    <nav className="lg:hidden bg-white border-t border-gray-200 z-50 safe-area-inset-bottom shadow-lg">
       <div className="flex h-16 overflow-x-auto scrollbar-hide">
         {navItems.map((item) => {
           // For Home/dashboard base path, only match exact path. For others, match exact or child paths
@@ -92,12 +90,12 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
                 'flex flex-col items-center justify-center space-y-1 transition-colors px-2 flex-1',
                 itemCount > 5 && 'min-w-[16.666%]',
                 isActive 
-                  ? 'text-primary' 
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-[#4CAF50]' 
+                  : 'text-gray-600 hover:text-gray-900'
               )}
               style={itemCount <= 5 ? { minWidth } : undefined}
             >
-              <Icon className={cn('w-5 h-5', isActive && 'fill-primary/10')} />
+              <Icon className={cn('w-5 h-5', isActive && 'fill-[#4CAF50]/10')} />
               <span className="text-xs font-medium whitespace-nowrap">{item.label}</span>
             </Link>
           );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit, Trash2, Lock, Unlock, Shield, Loader2 } from 'lucide-react';
+import { Search, UserPlus, Archive, ArchiveRestore, Lock, Unlock, Shield, Loader2, AlertTriangle } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -45,7 +45,6 @@ export default function UsersPage() {
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -55,8 +54,7 @@ export default function UsersPage() {
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   
   // Companies state for supervisor assignment
@@ -74,11 +72,6 @@ export default function UsersPage() {
     role: 'student',
     password: '',
   });
-  const [editForm, setEditForm] = useState<UpdateUserRequest>({
-    firstName: '',
-    lastName: '',
-    email: '',
-  });
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch users
@@ -91,7 +84,6 @@ export default function UsersPage() {
       };
       
       if (filterRole !== 'all') filters.role = filterRole;
-      if (filterStatus !== 'all') filters.status = filterStatus;
       if (searchQuery) filters.search = searchQuery;
       
       const response = await adminAPI.getUsers(filters);
@@ -167,7 +159,7 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
     fetchStats();
-  }, [currentPage, filterRole, filterStatus, searchQuery]);
+  }, [currentPage, filterRole, searchQuery]);
 
   // Create user handler
   const handleCreateUser = async () => {
@@ -212,77 +204,25 @@ export default function UsersPage() {
     }
   };
 
-  // Update user handler
-  const handleUpdateUser = async () => {
-    if (!selectedUser || (!editForm.firstName && !editForm.lastName && !editForm.email && !editForm.company_id)) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please provide at least one field to update',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      await adminAPI.updateUser(selectedUser.id, editForm);
-      toast({
-        title: 'Success',
-        description: 'User updated successfully',
-      });
-      setEditDialogOpen(false);
-      setSelectedUser(null);
-      setEditForm({ firstName: '', lastName: '', email: '' });
-      fetchUsers();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update user',
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Update user status handler (inline)
-  const handleUpdateStatus = async (userId: string, newStatus: 'active' | 'inactive' | 'suspended') => {
-    try {
-      await adminAPI.updateUserStatus(userId, newStatus);
-      toast({
-        title: 'Success',
-        description: 'User status updated successfully',
-      });
-      fetchUsers();
-      fetchStats();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update user status',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Delete user handler
-  const handleDeleteUser = async () => {
+  // Archive user handler (replaces delete)
+  const handleArchiveUser = async () => {
     if (!selectedUser) return;
 
     try {
       setSubmitting(true);
-      await adminAPI.deleteUser(selectedUser.id);
+      await adminAPI.archiveUser(selectedUser.id);
       toast({
-        title: 'Success',
-        description: 'User deleted successfully',
+        title: 'User Archived',
+        description: 'User data preserved for analytics. Login access disabled.',
       });
-      setDeleteDialogOpen(false);
+      setArchiveDialogOpen(false);
       setSelectedUser(null);
       fetchUsers();
       fetchStats();
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete user',
+        description: error.message || 'Failed to archive user',
         variant: 'destructive',
       });
     } finally {
@@ -290,35 +230,29 @@ export default function UsersPage() {
     }
   };
 
-  // Open edit dialog
-  const openEditDialog = (user: AdminUser) => {
-    setSelectedUser(user);
-    // Split name into first and last name for editing
-    const nameParts = (user.name || '').trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-    setEditForm({ 
-      firstName, 
-      lastName, 
-      email: user.email,
-      company_id: user.company_id, // Pre-populate company if supervisor
-      university_id: user.university_id // Pre-populate university if student/advisor
-    });
-    setEditDialogOpen(true);
-    // Fetch companies when editing supervisor
-    if (user.role === 'supervisor') {
-      fetchCompanies();
-    }
-    // Fetch universities when editing student/advisor
-    if (user.role === 'student' || user.role === 'advisor') {
-      fetchUniversities();
+  // Unarchive user handler (NEW)
+  const handleUnarchiveUser = async (userId: string) => {
+    try {
+      await adminAPI.unarchiveUser(userId);
+      toast({
+        title: 'User Restored',
+        description: 'User has been unarchived and can login again',
+      });
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to unarchive user',
+        variant: 'destructive',
+      });
     }
   };
 
-  // Open delete dialog
-  const openDeleteDialog = (user: AdminUser) => {
+  // Open archive dialog
+  const openArchiveDialog = (user: AdminUser) => {
     setSelectedUser(user);
-    setDeleteDialogOpen(true);
+    setArchiveDialogOpen(true);
   };
 
   const getRoleColor = (role: string) => {
@@ -333,10 +267,9 @@ export default function UsersPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-success/10 text-success dark:bg-success/20';
-      case 'inactive': return 'bg-warning/10 text-warning dark:bg-warning/20';
-      case 'suspended': return 'bg-error/10 text-error dark:bg-error/20';
-      default: return 'bg-muted text-muted-foreground';
+      case 'active': return 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400';
+      case 'archived': return 'bg-gray-500/10 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400';
+      default: return 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400';
     }
   };
 
@@ -596,17 +529,6 @@ export default function UsersPage() {
                         <SelectItem value="admin">Admins</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger className="w-full md:w-48">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                 </CardContent>
               </Card>
@@ -632,7 +554,6 @@ export default function UsersPage() {
                               <TableHead>Role</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Last Login</TableHead>
-                              <TableHead>Verified</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -658,49 +579,40 @@ export default function UsersPage() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  <Select 
-                                    value={user.status}
-                                    onValueChange={(value: any) => handleUpdateStatus(user.id, value)}
-                                  >
-                                    <SelectTrigger className="w-32">
-                                      <Badge className={getStatusColor(user.status)}>
-                                        {user.status}
-                                      </Badge>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="active">Active</SelectItem>
-                                      <SelectItem value="inactive">Inactive</SelectItem>
-                                      <SelectItem value="suspended">Suspended</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <Badge className={getStatusColor(user.is_archived || user.status === 'archived' ? 'archived' : 'active')}>
+                                    {(user.is_archived || user.status === 'archived') ? 'Archived' : 'Active'}
+                                  </Badge>
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
                                   {user.last_login ? formatDate(user.last_login) : 'Never'}
                                 </TableCell>
-                                <TableCell>
-                                  {user.verified ? (
-                                    <Shield className="w-4 h-4 text-success" />
-                                  ) : (
-                                    <Shield className="w-4 h-4 text-muted-foreground" />
-                                  )}
-                                </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      onClick={() => openEditDialog(user)}
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="text-error hover:text-error/80"
-                                      onClick={() => openDeleteDialog(user)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                    {/* Show Archive button for active users */}
+                                    {!user.is_archived && user.status !== 'archived' && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950"
+                                        onClick={() => openArchiveDialog(user)}
+                                        title="Archive User"
+                                      >
+                                        <Archive className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    
+                                    {/* Show Unarchive button for archived users */}
+                                    {(user.is_archived || user.status === 'archived') && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                        onClick={() => handleUnarchiveUser(user.id)}
+                                        title="Restore User"
+                                      >
+                                        <ArchiveRestore className="w-4 h-4" />
+                                      </Button>
+                                    )}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -839,29 +751,18 @@ export default function UsersPage() {
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
-                <Select value={filterRole} onValueChange={setFilterRole}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="student">Students</SelectItem>
-                    <SelectItem value="advisor">Advisors</SelectItem>
-                    <SelectItem value="supervisor">Supervisors</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={filterRole} onValueChange={setFilterRole}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="student">Students</SelectItem>
+                  <SelectItem value="advisor">Advisors</SelectItem>
+                  <SelectItem value="supervisor">Supervisors</SelectItem>
+                  <SelectItem value="admin">Admins</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Mobile User Cards */}
@@ -893,31 +794,35 @@ export default function UsersPage() {
                         {user.verified && <Shield className="w-4 h-4 text-success" />}
                       </div>
                       <div className="flex items-center justify-between">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Badge className={getRoleColor(user.role)} style={{ fontSize: '0.7rem' }}>
                             {user.role}
                           </Badge>
-                          <Badge className={getStatusColor(user.status)} style={{ fontSize: '0.7rem' }}>
-                            {user.status}
+                          <Badge className={getStatusColor(user.is_archived || user.status === 'archived' ? 'archived' : 'active')} style={{ fontSize: '0.7rem' }}>
+                            {(user.is_archived || user.status === 'archived') ? 'Archived' : 'Active'}
                           </Badge>
                         </div>
                         <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0"
-                            onClick={() => openEditDialog(user)}
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 text-error"
-                            onClick={() => openDeleteDialog(user)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {!user.is_archived && user.status !== 'archived' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-amber-600"
+                              onClick={() => openArchiveDialog(user)}
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          {(user.is_archived || user.status === 'archived') && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-blue-600"
+                              onClick={() => handleUnarchiveUser(user.id)}
+                            >
+                              <ArchiveRestore className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-2">
@@ -936,147 +841,52 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Edit User Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      {/* Archive User Dialog (replaces Delete Dialog) */}
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information for {selectedUser?.name}</DialogDescription>
+            <DialogTitle>Archive User</DialogTitle>
+            <DialogDescription>
+              Archive <strong>{selectedUser?.name}</strong>? This will:
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>First Name</Label>
-              <Input 
-                placeholder="John" 
-                className="mt-2"
-                value={editForm.firstName}
-                onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Last Name</Label>
-              <Input 
-                placeholder="Doe" 
-                className="mt-2"
-                value={editForm.lastName}
-                onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input 
-                type="email" 
-                placeholder="john@example.com" 
-                className="mt-2"
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-              />
-            </div>
-            
-            {/* Company dropdown - only show for supervisors */}
-            {selectedUser?.role === 'supervisor' && (
-              <div>
-                <Label>Company</Label>
-                {loadingCompanies ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : companies.length === 0 ? (
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    No companies available. Please create a company first.
-                  </div>
-                ) : (
-                  <Select 
-                    value={editForm.company_id}
-                    onValueChange={(value: string) => setEditForm({ ...editForm, company_id: value })}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.name} {company.code ? `(${company.code})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+          <div className="space-y-3 py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium">Preserve all data for analytics</p>
+                <p className="text-muted-foreground text-xs">User records remain in database</p>
               </div>
-            )}
-            
-            {/* University dropdown - show for students and advisors */}
-            {(selectedUser?.role === 'student' || selectedUser?.role === 'advisor') && (
-              <div>
-                <Label>University</Label>
-                {universities.length === 0 ? (
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Loading university...
-                  </div>
-                ) : (
-                  <Select 
-                    value={editForm.university_id}
-                    onValueChange={(value: string) => setEditForm({ ...editForm, university_id: value })}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select university" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {universities.map((university) => (
-                        <SelectItem key={university.id} value={university.id}>
-                          {university.name} {university.code ? `(${university.code})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="mt-1 text-xs text-muted-foreground">
-                  All students and advisors are assigned to CVSU-Bacoor Campus
-                </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Lock className="w-5 h-5 text-amber-600 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium">Disable login access</p>
+                <p className="text-muted-foreground text-xs">User cannot log in to the platform</p>
               </div>
-            )}
+            </div>
+            <div className="flex items-start gap-3">
+              <ArchiveRestore className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium">Can be restored later</p>
+                <p className="text-muted-foreground text-xs">Use "Unarchive" button to restore access</p>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setEditDialogOpen(false)}
+              onClick={() => setArchiveDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button 
-              onClick={handleUpdateUser}
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={handleArchiveUser}
               disabled={submitting}
             >
-              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete User Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {selectedUser?.name}? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleDeleteUser}
-              disabled={submitting}
-            >
-              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Delete User
+              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Archive className="w-4 h-4 mr-2" />}
+              Archive User
             </Button>
           </DialogFooter>
         </DialogContent>

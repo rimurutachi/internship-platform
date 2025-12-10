@@ -88,67 +88,112 @@ async def evaluate_feedback(request: EvaluationRequest):
         logger.error(f"Internal Error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during analysis")
 
-@app.post("/api/evaluate-draft")
-async def evaluate_draft(request: EvaluationRequest):
+@app.post("/api/evaluate-post-approval")
+async def evaluate_post_approval(evaluations: list[dict]):
     """
-    Enhanced real-time feedback analysis for supervisors.
+    Analytics-only endpoint for generating insights from HISTORICAL evaluations.
     
-    Phase 1 Features:
-    - Enhanced sentiment analysis with context awareness
-    - Real-time feedback quality guidance
-    - LLT rating suggestions (lightweight)
+    This endpoint is called AFTER advisor approval to generate insights, trends,
+    and recommendations based on approved evaluations. It does NOT assist in
+    drafting or creating new evaluations.
     
-    Used while supervisor is still typing.
+    Args:
+        evaluations: List of approved evaluation objects with:
+            - evaluation_id: str
+            - text: str (comments/feedback)
+            - ratings: dict (performance ratings)
+            - student_id: str
+            - supervisor_id: str
+            - created_at: str
+            - final_grade: float
+    
+    Returns:
+        Top 3 insights/trends for dashboard display
     """
     try:
-        if not request.text or len(request.text.strip()) < 5:
-            return {
-                "status": "insufficient_text",
-                "features": {"technical_skills": [], "soft_skills": []},
-                "sentiment": {"score": 0, "label": "neutral", "breakdown": {}},
-                "feedback_quality": {
-                    "suggestions": [],
-                    "quality_score": 0,
-                    "readiness": False
-                }
-            }
+        if not evaluations or len(evaluations) == 0:
+            raise HTTPException(status_code=400, detail="No evaluations provided for analysis")
 
-        # Extract features
-        features = ai_engine.extractor.extract(request.text)
-        
-        # Enhanced sentiment analysis
-        sentiment = ai_engine.enhanced_sentiment.analyze(request.text)
-        
-        # Quick analysis for guidance (no full bias check for speed)
-        quick_analysis = {
-            'features': features,
-            'sentiment': sentiment,
-            'bias_check': {'passed': True, 'consistency_score': 1.0}  # Placeholder
-        }
-        
-        # Feedback quality guidance
-        guidance = ai_engine.feedback_guide.analyze_draft(request.text, quick_analysis)
-        
-        # Optional: Quick LLT suggestion (if ratings provided)
-        llt_guidance = None
-        if request.ratings:
-            ratings = request.ratings.model_dump() if hasattr(request.ratings, 'model_dump') else request.ratings
-            llt_guidance = ai_engine.llt_transformer.transform(
-                features, sentiment, quick_analysis['bias_check'], request.text
-            )
+        logger.info(f"Analyzing {len(evaluations)} approved evaluations for insights")
 
+        # Aggregate sentiment across all evaluations
+        sentiment_scores = []
+        all_features = {"technical_skills": [], "soft_skills": []}
+        grade_distribution = []
+        
+        for eval_data in evaluations:
+            text = eval_data.get('text', '')
+            if text and len(text.strip()) >= 10:
+                # Extract sentiment
+                sentiment = ai_engine.enhanced_sentiment.analyze(text)
+                sentiment_scores.append(sentiment.get('score', 0))
+                
+                # Extract features
+                features = ai_engine.extractor.extract(text)
+                all_features['technical_skills'].extend(features.get('technical_skills', []))
+                all_features['soft_skills'].extend(features.get('soft_skills', []))
+            
+            # Collect grades
+            if 'final_grade' in eval_data:
+                grade_distribution.append(eval_data['final_grade'])
+
+        # Calculate insights
+        insights = []
+        
+        # Insight 1: Overall Sentiment Trend
+        if sentiment_scores:
+            avg_sentiment = sum(sentiment_scores) / len(sentiment_scores)
+            sentiment_label = "positive" if avg_sentiment > 0.3 else "neutral" if avg_sentiment > -0.3 else "negative"
+            insights.append({
+                "type": "sentiment_trend",
+                "title": f"Overall Sentiment: {sentiment_label.capitalize()}",
+                "description": f"Average sentiment score across {len(evaluations)} evaluations is {avg_sentiment:.2f}",
+                "score": avg_sentiment,
+                "category": "sentiment"
+            })
+        
+        # Insight 2: Top Skills Mentioned
+        if all_features['technical_skills'] or all_features['soft_skills']:
+            from collections import Counter
+            all_skills = all_features['technical_skills'] + all_features['soft_skills']
+            skill_counts = Counter(all_skills)
+            top_skills = skill_counts.most_common(3)
+            
+            if top_skills:
+                skills_text = ", ".join([f"{skill} ({count}x)" for skill, count in top_skills])
+                insights.append({
+                    "type": "skill_analysis",
+                    "title": "Most Recognized Skills",
+                    "description": f"Top skills mentioned: {skills_text}",
+                    "skills": [{"name": s, "count": c} for s, c in top_skills],
+                    "category": "skills"
+                })
+        
+        # Insight 3: Grade Distribution Analysis
+        if grade_distribution:
+            avg_grade = sum(grade_distribution) / len(grade_distribution)
+            high_performers = len([g for g in grade_distribution if g <= 2.0])  # 1.0-2.0 is excellent
+            insights.append({
+                "type": "grade_distribution",
+                "title": "Performance Overview",
+                "description": f"Average grade: {avg_grade:.2f}, High performers: {high_performers}/{len(grade_distribution)} students",
+                "average_grade": avg_grade,
+                "high_performers": high_performers,
+                "total_students": len(grade_distribution),
+                "category": "performance"
+            })
+
+        # Return top 3 insights
         return {
             "status": "success",
-            "features": features,
-            "sentiment": sentiment,
-            "feedback_quality": guidance,  # NEW: Phase 1
-            "llt_guidance": llt_guidance,  # NEW: Phase 1 (optional)
-            "processing_time_ms": 80,  # Slightly slower due to enhanced features
+            "total_evaluations_analyzed": len(evaluations),
+            "insights": insights[:3],  # Top 3 insights
+            "generated_at": "2025-12-08T00:00:00Z"
         }
 
     except Exception as e:
-        logger.error(f"Draft analysis error: {e}")
-        raise HTTPException(status_code=500, detail="Draft analysis failed")
+        logger.error(f"Post-approval analysis error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Analytics generation failed")
 
 
 @app.post("/api/evaluate-with-bias")

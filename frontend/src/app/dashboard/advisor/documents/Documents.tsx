@@ -1,252 +1,513 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Users, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
+import { documentsAPI } from '@/lib/api/documents';
+import { connectForUpdates } from '@/lib/documentSocket';
+import { useUser } from '@/hooks/use-user';
+import type { DocumentWithDetails } from '@/types/documents';
 
-interface DocumentVersion {
-  version: number;
-  updatedBy: string;
-  updatedDate: string;
-  changes: string;
-  size: string;
-}
-
-interface Document {
-  id: string;
-  name: string;
-  type: string;
-  size: string;
-  uploadedDate: string;
-  uploadedBy: string;
-  category: string;
-  shared: boolean;
-  sharedWith: string[];
-  currentVersion: number;
-  versions: DocumentVersion[];
-  lastModified: string;
-  lastModifiedBy: string;
-}
-
-const mockDocuments: Document[] = [
-  {
-    id: '1',
-    name: 'Student_Evaluation_Template.pdf',
-    type: 'pdf',
-    size: '2.4 MB',
-    uploadedDate: '2025-09-01',
-    uploadedBy: 'You',
-    category: 'Templates',
-    shared: true,
-    sharedWith: ['Students', 'Supervisors'],
-    currentVersion: 3,
-    versions: [
-      { version: 3, updatedBy: 'You', updatedDate: '2025-11-10', changes: 'Updated evaluation criteria', size: '2.4 MB' },
-      { version: 2, updatedBy: 'You', updatedDate: '2025-10-15', changes: 'Added new sections', size: '2.2 MB' },
-      { version: 1, updatedBy: 'You', updatedDate: '2025-09-01', changes: 'Initial version', size: '2.0 MB' }
-    ],
-    lastModified: '2025-11-10',
-    lastModifiedBy: 'You'
-  },
-  {
-    id: '2',
-    name: 'Internship_Guidelines.docx',
-    type: 'docx',
-    size: '1.8 MB',
-    uploadedDate: '2025-10-15',
-    uploadedBy: 'You',
-    category: 'Guidelines',
-    shared: true,
-    sharedWith: ['Students', 'Supervisors', 'Administrators'],
-    currentVersion: 2,
-    versions: [
-      { version: 2, updatedBy: 'You', updatedDate: '2025-11-05', changes: 'Updated policies', size: '1.8 MB' },
-      { version: 1, updatedBy: 'You', updatedDate: '2025-10-15', changes: 'Initial version', size: '1.6 MB' }
-    ],
-    lastModified: '2025-11-05',
-    lastModifiedBy: 'You'
-  },
-  {
-    id: '3',
-    name: 'Alice_Johnson_MidTerm_Report.pdf',
-    type: 'pdf',
-    size: '892 KB',
-    uploadedDate: '2025-11-08',
-    uploadedBy: 'Alice Johnson',
-    category: 'Student Reports',
-    shared: true,
-    sharedWith: ['You', 'Supervisors'],
-    currentVersion: 1,
-    versions: [
-      { version: 1, updatedBy: 'Alice Johnson', updatedDate: '2025-11-08', changes: 'Initial upload', size: '892 KB' }
-    ],
-    lastModified: '2025-11-08',
-    lastModifiedBy: 'Alice Johnson'
-  },
-  {
-    id: '4',
-    name: 'Evaluation_Results_Nov2025.xlsx',
-    type: 'xlsx',
-    size: '3.2 MB',
-    uploadedDate: '2025-11-05',
-    uploadedBy: 'You',
-    category: 'Reports',
-    shared: false,
-    sharedWith: [],
-    currentVersion: 1,
-    versions: [
-      { version: 1, updatedBy: 'You', updatedDate: '2025-11-05', changes: 'Initial version', size: '3.2 MB' }
-    ],
-    lastModified: '2025-11-05',
-    lastModifiedBy: 'You'
-  },
-  {
-    id: '5',
-    name: 'Training_Materials.zip',
-    type: 'zip',
-    size: '15.3 MB',
-    uploadedDate: '2025-09-05',
-    uploadedBy: 'HR Department',
-    category: 'Training',
-    shared: true,
-    sharedWith: ['Students', 'You'],
-    currentVersion: 1,
-    versions: [
-      { version: 1, updatedBy: 'HR Department', updatedDate: '2025-09-05', changes: 'Initial upload', size: '15.3 MB' }
-    ],
-    lastModified: '2025-09-05',
-    lastModifiedBy: 'HR Department'
-  }
-];
 
 export default function Documents() {
+  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Upload state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadType, setUploadType] = useState<string>('template');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
-  const getFileIcon = (type: string) => {
-    switch (type) {
-      case 'pdf': return <FileText className="w-6 h-6 text-red-500" />;
-      case 'docx': return <FileText className="w-6 h-6 text-blue-500" />;
-      case 'xlsx': return <FileText className="w-6 h-6 text-green-500" />;
-      case 'zip': return <Archive className="w-6 h-6 text-yellow-500" />;
-      default: return <File className="w-6 h-6 text-muted-foreground" />;
+  // Real-time state
+  const [wsConnected, setWsConnected] = useState(false);
+  const [realtimeUpdate, setRealtimeUpdate] = useState<string | null>(null);
+
+  // View document state
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState<DocumentWithDetails | null>(null);
+
+  // Load documents on mount
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔵 [WebSocket] Connecting to document service...');
+    
+    try {
+      const socket = connectForUpdates();
+
+      socket.on('connect', () => {
+        console.log('🟢 [WebSocket] Connected to document service');
+        setWsConnected(true);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('⚠️ [WebSocket] Disconnected from document service');
+        setWsConnected(false);
+      });
+
+      socket.on('document:update', (data: any) => {
+        console.log('📥 [WebSocket] Document update received:', data);
+        setRealtimeUpdate(data.message || 'Document updated');
+        loadDocuments();
+        setTimeout(() => setRealtimeUpdate(null), 3000);
+      });
+
+      socket.on('document:error', (error: any) => {
+        console.error('❌ [WebSocket] Error:', error);
+      });
+
+      return () => {
+        console.log('🔌 [WebSocket] Disconnecting...');
+        if (socket && socket.connected) {
+          socket.disconnect();
+        }
+      };
+    } catch (err) {
+      console.error('❌ [WebSocket] Connection error:', err);
+    }
+  }, [user?.id]);
+
+  const loadDocuments = async () => {
+    try {
+      console.log('🔵 [Documents] Loading documents...');
+      setLoading(true);
+      setError(null);
+
+      const response = await documentsAPI.getDocuments();
+      console.log('🟢 [Documents] Documents loaded:', response);
+      
+      setDocuments(response.documents || []);
+    } catch (err) {
+      console.error('❌ [Documents] Load error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load documents');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const categories = ['all', ...Array.from(new Set(mockDocuments.map(d => d.category)))];
+  // File validation
+  const validateFile = (file: File): string | null => {
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'application/zip',
+      'application/x-zip-compressed'
+    ];
+
+    if (file.size > maxSize) {
+      return 'File size must be less than 50MB';
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return 'File type not supported. Please upload PDF, DOCX, images, or ZIP files.';
+    }
+
+    return null;
+  };
+
+  // Handle file selection
+  const handleFileSelect = (file: File) => {
+    const error = validateFile(file);
+    if (error) {
+      setUploadError(error);
+      return;
+    }
+
+    setUploadFile(file);
+    setUploadTitle(file.name.replace(/\.[^/.]+$/, ''));
+    setUploadError(null);
+  };
+
+  // Handle drag events
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileSelect(e.target.files[0]);
+    }
+  };
+
+  // Handle upload
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadTitle.trim()) {
+      setUploadError('Please select a file and provide a title');
+      return;
+    }
+
+    try {
+      console.log('🔵 [Upload] Starting upload...', uploadFile.name);
+      setUploading(true);
+      setUploadError(null);
+      setUploadProgress(10);
+
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const newDocument = await documentsAPI.createDocument({
+        title: uploadTitle.trim(),
+        type: uploadType,
+        description: uploadDescription.trim() || undefined,
+        content: { fileName: uploadFile.name, fileSize: uploadFile.size },
+        metadata: { 
+          originalName: uploadFile.name,
+          mimeType: uploadFile.type,
+          size: uploadFile.size 
+        }
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      console.log('🟢 [Upload] Document created:', newDocument);
+
+      setTimeout(() => {
+        setUploadDialogOpen(false);
+        setUploadFile(null);
+        setUploadTitle('');
+        setUploadType('template');
+        setUploadDescription('');
+        setUploadProgress(0);
+        setUploading(false);
+        loadDocuments();
+      }, 500);
+
+    } catch (err) {
+      console.error('❌ [Upload] Error:', err);
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload document');
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Handle download
+  const handleDownload = async (doc: DocumentWithDetails) => {
+    try {
+      console.log('🔵 [Download] Downloading document:', doc.id);
+      // TODO: Implement download functionality
+      window.open(doc.file_url, '_blank');
+    } catch (err) {
+      console.error('❌ [Download] Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to download document');
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (docId: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+
+    try {
+      console.log('🔵 [Delete] Deleting document:', docId);
+      await documentsAPI.deleteDocument(docId);
+      loadDocuments();
+    } catch (err) {
+      console.error('❌ [Delete] Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete document');
+    }
+  };
+
+  // Handle view
+  const handleView = (doc: DocumentWithDetails) => {
+    setViewingDocument(doc);
+    setViewDialogOpen(true);
+  };
+
+  // Get file icon
+  const getFileIcon = (type: string) => {
+    const lower = type?.toLowerCase() || '';
+    if (lower.includes('pdf')) return <FileText className="w-6 h-6 text-red-500" />;
+    if (lower.includes('doc')) return <FileText className="w-6 h-6 text-blue-500" />;
+    if (lower.includes('xls') || lower.includes('sheet')) return <FileText className="w-6 h-6 text-green-500" />;
+    if (lower.includes('zip') || lower.includes('archive')) return <Archive className="w-6 h-6 text-yellow-500" />;
+    if (lower.includes('image') || lower.includes('jpg') || lower.includes('png')) return <Eye className="w-6 h-6 text-purple-500" />;
+    return <File className="w-6 h-6 text-muted-foreground" />;
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Get categories
+  const categories = ['all', ...Array.from(new Set(documents.map(d => d.type)))];
   
-  const filteredDocuments = mockDocuments.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
+  // Filter documents
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSearch = doc.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || doc.type === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
+  // Calculate stats
   const stats = {
-    total: mockDocuments.length,
-    shared: mockDocuments.filter(d => d.shared).length,
-    categories: categories.length - 1,
-    versions: mockDocuments.reduce((sum, doc) => sum + doc.versions.length, 0)
+    total: documents.length,
+    templates: documents.filter(d => d.type === 'form' || d.type === 'certificate').length,
+    reports: documents.filter(d => d.type === 'report' || d.type === 'evaluation').length,
+    shared: documents.filter(d => d.status === 'published' || d.status === 'approved').length
   };
 
-  const currentDoc = selectedDocument ? mockDocuments.find(d => d.id === selectedDocument) : null;
 
   return (
     <div className="h-screen bg-background overflow-hidden">
       {/* Desktop View */}
       <div className="hidden lg:flex h-full">
-        {/* Left Sidebar */}
         <AdvisorSidebar />
         
-        {/* Main Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Header */}
           <AdvisorHeader />
           
-          {/* Page Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+            <div className="space-y-8">
+              {/* Header with real-time indicator */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground">Documents</h1>
-                  <p className="text-muted-foreground mt-1">Manage, share, and track document versions</p>
+                  <h1 className="text-4xl font-bold text-gray-900">Documents</h1>
+                  <p className="text-gray-600 mt-2 text-lg">Manage, share, and track documents</p>
                 </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary/90">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Document
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Upload Document</DialogTitle>
-                      <DialogDescription>
-                        Upload a new document to share with students and supervisors
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer">
-                        <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">Drag and drop your file here</p>
-                        <p className="text-sm text-muted-foreground">or click to browse</p>
-                      </div>
-                      <div>
-                        <Label>Category</Label>
-                        <Select>
-                          <SelectTrigger className="mt-2">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="templates">Templates</SelectItem>
-                            <SelectItem value="guidelines">Guidelines</SelectItem>
-                            <SelectItem value="reports">Reports</SelectItem>
-                            <SelectItem value="training">Training</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button className="w-full">Upload</Button>
+                <div className="flex items-center gap-4">
+                  {wsConnected && (
+                    <div className="flex items-center gap-2 text-sm text-[#4CAF50]">
+                      <div className="w-2 h-2 bg-[#4CAF50] rounded-full animate-pulse" />
+                      <span>Connected</span>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                  )}
+                  <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-[#4CAF50] hover:bg-[#45a049] text-white">
+                        <Upload className="w-5 h-5 mr-2" />
+                        Upload Document
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl">Upload New Document</DialogTitle>
+                        <DialogDescription>
+                          Upload templates, reports, or other documents
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      {uploadError && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{uploadError}</AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="space-y-4">
+                        {/* File Drop Zone */}
+                        <div
+                          onDragEnter={handleDrag}
+                          onDragOver={handleDrag}
+                          onDragLeave={handleDrag}
+                          onDrop={handleDrop}
+                          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                            dragActive ? 'border-[#4CAF50] bg-[#4CAF50]/5' : 'border-gray-300 hover:border-[#4CAF50]'
+                          }`}
+                        >
+                          {uploadFile ? (
+                            <div className="space-y-2">
+                              <CheckCircle className="w-12 h-12 mx-auto text-[#4CAF50]" />
+                              <p className="text-gray-900 font-medium">{uploadFile.name}</p>
+                              <p className="text-sm text-gray-500">{formatFileSize(uploadFile.size)}</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUploadFile(null)}
+                              >
+                                Change File
+                              </Button>
+                            </div>
+                          ) : (
+                            <label htmlFor="file-upload" className="cursor-pointer">
+                              <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                              <p className="text-gray-600">Drag and drop your file here</p>
+                              <p className="text-sm text-gray-500 mt-1">or click to browse</p>
+                              <input
+                                id="file-upload"
+                                type="file"
+                                className="hidden"
+                                onChange={handleFileInputChange}
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.jpg,.jpeg,.png"
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <div>
+                          <Label>Document Title *</Label>
+                          <Input
+                            value={uploadTitle}
+                            onChange={(e) => setUploadTitle(e.target.value)}
+                            placeholder="Enter document title"
+                            className="mt-2"
+                            disabled={uploading}
+                          />
+                        </div>
+
+                        {/* Type */}
+                        <div>
+                          <Label>Document Type</Label>
+                          <Tabs value={uploadType} onValueChange={setUploadType} className="mt-2">
+                            <TabsList className="grid grid-cols-3 w-full">
+                              <TabsTrigger value="template">Template</TabsTrigger>
+                              <TabsTrigger value="report">Report</TabsTrigger>
+                              <TabsTrigger value="guideline">Guideline</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                          <Label>Description (Optional)</Label>
+                          <Input
+                            value={uploadDescription}
+                            onChange={(e) => setUploadDescription(e.target.value)}
+                            placeholder="Brief description"
+                            className="mt-2"
+                            disabled={uploading}
+                          />
+                        </div>
+
+                        {/* Progress */}
+                        {uploading && (
+                          <div className="space-y-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-[#4CAF50] h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress}%` }}
+                              />
+                            </div>
+                            <p className="text-sm text-gray-600 text-center">
+                              Uploading... {uploadProgress}%
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Upload Button */}
+                        <Button
+                          onClick={handleUpload}
+                          disabled={uploading || !uploadFile}
+                          className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                        >
+                          {uploading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Document
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
 
+              {/* Real-time Update Alert */}
+              {realtimeUpdate && (
+                <Alert className="border-[#4CAF50] bg-[#4CAF50]/5">
+                  <CheckCircle className="h-4 w-4 text-[#4CAF50]" />
+                  <AlertDescription className="text-[#4CAF50]">{realtimeUpdate}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Error Alert */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-                    <div className="text-sm text-muted-foreground">Total Documents</div>
-                  </CardContent>
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold">{stats.total}</CardTitle>
+                    <p className="text-muted-foreground">Total Documents</p>
+                  </CardHeader>
                 </Card>
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold text-primary">{stats.shared}</div>
-                    <div className="text-sm text-muted-foreground">Shared</div>
-                  </CardContent>
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-blue-600">{stats.templates}</CardTitle>
+                    <p className="text-muted-foreground">Templates</p>
+                  </CardHeader>
                 </Card>
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold text-ai">{stats.categories}</div>
-                    <div className="text-sm text-muted-foreground">Categories</div>
-                  </CardContent>
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-purple-600">{stats.reports}</CardTitle>
+                    <p className="text-muted-foreground">Reports</p>
+                  </CardHeader>
                 </Card>
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold text-success">{stats.versions}</div>
-                    <div className="text-sm text-muted-foreground">Total Versions</div>
-                  </CardContent>
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-[#4CAF50]">{stats.shared}</CardTitle>
+                    <p className="text-muted-foreground">Shared</p>
+                  </CardHeader>
                 </Card>
               </div>
 
@@ -258,6 +519,7 @@ export default function Documents() {
                       placeholder="Search documents..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-11"
                     />
                     <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
                       <TabsList className="w-full justify-start overflow-x-auto">
@@ -273,168 +535,77 @@ export default function Documents() {
               </Card>
 
               {/* Documents List */}
-              <div className="space-y-3">
-                {filteredDocuments.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-12 text-center">
-                      <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No documents found</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  filteredDocuments.map((doc) => (
-                    <Card key={doc.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-muted rounded-lg">
+              {loading ? (
+                <Card>
+                  <CardContent className="py-16 text-center">
+                    <Loader2 className="w-12 h-12 mx-auto text-[#4CAF50] animate-spin mb-4" />
+                    <p className="text-gray-600">Loading documents...</p>
+                  </CardContent>
+                </Card>
+              ) : filteredDocuments.length === 0 ? (
+                <Card>
+                  <CardContent className="py-16 text-center">
+                    <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 text-lg">No documents found</p>
+                    <p className="text-gray-500 mt-2">Upload your first document to get started</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {filteredDocuments.map((doc) => (
+                    <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-6">
+                          <div className="p-4 bg-gray-50 rounded-lg">
                             {getFileIcon(doc.type)}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-foreground">{doc.name}</h3>
-                              {doc.currentVersion > 1 && (
-                                <Badge variant="outline" className="text-xs">
-                                  v{doc.currentVersion}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                              <span>{doc.size}</span>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-lg text-gray-900">{doc.title}</h3>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                              <span>{doc.metadata?.size ? formatFileSize(doc.metadata.size) : 'N/A'}</span>
                               <span>•</span>
-                              <span>Uploaded {new Date(doc.uploadedDate).toLocaleDateString()}</span>
-                              <span>•</span>
-                              <span>{doc.uploadedBy}</span>
-                              {doc.shared && (
+                              <span>Uploaded {formatDate(doc.created_at)}</span>
+                              {doc.owner && (
                                 <>
                                   <span>•</span>
-                                  <Badge variant="success" className="text-xs">
-                                    <Users className="w-3 h-3 mr-1" />
-                                    Shared
-                                  </Badge>
+                                  <span>{doc.owner.first_name} {doc.owner.last_name}</span>
                                 </>
                               )}
                             </div>
-                            {doc.lastModified !== doc.uploadedDate && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Last modified: {new Date(doc.lastModified).toLocaleDateString()} by {doc.lastModifiedBy}
-                              </div>
+                            {doc.description && (
+                              <p className="text-sm text-gray-600 mt-2 line-clamp-2">{doc.description}</p>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => setSelectedDocument(doc.id)}
-                                >
-                                  <History className="w-4 h-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                  <DialogTitle>Version History - {doc.name}</DialogTitle>
-                                  <DialogDescription>
-                                    View and manage document versions
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                                  {doc.versions.map((version, idx) => (
-                                    <Card key={idx} className={version.version === doc.currentVersion ? 'border-primary' : ''}>
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                              <Badge variant={version.version === doc.currentVersion ? 'default' : 'outline'}>
-                                                Version {version.version}
-                                                {version.version === doc.currentVersion && ' (Current)'}
-                                              </Badge>
-                                            </div>
-                                            <div className="mt-2 space-y-1">
-                                              <div className="text-sm text-foreground">
-                                                <span className="font-medium">Updated by:</span> {version.updatedBy}
-                                              </div>
-                                              <div className="text-sm text-muted-foreground">
-                                                <span className="font-medium">Date:</span> {new Date(version.updatedDate).toLocaleString()}
-                                              </div>
-                                              <div className="text-sm text-muted-foreground">
-                                                <span className="font-medium">Changes:</span> {version.changes}
-                                              </div>
-                                              <div className="text-sm text-muted-foreground">
-                                                <span className="font-medium">Size:</span> {version.size}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="flex gap-2">
-                                            <Button variant="outline" size="sm">
-                                              <Download className="w-3 h-3 mr-1" />
-                                              Download
-                                            </Button>
-                                            {version.version === doc.currentVersion && (
-                                              <Button variant="outline" size="sm">
-                                                <Edit className="w-3 h-3 mr-1" />
-                                                Edit
-                                              </Button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  ))}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleView(doc)}
+                            >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownload(doc)}
+                            >
                               <Download className="w-4 h-4" />
                             </Button>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Share2 className="w-4 h-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Share Document</DialogTitle>
-                                  <DialogDescription>
-                                    Select roles to share this document with
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <Label>Share with:</Label>
-                                    <div className="space-y-2">
-                                      <div className="flex items-center space-x-2">
-                                        <input type="checkbox" id="students" defaultChecked={doc.sharedWith.includes('Students')} />
-                                        <Label htmlFor="students" className="font-normal">Students</Label>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <input type="checkbox" id="supervisors" defaultChecked={doc.sharedWith.includes('Supervisors')} />
-                                        <Label htmlFor="supervisors" className="font-normal">Supervisors</Label>
-                                      </div>
-                                      <div className="flex items-center space-x-2">
-                                        <input type="checkbox" id="administrators" defaultChecked={doc.sharedWith.includes('Administrators')} />
-                                        <Label htmlFor="administrators" className="font-normal">Administrators</Label>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <Button className="w-full">Update Sharing</Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(doc.id)}
+                            >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -442,145 +613,100 @@ export default function Documents() {
 
       {/* Mobile View */}
       <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <MobileHeader 
-          title="Documents"
-          subtitle="Manage and share documents"
-          notificationCount={15}
-        />
-        <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
-          {/* Upload Button */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="w-full">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Document
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload Document</DialogTitle>
-                <DialogDescription>
-                  Upload a new document to share
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted transition-colors cursor-pointer">
-                  <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">Tap to select file</p>
-                </div>
-                <Button className="w-full">Upload</Button>
+        <MobileHeader title="Documents" subtitle="Manage and share documents" />
+        
+        <div className="flex-1 overflow-y-auto p-4 pb-20">
+          <div className="space-y-4">
+            <Button
+              onClick={() => setUploadDialogOpen(true)}
+              className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Document
+            </Button>
+
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+
+            {loading ? (
+              <div className="py-16 text-center">
+                <Loader2 className="w-12 h-12 mx-auto text-[#4CAF50] animate-spin" />
               </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-2">
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-foreground">{stats.total}</div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-primary">{stats.shared}</div>
-                  <div className="text-xs text-muted-foreground">Shared</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-ai">{stats.categories}</div>
-                  <div className="text-xs text-muted-foreground">Categories</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-success">{stats.versions}</div>
-                  <div className="text-xs text-muted-foreground">Versions</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Search */}
-          <Input
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-
-          {/* Category Tabs */}
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-            <TabsList className="w-full grid grid-cols-3 h-auto">
-              {categories.slice(0, 3).map((cat) => (
-                <TabsTrigger key={cat} value={cat} className="capitalize text-xs">
-                  {cat}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-
-          {/* Documents List */}
-          <div className="space-y-2">
-            {filteredDocuments.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground text-sm">No documents found</p>
-                </CardContent>
-              </Card>
             ) : (
-              filteredDocuments.map((doc) => (
-                <Card key={doc.id}>
-                  <CardContent className="pt-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-muted rounded-lg">
-                        {getFileIcon(doc.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground text-sm truncate">{doc.name}</h3>
-                          {doc.currentVersion > 1 && (
-                            <Badge variant="outline" className="text-xs">v{doc.currentVersion}</Badge>
-                          )}
+              <div className="space-y-3">
+                {filteredDocuments.map((doc) => (
+                  <Card key={doc.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-gray-50 rounded">
+                          {getFileIcon(doc.type)}
                         </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{doc.size}</span>
-                          <span>•</span>
-                          <span>{new Date(doc.uploadedDate).toLocaleDateString()}</span>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm">{doc.title}</h3>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {formatDate(doc.created_at)}
+                          </p>
                         </div>
-                        {doc.shared && (
-                          <Badge variant="success" className="text-xs mt-1">
-                            <Users className="w-3 h-3 mr-1" />
-                            Shared
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <History className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                        >
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         </div>
+
         <BottomNavigation type="advisor" />
       </div>
+
+      {/* View Document Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{viewingDocument?.title}</DialogTitle>
+            <DialogDescription>
+              {viewingDocument?.description || 'Document details'}
+            </DialogDescription>
+          </DialogHeader>
+          {viewingDocument && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Type:</span> {viewingDocument.type}
+                </div>
+                <div>
+                  <span className="font-medium">Status:</span> {viewingDocument.status}
+                </div>
+                <div>
+                  <span className="font-medium">Created:</span> {formatDate(viewingDocument.created_at)}
+                </div>
+                <div>
+                  <span className="font-medium">Updated:</span> {formatDate(viewingDocument.updated_at)}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => handleDownload(viewingDocument)} className="flex-1">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

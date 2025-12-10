@@ -4,23 +4,23 @@
   --background: #ffffff;
   --foreground: #171717;
   
-  /* Primary colors */
-  --primary: #3b82f6;
+  /* CvSU Primary colors - Spring Green */
+  --primary: #16a34a;
   --primary-foreground: #ffffff;
   
-  /* Secondary colors */
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
+  /* CvSU Secondary colors - Gold */
+  --secondary: #f59e0b;
+  --secondary-foreground: #ffffff;
   
   /* AI/Accent colors */
   --ai: #8b5cf6;
   --ai-foreground: #ffffff;
   
-  /* Success colors */
+  /* Success colors - CvSU Green */
   --success: #10b981;
   --success-foreground: #ffffff;
   
-  /* Warning colors */
+  /* Warning colors - CvSU Gold */
   --warning: #f59e0b;
   --warning-foreground: #ffffff;
   
@@ -39,14 +39,14 @@
   /* Border and input colors */
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #3b82f6;
+  --ring: #16a34a;
   
   /* Accent colors */
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --accent: #f0fdf4;
+  --accent-foreground: #14532d;
   
   /* Radius */
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 @theme inline {
@@ -83,10 +83,10 @@
   --foreground: #ededed;
   --card: #1a1a1a;
   --card-foreground: #ededed;
-  --primary: #60a5fa;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1e293b;
-  --secondary-foreground: #f1f5f9;
+  --primary: #22c55e;
+  --primary-foreground: #ffffff;
+  --secondary: #fbbf24;
+  --secondary-foreground: #0a0a0a;
   --ai: #a78bfa;
   --ai-foreground: #0a0a0a;
   --success: #34d399;
@@ -97,22 +97,28 @@
   --destructive-foreground: #0a0a0a;
   --muted: #1e293b;
   --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f1f5f9;
+  --accent: #14532d;
+  --accent-foreground: #f0fdf4;
   --border: #334155;
   --input: #334155;
-  --ring: #60a5fa;
+  --ring: #22c55e;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-size: 18px;
+  line-height: 1.7;
 }
 
-/* Gradient utilities */
+/* Gradient utilities - CvSU Themed */
 .bg-gradient-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+}
+
+.bg-gradient-cvsu {
+  background: linear-gradient(135deg, #16a34a 0%, #f59e0b 100%);
 }
 
 .bg-gradient-ai {
@@ -120,7 +126,7 @@ body {
 }
 
 .bg-gradient-hero {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--ai) 100%);
+  background: linear-gradient(135deg, #16a34a 0%, #f59e0b 50%, #16a34a 100%);
 }
 
 /* Shadow utilities */

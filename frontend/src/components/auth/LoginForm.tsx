@@ -55,17 +55,10 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
         return;
       }
 
-      // Get user role from response
+      // Get user role from response - automatically detect role
       const userRole = loginData.data.user?.role || 'student';
 
-      // Role-based authentication: only allow login if user role matches selectedRole
-      if (selectedRole && userRole !== selectedRole) {
-        setError('You are not allowed to log in as this role. Please select the correct role.');
-        await supabase.auth.signOut(); // sign out the session
-        return;
-      }
-
-      // Redirect based on redirectTo prop or user role
+      // Redirect based on redirectTo prop or automatically based on user's actual role
       if (redirectTo) {
         router.push(redirectTo);
       } else {
@@ -87,10 +80,10 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`space-y-6 ${className || ''}`}>
+    <form onSubmit={handleSubmit} className={`space-y-4 ${className || ''}`}>
       {error && (
         <div 
-          className="bg-destructive/10 border border-destructive/50 text-destructive px-4 py-3 rounded-lg text-sm"
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm"
           role="alert"
         >
           {error}
@@ -98,35 +91,39 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
       )}
 
       <div className="space-y-4">
-        <div>
-          <label htmlFor="email" className="text-sm font-medium text-foreground mb-2 block">
-            Email Address
-          </label>
+        <div className="relative">
+          <div className="absolute left-0 top-0 h-full w-12 bg-[#4CAF50] rounded-l-md flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
           <input
             id="email"
             name="email"
             type="email"
             autoComplete="email"
             required
-            className="w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            placeholder="your.email@example.com"
+            className="w-full pl-14 pr-4 py-3 border-2 border-gray-900 rounded-md bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] transition-all"
+            placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
           />
         </div>
 
-        <div>
-          <label htmlFor="password" className="text-sm font-medium text-foreground mb-2 block">
-            Password
-          </label>
+        <div className="relative">
+          <div className="absolute left-0 top-0 h-full w-12 bg-[#4CAF50] rounded-l-md flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
           <input
             id="password"
             name="password"
             type="password"
             autoComplete="current-password"
             required
-            className="w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full pl-14 pr-4 py-3 border-2 border-gray-900 rounded-md bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] transition-all"
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -138,9 +135,9 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-gradient-primary hover:opacity-90 text-white font-semibold py-3 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white font-bold py-3 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
       >
-        {loading ? 'Signing In...' : 'Sign In'}
+        {loading ? 'Signing In...' : 'Login'}
       </button>
     </form>
   );

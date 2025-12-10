@@ -466,6 +466,156 @@ export class InternshipsController {
   }
 
   /**
+   * POST /admin/internships/:id/archive
+   * Archive an internship (soft delete)
+   */
+  async archiveInternship(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // Check if internship exists and is not already archived
+      const { data: internship, error: fetchError } = await supabase
+        .from('internships')
+        .select('id, student_id, company_id, is_archived, status')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !internship) {
+        return res.status(404).json({
+          success: false,
+          message: 'Internship not found',
+        });
+      }
+
+      if (internship.is_archived) {
+        return res.status(400).json({
+          success: false,
+          message: 'Internship is already archived',
+        });
+      }
+
+      // Check if there are pending evaluations
+      const { count: pendingEvaluations } = await supabase
+        .from('evaluations')
+        .select('id', { count: 'exact', head: true })
+        .eq('internship_id', id)
+        .eq('status', 'pending');
+
+      if (pendingEvaluations && pendingEvaluations > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot archive internship with ${pendingEvaluations} pending evaluation(s). Please complete them first.`,
+        });
+      }
+
+      // Archive the internship
+      const { error: updateError } = await supabase
+        .from('internships')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Log activity
+      await internshipsService.logActivity(
+        (req as any).user.id,
+        'internship_archived',
+        id,
+        'Admin archived internship',
+        { previous_status: internship.status }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Internship archived successfully',
+        data: {
+          id: internship.id,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in archiveInternship:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * POST /admin/internships/:id/unarchive
+   * Unarchive an internship (restore)
+   */
+  async unarchiveInternship(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // Check if internship exists and is archived
+      const { data: internship, error: fetchError } = await supabase
+        .from('internships')
+        .select('id, student_id, company_id, is_archived, status')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !internship) {
+        return res.status(404).json({
+          success: false,
+          message: 'Internship not found',
+        });
+      }
+
+      if (!internship.is_archived) {
+        return res.status(400).json({
+          success: false,
+          message: 'Internship is not archived',
+        });
+      }
+
+      // Unarchive the internship
+      const { error: updateError } = await supabase
+        .from('internships')
+        .update({
+          is_archived: false,
+          archived_at: null,
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Log activity
+      await internshipsService.logActivity(
+        (req as any).user.id,
+        'internship_unarchived',
+        id,
+        'Admin unarchived internship',
+        { current_status: internship.status }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Internship unarchived successfully',
+        data: {
+          id: internship.id,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in unarchiveInternship:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /admin/internships/available-students
    * Get students without active internships
    */
