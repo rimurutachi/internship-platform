@@ -404,18 +404,18 @@ export default function Documents() {
           <StudentHeader />
           
           {/* Page Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
             {/* WebSocket Status */}
-            <div className="mb-4 flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
-              <span className="text-xs text-muted-foreground">
+            <div className="mb-6 flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-[#4CAF50]' : 'bg-gray-400'}`} />
+              <span className="text-base text-gray-600">
                 {wsConnected ? 'Real-time updates enabled' : 'Connecting...'}
               </span>
             </div>
             {/* Loading State */}
             {loading && (
               <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <Loader2 className="w-10 h-10 animate-spin text-[#4CAF50]" />
               </div>
             )}
 
@@ -439,20 +439,20 @@ export default function Documents() {
 
             {/* Content */}
             {!loading && !error && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Documents</h1>
-          <p className="text-muted-foreground mt-1">Manage and share your internship documents</p>
+          <h1 className="text-4xl font-bold text-gray-900">Documents</h1>
+          <p className="text-gray-600 mt-2 text-lg">Manage and share your internship documents</p>
         </div>
         <Button 
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-base px-6 py-6"
           onClick={() => {
             console.log('🔵 [Upload] Button clicked!');
             setUploadDialogOpen(true);
           }}
         >
-          <Upload className="w-4 h-4 mr-2" />
+          <Upload className="w-5 h-5 mr-2" />
           Upload Document
         </Button>
         <Dialog open={uploadDialogOpen} onOpenChange={handleDialogClose}>
@@ -847,46 +847,47 @@ export default function Documents() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-            <div className="text-sm text-muted-foreground">Total Documents</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="bg-white border border-gray-200">
+          <CardContent className="p-6">
+            <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
+            <div className="text-base text-gray-600 mt-1">Total Documents</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">{stats.shared}</div>
-            <div className="text-sm text-muted-foreground">Shared</div>
+        <Card className="bg-white border border-gray-200">
+          <CardContent className="p-6">
+            <div className="text-3xl font-bold text-blue-600">{stats.shared}</div>
+            <div className="text-base text-gray-600 mt-1">Shared</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-purple-600">{stats.categories}</div>
-            <div className="text-sm text-muted-foreground">Categories</div>
+        <Card className="bg-white border border-gray-200">
+          <CardContent className="p-6">
+            <div className="text-3xl font-bold text-purple-600">{stats.categories}</div>
+            <div className="text-base text-gray-600 mt-1">Categories</div>
           </CardContent>
                 </Card>
-                <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">{stats.versions}</div>
-            <div className="text-sm text-muted-foreground">Total Versions</div>
+                <Card className="bg-white border border-gray-200">
+          <CardContent className="p-6">
+            <div className="text-3xl font-bold text-[#4CAF50]">{stats.versions}</div>
+            <div className="text-base text-gray-600 mt-1">Total Versions</div>
           </CardContent>
                 </Card>
               </div>
 
               {/* Search and Filter */}
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="bg-white border border-gray-200">
+                <CardContent className="p-6">
           <div className="space-y-4">
             <Input
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-base h-11 border-gray-300"
             />
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-              <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsList className="w-full justify-start overflow-x-auto bg-gray-100 p-1">
                 {categories.map((cat) => (
-                  <TabsTrigger key={cat} value={cat} className="capitalize">
+                  <TabsTrigger key={cat} value={cat} className="capitalize data-[state=active]:bg-white text-base px-6 py-2">
                     {cat}
                   </TabsTrigger>
                 ))}
@@ -895,33 +896,32 @@ export default function Documents() {
                 </div>
                 </CardContent>
               </Card>
-
               {/* Documents List */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredDocuments.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-12 text-center">
-                      <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No documents found</p>
+                  <Card className="bg-white border border-gray-200">
+                    <CardContent className="py-16 text-center">
+                      <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600 text-lg">No documents found</p>
                     </CardContent>
                   </Card>
                 ) : (
                   filteredDocuments.map((doc) => (
-            <Card key={doc.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-slate-100 rounded-lg">
+            <Card key={doc.id} className="hover:shadow-md transition-shadow bg-white border border-gray-200">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-5">
+                  <div className="p-4 bg-gray-100 rounded-lg">
                     {getFileIcon(doc.type)}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground">{doc.title}</h3>
-                      <Badge variant="outline" className="text-xs">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold text-gray-900 text-lg">{doc.title}</h3>
+                      <Badge variant="outline" className="text-sm border-gray-300">
                         v{doc.version}
                       </Badge>
-                      <Badge className="capitalize">{doc.status}</Badge>
+                      <Badge className="capitalize text-sm">{doc.status}</Badge>
                     </div>
-                    <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-3 mt-2 text-base text-gray-600">
                       <span>Created {new Date(doc.created_at).toLocaleDateString()}</span>
                       {doc.owner && (
                         <>
@@ -933,12 +933,12 @@ export default function Documents() {
                       <span className="capitalize">{doc.type}</span>
                     </div>
                     {doc.updated_at !== doc.created_at && (
-                      <div className="text-xs text-muted-foreground mt-1">
+                      <div className="text-sm text-gray-500 mt-1">
                         Last modified: {new Date(doc.updated_at).toLocaleDateString()}
                       </div>
                     )}
                     {doc.description && (
-                      <div className="text-sm text-muted-foreground mt-2">
+                      <div className="text-base text-gray-600 mt-2">
                         {doc.description}
                       </div>
                     )}

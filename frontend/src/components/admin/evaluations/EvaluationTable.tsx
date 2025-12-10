@@ -57,6 +57,23 @@ export function EvaluationTable({
     );
   };
 
+  const getTypeBadge = (evaluationType?: string, weekNumber?: number | null, period?: string | null) => {
+    const colors: Record<string, string> = {
+      weekly: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      midterm: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+      final: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    };
+
+    const displayText = period || evaluationType?.toUpperCase() || 'FINAL';
+    const colorClass = colors[evaluationType || 'final'] || colors.final;
+
+    return (
+      <Badge variant="outline" className={colorClass}>
+        {displayText}
+      </Badge>
+    );
+  };
+
   if (loading) {
     return (
       <div className="border rounded-lg">
@@ -104,6 +121,7 @@ export function EvaluationTable({
             <TableHead>Student</TableHead>
             <TableHead>Company</TableHead>
             <TableHead>Supervisor</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Grade</TableHead>
             <TableHead>Confidence</TableHead>
@@ -121,6 +139,9 @@ export function EvaluationTable({
               </TableCell>
               <TableCell>
                 {evaluation.internship?.supervisor?.name}
+              </TableCell>
+              <TableCell>
+                {getTypeBadge(evaluation.evaluation_type, evaluation.week_number, evaluation.evaluation_period)}
               </TableCell>
               <TableCell>
                 {getStatusBadge(evaluation.status)}

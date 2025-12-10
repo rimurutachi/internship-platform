@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import dashboardController from '../../controllers/admin/dashboardController';
 import { authenticateToken, requireRole } from '../../middleware/auth';
+import * as adminDashboardService from '../../services/adminDashboardService';
 
 const router = Router();
 
@@ -39,5 +40,40 @@ router.get('/feature-usage', (req, res) => dashboardController.getFeatureUsage(r
  * Get complete dashboard overview (all data in one call)
  */
 router.get('/overview', (req, res) => dashboardController.getDashboardOverview(req, res));
+
+/**
+ * GET /admin/dashboard/ojt-overview
+ * Get OJT-specific dashboard with real-time metrics
+ * Query params: university_id (required)
+ */
+router.get('/ojt-overview', async (req, res) => {
+  try {
+    const { university_id } = req.query;
+
+    if (!university_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'university_id is required',
+      });
+    }
+
+    const result = await adminDashboardService.getAdminDashboardOverview(
+      university_id as string
+    );
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+});
 
 export default router;

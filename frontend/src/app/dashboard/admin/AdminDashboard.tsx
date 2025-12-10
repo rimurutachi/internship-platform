@@ -5,7 +5,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
-import { AdminAnalytics } from '@/components/analytics/AdminAnalytics';
+import { AdminAnalyticsOJT } from '@/components/analytics/AdminAnalyticsOJT';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 /**
@@ -41,12 +41,12 @@ const AdminDashboard = () => {
             <div className="space-y-6">
               {/* Page Header */}
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-                <p className="text-muted-foreground mt-1">System overview and platform analytics</p>
+                <h1 className="text-3xl font-bold text-foreground">OJT Dashboard</h1>
+                <p className="text-muted-foreground mt-1">Internship platform overview and analytics</p>
               </div>
 
-              {/* Analytics Content */}
-              <AdminAnalytics />
+              {/* OJT Analytics Content */}
+              <AdminAnalyticsOJT />
             </div>
           </div>
         </div>
@@ -72,12 +72,12 @@ const AdminDashboard = () => {
           <div className="space-y-4">
             {/* Header */}
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-1">System overview and platform analytics</p>
+              <h1 className="text-2xl font-bold text-foreground">OJT Dashboard</h1>
+              <p className="text-sm text-muted-foreground mt-1">Internship platform overview</p>
             </div>
 
-            {/* Analytics Content */}
-            <AdminAnalytics />
+            {/* OJT Analytics Content */}
+            <AdminAnalyticsOJT />
           </div>
         </div>
 

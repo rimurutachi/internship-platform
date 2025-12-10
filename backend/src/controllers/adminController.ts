@@ -683,3 +683,133 @@ export async function migrateUserNames(req: AuthRequest, res: Response) {
     });
   }
 }
+
+/**
+ * Archive a user (soft delete)
+ * @route POST /api/admin/users/:id/archive
+ */
+export async function archiveUser(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, role, is_archived')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'The specified user does not exist',
+      });
+    }
+
+    // Check if already archived
+    if (user.is_archived) {
+      return res.status(400).json({
+        success: false,
+        error: 'Already archived',
+        message: 'User is already archived',
+      });
+    }
+
+    // Archive the user
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        is_archived: true,
+        archived_at: new Date().toISOString(),
+        status: 'inactive',
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'User archived successfully',
+      data: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error: any) {
+    console.error('Archive user error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Unarchive a user (restore)
+ * @route POST /api/admin/users/:id/unarchive
+ */
+export async function unarchiveUser(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, role, is_archived')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'The specified user does not exist',
+      });
+    }
+
+    // Check if not archived
+    if (!user.is_archived) {
+      return res.status(400).json({
+        success: false,
+        error: 'Not archived',
+        message: 'User is not archived',
+      });
+    }
+
+    // Unarchive the user
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        is_archived: false,
+        archived_at: null,
+        status: 'active',
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'User unarchived successfully',
+      data: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error: any) {
+    console.error('Unarchive user error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+}

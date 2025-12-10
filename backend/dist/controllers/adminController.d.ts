@@ -43,4 +43,14 @@ export declare function getUserStats(req: AuthRequest, res: Response): Promise<R
  * This is a one-time migration endpoint
  */
 export declare function migrateUserNames(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Archive a user (soft delete)
+ * @route POST /api/admin/users/:id/archive
+ */
+export declare function archiveUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Unarchive a user (restore)
+ * @route POST /api/admin/users/:id/unarchive
+ */
+export declare function unarchiveUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=adminController.d.ts.map

@@ -26,6 +26,16 @@ export declare class InternshipsController {
      */
     deleteInternship(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
     /**
+     * POST /admin/internships/:id/archive
+     * Archive an internship (soft delete)
+     */
+    archiveInternship(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+    /**
+     * POST /admin/internships/:id/unarchive
+     * Unarchive an internship (restore)
+     */
+    unarchiveInternship(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+    /**
      * GET /admin/internships/available-students
      * Get students without active internships
      */

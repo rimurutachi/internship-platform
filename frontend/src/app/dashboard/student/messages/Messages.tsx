@@ -475,17 +475,17 @@ export default function Messages() {
           <StudentHeader />
           
           {/* Page Content */}
-          <div className="flex-1 flex flex-col overflow-hidden p-6">
+          <div className="flex-1 flex flex-col overflow-hidden p-8 xl:p-12 bg-gray-50">
             {/* Fixed Page Header */}
-            <div className="mb-6 flex-shrink-0">
+            <div className="mb-8 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground">Messages</h1>
-                  <p className="text-muted-foreground mt-1">Chat with supervisors and advisors</p>
+                  <h1 className="text-4xl font-bold text-gray-900">Messages</h1>
+                  <p className="text-gray-600 mt-2 text-lg">Chat with supervisors and advisors</p>
                 </div>
                 {socketConnected && (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                  <div className="flex items-center gap-2 text-base text-[#4CAF50]">
+                    <div className="w-2 h-2 bg-[#4CAF50] rounded-full animate-pulse" />
                     <span>Connected</span>
                   </div>
                 )}
@@ -500,32 +500,32 @@ export default function Messages() {
             )}
 
             {/* Chat Layout */}
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 overflow-hidden">
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
               {/* Conversations List */}
-              <Card className="md:col-span-1 flex flex-col overflow-hidden">
-                <CardHeader className="flex-shrink-0">
+              <Card className="md:col-span-1 flex flex-col overflow-hidden bg-white border border-gray-200">
+                <CardHeader className="flex-shrink-0 border-b border-gray-200 pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-xl text-gray-900">
                       Conversations ({conversations.length})
                     </CardTitle>
                     <Button
                       size="sm"
                       onClick={() => setShowNewMessageModal(true)}
-                      className="gap-2"
+                      className="gap-2 bg-[#4CAF50] hover:bg-[#45a049] text-white"
                     >
                       <PenSquare className="h-4 w-4" />
                       <span className="hidden sm:inline">New</span>
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col space-y-3 overflow-hidden pb-4">
+                <CardContent className="flex-1 flex flex-col space-y-4 overflow-hidden pb-4 pt-4">
                   <div className="relative flex-shrink-0">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
                       placeholder="Search conversations..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-9"
+                      className="pl-10 h-11 text-base border-gray-300"
                     />
                   </div>
                   
@@ -584,11 +584,11 @@ export default function Messages() {
               </Card>
 
               {/* Chat Area */}
-              <Card className="md:col-span-2 flex flex-col overflow-hidden">
+              <Card className="md:col-span-2 flex flex-col overflow-hidden bg-white border border-gray-200">
                 {!selectedConversation ? (
                   <div className="flex-1 flex items-center justify-center p-8">
                     <div className="text-center">
-                      <div className="text-muted-foreground mb-2">
+                      <div className="text-gray-600 text-lg mb-2">
                         Select a conversation to start messaging
                       </div>
                     </div>
@@ -596,32 +596,32 @@ export default function Messages() {
                 ) : currentConversation ? (
                   <>
                     {/* Chat Header */}
-                    <CardHeader className="border-b flex-shrink-0">
+                    <CardHeader className="border-b border-gray-200 flex-shrink-0 pb-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="w-12 h-12">
+                            <AvatarFallback className="bg-[#4CAF50]/10 text-[#4CAF50] font-semibold text-lg">
                               {getConversationDisplay(currentConversation).avatar}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-semibold text-foreground">
+                            <div className="font-semibold text-gray-900 text-lg">
                               {getConversationDisplay(currentConversation).name}
                             </div>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-base text-gray-600">
                               {getConversationDisplay(currentConversation).role}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" title="Voice Call (Coming Soon)">
-                            <Phone className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" title="Voice Call (Coming Soon)" className="hover:bg-gray-100">
+                            <Phone className="w-5 h-5 text-gray-600" />
                           </Button>
-                          <Button variant="ghost" size="sm" title="Video Call (Coming Soon)">
-                            <Video className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" title="Video Call (Coming Soon)" className="hover:bg-gray-100">
+                            <Video className="w-5 h-5 text-gray-600" />
                           </Button>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
+                          <Button variant="ghost" size="sm" className="hover:bg-gray-100">
+                            <MoreVertical className="w-5 h-5 text-gray-600" />
                           </Button>
                         </div>
                       </div>

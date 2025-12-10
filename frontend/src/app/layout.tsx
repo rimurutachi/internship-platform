@@ -27,6 +27,11 @@ export const metadata: Metadata = {
   metadataBase: process.env.NEXT_PUBLIC_APP_URL 
     ? new URL(process.env.NEXT_PUBLIC_APP_URL)
     : undefined,
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',

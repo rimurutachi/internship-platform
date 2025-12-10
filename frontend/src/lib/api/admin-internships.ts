@@ -16,6 +16,8 @@ export interface Internship {
   start_date: string;
   end_date: string;
   status: 'pending' | 'active' | 'completed' | 'cancelled';
+  is_archived?: boolean;
+  archived_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -255,6 +257,36 @@ export const adminInternshipsAPI = {
   }> => {
     return fetchAPI(`/admin/internships/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  /**
+   * Archive internship
+   */
+  archiveInternship: async (
+    id: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: { id: string };
+  }> => {
+    return fetchAPI(`/admin/internships/${id}/archive`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Unarchive internship
+   */
+  unarchiveInternship: async (
+    id: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: { id: string };
+  }> => {
+    return fetchAPI(`/admin/internships/${id}/unarchive`, {
+      method: 'POST',
     });
   },
 

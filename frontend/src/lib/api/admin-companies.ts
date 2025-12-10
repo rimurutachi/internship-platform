@@ -18,8 +18,11 @@ export interface Company {
   code?: string;
   capacity_limit?: number;
   current_students?: number;
+  available_slots?: number;
   is_verified?: boolean;
   is_moa_standardized?: boolean;
+  is_archived?: boolean;
+  archived_at?: string;
   created_at: string;
 }
 
@@ -213,6 +216,47 @@ export const adminCompaniesAPI = {
     return fetchAPI(`/admin/companies/${companyId}`, {
       method: 'DELETE',
     });
+  },
+
+  /**
+   * Archive company (soft delete)
+   */
+  archiveCompany: async (
+    companyId: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return fetchAPI(`/admin/companies/${companyId}/archive`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Unarchive a company
+   */
+  unarchiveCompany: async (
+    companyId: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: { id: string; name: string };
+  }> => {
+    return fetchAPI(`/admin/companies/${companyId}/unarchive`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Update company students count
+   */
+  updateStudentsCount: async (
+    companyId: string
+  ): Promise<{
+    success: boolean;
+    data: { current_students: number };
+  }> => {
+    return fetchAPI(`/admin/companies/${companyId}/students-count`);
   },
 
   /**

@@ -16,13 +16,11 @@ import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 const menuItems = [
-  { icon: BarChart3, label: 'Dashboard', path: '/dashboard/advisor', emoji: '📊' },
-  { icon: Users, label: 'My Students', path: '/dashboard/advisor/students', emoji: '👥' },
-  { icon: Brain, label: 'AI Evaluations', path: '/dashboard/advisor/evaluations', emoji: '🤖' },
-  { icon: FileText, label: 'Analytics', path: '/dashboard/advisor/analytics', emoji: '📈' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/advisor/messages', emoji: '💬' },
-  { icon: FileCheck, label: 'Documents', path: '/dashboard/advisor/documents', emoji: '📄' },
-  { icon: Settings, label: 'Settings', path: '/dashboard/advisor/settings', emoji: '⚙️' },
+  { icon: Users, label: 'My Students', path: '/dashboard/advisor/students' },
+  { icon: Brain, label: 'Evaluations & Reports', path: '/dashboard/advisor/evaluations' },
+  { icon: MessageSquare, label: 'Messages', path: '/dashboard/advisor/messages' },
+  { icon: FileCheck, label: 'Documents', path: '/dashboard/advisor/documents' },
+  { icon: Settings, label: 'Settings', path: '/dashboard/advisor/settings' },
 ];
 
 export const AdvisorSidebar = () => {
@@ -40,39 +38,41 @@ export const AdvisorSidebar = () => {
     : 'AD';
 
   return (
-    <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
+    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col overflow-y-auto">
       {/* User Profile Section */}
-      <div className="p-6 border-b border-border">
+      <div className="p-6 bg-white">
         <div className="flex items-center space-x-3">
-          <Avatar className="w-12 h-12">
+          <Avatar className="w-14 h-14 border-2 border-[#4CAF50]">
             <AvatarImage src="/placeholder.svg" alt={fullName} />
-            <AvatarFallback className="bg-ai text-ai-foreground">{initials}</AvatarFallback>
+            <AvatarFallback className="bg-[#4CAF50] text-white font-bold text-lg">{initials}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-foreground">{fullName}</h3>
-            <p className="text-sm text-muted-foreground">{user?.role || 'Advisor'}</p>
+            <h3 className="font-bold text-gray-900 text-base">{fullName}</h3>
+            <p className="text-xs text-gray-600">{user?.role || 'Advisor'}</p>
           </div>
         </div>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
+      <nav className="flex-1 px-3 py-4">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
-            const isActive = pathname === item.path || (item.path !== '/dashboard/advisor' && pathname?.startsWith(item.path));
+            const Icon = item.icon;
+            const isActive = pathname === item.path || 
+                           (item.path !== '/dashboard/advisor' && pathname?.startsWith(item.path));
             
             return (
               <li key={item.path}>
                 <Link
                   href={item.path}
                   className={cn(
-                    'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium transition-all',
                     isActive
-                      ? 'bg-ai text-ai-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-[#4CAF50] text-white shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100'
                   )}
                 >
-                  <span className="text-base">{item.emoji}</span>
+                  <Icon className="w-5 h-5" />
                   <span>{item.label}</span>
                 </Link>
               </li>

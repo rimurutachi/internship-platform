@@ -7,6 +7,9 @@ exports.updateCompany = updateCompany;
 exports.deleteCompany = deleteCompany;
 exports.getCompanyStats = getCompanyStats;
 exports.getCompanySupervisors = getCompanySupervisors;
+exports.archiveCompany = archiveCompany;
+exports.unarchiveCompany = unarchiveCompany;
+exports.updateCompanyStudentsCount = updateCompanyStudentsCount;
 const supabase_js_1 = require("@supabase/supabase-js");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
@@ -22,7 +25,7 @@ async function getCompanies(req, res) {
         const offset = (page - 1) * limit;
         // Build base query for filtering
         let baseQuery = supabase.from('companies');
-        // Apply filters for count
+        // Apply filters for count - INCLUDE archived (show all with status badge)
         let countQuery = baseQuery.select('*', { count: 'exact', head: true });
         if (search) {
             countQuery = countQuery.ilike('name', `%${search}%`);
@@ -47,7 +50,7 @@ async function getCompanies(req, res) {
             email,
             name
           )
-        `);
+        `); // Show ALL companies including archived
         // Apply same filters to data query
         if (search) {
             dataQuery = dataQuery.ilike('name', `%${search}%`);
@@ -65,16 +68,26 @@ async function getCompanies(req, res) {
         if (error)
             throw error;
         // Add supervisor count and active internships count
+        // Add supervisor count and active internships count
         const companiesWithCounts = await Promise.all((companies || []).map(async (company) => {
             const { count: internshipCount, error: internshipError } = await supabase
                 .from('internships')
                 .select('id', { count: 'exact', head: true })
                 .eq('company_id', company.id)
-                .eq('status', 'active');
+                .in('status', ['active', 'ongoing']);
+            const currentStudents = internshipError ? 0 : (internshipCount || 0);
+            const availableSlots = (company.capacity_limit || 0) - currentStudents;
+            // Update current_students in database to match actual count
+            await supabase
+                .from('companies')
+                .update({ current_students: currentStudents })
+                .eq('id', company.id);
             return {
                 ...company,
                 supervisor_count: company.supervisors?.length || 0,
-                active_internships: internshipError ? 0 : (internshipCount || 0),
+                active_internships: currentStudents,
+                current_students: currentStudents, // Sync with active internships
+                available_slots: Math.max(0, availableSlots), // Calculate remaining capacity
             };
         }));
         res.json({
@@ -329,11 +342,15 @@ async function getCompanyStats(req, res) {
             .from('users')
             .select('id', { count: 'exact', head: true })
             .eq('role', 'supervisor');
-        // Total capacity
+        // Total capacity (available slots = total capacity - current students)
         const { data: capacityData, error: capacityError } = await supabase
             .from('companies')
-            .select('capacity_limit');
-        const total_capacity = capacityData?.reduce((sum, c) => sum + (c.capacity_limit || 0), 0) || 0;
+            .select('capacity_limit, current_students');
+        const total_capacity = capacityData?.reduce((sum, c) => {
+            const capacity = c.capacity_limit || 0;
+            const students = c.current_students || 0;
+            return sum + Math.max(0, capacity - students); // Available slots only
+        }, 0) || 0;
         // Active partnerships (companies with internships)
         const { data: activeCompanies, error: activeError } = await supabase
             .from('internships')
@@ -387,6 +404,161 @@ async function getCompanySupervisors(req, res) {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch company supervisors',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Archive a company (soft delete)
+ * POST /admin/companies/:id/archive
+ */
+async function archiveCompany(req, res) {
+    try {
+        const { id } = req.params;
+        // Check if company exists
+        const { data: company, error: fetchError } = await supabase
+            .from('companies')
+            .select('id, name, current_students')
+            .eq('id', id)
+            .single();
+        if (fetchError || !company) {
+            return res.status(404).json({
+                success: false,
+                error: 'Company not found',
+                message: 'The specified company does not exist',
+            });
+        }
+        // Check for active internships
+        const { count: activeInternships } = await supabase
+            .from('internships')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', id)
+            .in('status', ['active', 'ongoing']);
+        if (activeInternships && activeInternships > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Company has active internships',
+                message: `Cannot archive company with ${activeInternships} active internship(s). Please complete or transfer them first.`,
+            });
+        }
+        // Archive the company (set is_archived flag)
+        const { error: updateError } = await supabase
+            .from('companies')
+            .update({
+            is_archived: true,
+            archived_at: new Date().toISOString(),
+        })
+            .eq('id', id);
+        if (updateError) {
+            throw updateError;
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Company archived successfully',
+            data: {
+                id: company.id,
+                name: company.name,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Archive company error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Unarchive a company (restore from archive)
+ * POST /admin/companies/:id/unarchive
+ */
+async function unarchiveCompany(req, res) {
+    try {
+        const { id } = req.params;
+        // Check if company exists and is archived
+        const { data: company, error: companyError } = await supabase
+            .from('companies')
+            .select('id, name, is_archived')
+            .eq('id', id)
+            .single();
+        if (companyError || !company) {
+            return res.status(404).json({
+                success: false,
+                message: 'Company not found',
+            });
+        }
+        if (!company.is_archived) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company is not archived',
+            });
+        }
+        // Unarchive the company
+        const { error: updateError } = await supabase
+            .from('companies')
+            .update({
+            is_archived: false,
+            archived_at: null,
+        })
+            .eq('id', id);
+        if (updateError) {
+            throw updateError;
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Company unarchived successfully',
+            data: {
+                id: company.id,
+                name: company.name,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Unarchive company error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Get current students count for a company
+ * This updates the current_students field based on active internships
+ * GET /admin/companies/:id/students-count
+ */
+async function updateCompanyStudentsCount(req, res) {
+    try {
+        const { id } = req.params;
+        // Count active internships for this company
+        const { count, error: countError } = await supabase
+            .from('internships')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', id)
+            .in('status', ['active', 'ongoing']);
+        if (countError)
+            throw countError;
+        // Update company's current_students
+        const { error: updateError } = await supabase
+            .from('companies')
+            .update({ current_students: count || 0 })
+            .eq('id', id);
+        if (updateError)
+            throw updateError;
+        res.json({
+            success: true,
+            data: {
+                current_students: count || 0,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Update company students count error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update students count',
             message: error.message,
         });
     }

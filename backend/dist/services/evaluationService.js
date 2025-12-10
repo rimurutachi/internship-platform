@@ -20,10 +20,23 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 class EvaluationService {
     async create(data) {
+        // Validate evaluation type and week_number
+        if (data.evaluation_type === 'weekly' && !data.week_number) {
+            throw new Error('week_number is required for weekly evaluations');
+        }
+        if (data.evaluation_type !== 'weekly' && data.week_number) {
+            throw new Error('week_number should only be set for weekly evaluations');
+        }
+        // Set default evaluation_type if not provided
+        const evaluationType = data.evaluation_type || 'final';
+        // Determine if mandatory (midterm and final are mandatory)
+        const isMandatory = evaluationType === 'midterm' || evaluationType === 'final';
         const { data: evaluation, error } = await supabase
             .from("evaluations")
             .insert({
             ...data,
+            evaluation_type: evaluationType,
+            is_mandatory: isMandatory,
             status: "draft",
         })
             .select()
@@ -332,6 +345,9 @@ class EvaluationService {
         if (filters?.status) {
             query = query.eq("status", filters.status);
         }
+        if (filters?.evaluation_type) {
+            query = query.eq("evaluation_type", filters.evaluation_type);
+        }
         if (filters?.limit) {
             query = query.limit(filters.limit);
         }
@@ -342,6 +358,116 @@ class EvaluationService {
         if (error)
             throw new Error(error.message);
         return data || [];
+    }
+    /**
+     * Get evaluation timeline for an internship
+     * Shows all evaluations (weekly, midterm, final) in chronological order
+     */
+    async getTimelineByInternship(internshipId) {
+        const { data, error } = await supabase
+            .from('evaluations')
+            .select(`
+        id,
+        evaluation_type,
+        week_number,
+        evaluation_period,
+        status,
+        rating_overall,
+        due_date,
+        submitted_at,
+        created_at,
+        is_mandatory,
+        feedback_text
+      `)
+            .eq('internship_id', internshipId)
+            .order('evaluation_type', { ascending: true })
+            .order('week_number', { ascending: true, nullsFirst: false });
+        if (error)
+            throw new Error(error.message);
+        return data || [];
+    }
+    /**
+     * Get evaluations by type for an internship
+     */
+    async getByType(internshipId, evaluationType) {
+        const { data, error } = await supabase
+            .from('evaluations')
+            .select(`
+        *,
+        supervisor:users!supervisor_id(id, first_name, last_name, email)
+      `)
+            .eq('internship_id', internshipId)
+            .eq('evaluation_type', evaluationType)
+            .order('week_number', { ascending: true, nullsFirst: false });
+        if (error)
+            throw new Error(error.message);
+        return data || [];
+    }
+    /**
+     * Get weekly evaluations for an internship
+     */
+    async getWeeklyEvaluations(internshipId) {
+        return this.getByType(internshipId, 'weekly');
+    }
+    /**
+     * Get overdue evaluations (draft evaluations past due date)
+     */
+    async getOverdueEvaluations(supervisorId) {
+        let query = supabase
+            .from('evaluations')
+            .select(`
+        *,
+        internship:internships(
+          id,
+          position,
+          student:users!student_id(id, first_name, last_name, email),
+          company:companies(id, name)
+        )
+      `)
+            .eq('status', 'draft')
+            .lt('due_date', new Date().toISOString().split('T')[0]);
+        if (supervisorId) {
+            query = query.eq('supervisor_id', supervisorId);
+        }
+        const { data, error } = await query;
+        if (error)
+            throw new Error(error.message);
+        return data || [];
+    }
+    /**
+     * Get evaluation progress summary for an internship
+     * Returns count of completed evaluations by type
+     */
+    async getProgressSummary(internshipId) {
+        const { data, error } = await supabase
+            .from('evaluations')
+            .select('evaluation_type, status, week_number')
+            .eq('internship_id', internshipId);
+        if (error)
+            throw new Error(error.message);
+        const evaluations = data || [];
+        // Count weekly evaluations
+        const weeklyEvals = evaluations.filter(e => e.evaluation_type === 'weekly');
+        const weeklyCompleted = weeklyEvals.filter(e => e.status === 'submitted' || e.status === 'processed' || e.status === 'approved').length;
+        // Check midterm
+        const midtermEval = evaluations.find(e => e.evaluation_type === 'midterm');
+        // Check final
+        const finalEval = evaluations.find(e => e.evaluation_type === 'final');
+        return {
+            weekly: {
+                total: weeklyEvals.length,
+                completed: weeklyCompleted,
+                pending: weeklyEvals.length - weeklyCompleted
+            },
+            midterm: {
+                completed: !!midtermEval && (midtermEval.status === 'submitted' || midtermEval.status === 'processed' || midtermEval.status === 'approved'),
+                status: midtermEval?.status
+            },
+            final: {
+                completed: !!finalEval && (finalEval.status === 'submitted' || finalEval.status === 'processed' || finalEval.status === 'approved'),
+                status: finalEval?.status
+            }
+        };
     }
 }
 exports.EvaluationService = EvaluationService;

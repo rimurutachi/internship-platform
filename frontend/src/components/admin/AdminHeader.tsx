@@ -3,6 +3,7 @@
 import { ChevronDown, LogOut, User, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { NotificationsDropdown } from '@/components/ui/NotificationsDropdown';
@@ -48,10 +49,19 @@ export const AdminHeader = () => {
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* Welcome Message */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.first_name || 'Admin'}!</h1>
-          <p className="text-muted-foreground">{user?.email || 'System Administrator Dashboard'}</p>
+        {/* Welcome Message with CvSU Logo */}
+        <div className="flex items-center space-x-4">
+          <Image 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
+            width={40} 
+            height={40}
+            className="object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.first_name || 'Admin'}!</h1>
+            <p className="text-muted-foreground">{user?.email || 'System Administrator Dashboard'}</p>
+          </div>
         </div>
 
         {/* Right Side Actions */}

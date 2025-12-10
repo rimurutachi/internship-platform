@@ -115,6 +115,11 @@ export interface SupervisorEvaluation {
   rating_communication: number | null;
   rating_work_ethic: number | null;
   status: 'draft' | 'submitted' | 'processed' | 'approved';
+  evaluation_type: 'weekly' | 'midterm' | 'final';
+  week_number?: number | null;
+  evaluation_period?: string | null;
+  due_date?: string | null;
+  is_mandatory?: boolean | null;
   submitted_at: string | null;
   processed_at: string | null;
   created_at: string;

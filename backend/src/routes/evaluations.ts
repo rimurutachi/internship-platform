@@ -9,6 +9,18 @@ router.use(authenticateToken);
 // Get evaluations with filters (must be before /:id)
 router.get('/', evaluationController.getEvaluations);
 
+// Get overdue evaluations (must be before /:id)
+router.get('/overdue', evaluationController.getOverdueEvaluations);
+
+// Get evaluation timeline for an internship (must be before /:id)
+router.get('/timeline/:internshipId', evaluationController.getEvaluationTimeline);
+
+// Get evaluation progress summary (must be before /:id)
+router.get('/progress/:internshipId', evaluationController.getEvaluationProgress);
+
+// Get evaluations by type for an internship (must be before /:id)
+router.get('/internship/:internshipId/type/:evaluationType', evaluationController.getEvaluationsByType);
+
 // Analyze draft evaluation (supervisor) - MUST be before /:id routes
 router.post('/analyze-draft',
     requireRole(['supervisor']),

@@ -1,3 +1,5 @@
+export type EvaluationType = 'weekly' | 'midterm' | 'final';
+export type EvaluationStatus = 'draft' | 'submitted' | 'processed' | 'approved';
 export interface Evaluation {
     id: string;
     internship_id: string;
@@ -7,6 +9,11 @@ export interface Evaluation {
     rating_technical?: number;
     rating_communication?: number;
     rating_work_ethic?: number;
+    evaluation_type: EvaluationType;
+    week_number?: number;
+    evaluation_period?: string;
+    due_date?: Date;
+    is_mandatory?: boolean;
     lit_features?: any;
     sentiment_scores?: any;
     recommended_grade?: number;
@@ -14,7 +21,7 @@ export interface Evaluation {
     confidence_score?: number;
     bias_check_passed?: boolean;
     ai_analysis_id?: string;
-    status: 'draft' | 'submitted' | 'processed' | 'approved';
+    status: EvaluationStatus;
     submmited_at?: Date;
     processed_at?: Date;
     created_at?: Date;
@@ -48,6 +55,9 @@ export interface CreateEvaluationDTO {
     rating_technical?: number;
     rating_communication?: number;
     rating_work_ethic?: number;
+    evaluation_type?: EvaluationType;
+    week_number?: number;
+    due_date?: Date;
 }
 export interface ProcessEvaluationResult {
     evaluation: Evaluation;

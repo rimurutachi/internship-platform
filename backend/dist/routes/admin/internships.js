@@ -64,6 +64,16 @@ router.patch('/:id', internshipsController_1.internshipsController.updateInterns
  * Cancel internship (soft delete)
  */
 router.delete('/:id', internshipsController_1.internshipsController.deleteInternship.bind(internshipsController_1.internshipsController));
+/**
+ * POST /admin/internships/:id/archive
+ * Archive internship (preserve data)
+ */
+router.post('/:id/archive', internshipsController_1.internshipsController.archiveInternship.bind(internshipsController_1.internshipsController));
+/**
+ * POST /admin/internships/:id/unarchive
+ * Unarchive internship (restore)
+ */
+router.post('/:id/unarchive', internshipsController_1.internshipsController.unarchiveInternship.bind(internshipsController_1.internshipsController));
 // ============================================================
 // ENHANCED FEATURES (v2.0) - Reminder & Capacity Management
 // All enhanced routes are prefixed with /enhanced
