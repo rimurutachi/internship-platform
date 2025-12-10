@@ -5,16 +5,16 @@ import { UserProvider, useUserContext } from '@/components/providers/UserProvide
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { CurrentInternshipCard } from '@/components/student/CurrentInternshipCard';
-import { EvaluationsCard } from '@/components/student/EvaluationsCard';
-import { SkillsAssessmentCard } from '@/components/student/SkillsAssessmentCard';
-import { QuickActionsCard } from '@/components/student/QuickActionsCard';
-import { AIInsightsCard, RecentMessagesCard, UpcomingDeadlinesCard } from '@/components/student/AIInsightsCard';
+import { WeeklyLogsCard } from '@/components/student/WeeklyLogsCard';
+import { QuickActionsNewCard } from '@/components/student/QuickActionsNewCard';
+import { ProgressAnalyticsCard } from '@/components/student/ProgressAnalyticsCard';
+import { DocumentTrackerCard } from '@/components/student/DocumentTrackerCard';
+import { ActivityFeedCard } from '@/components/student/ActivityFeedCard';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { QuickActionGrid } from '@/components/mobile/QuickActionGrid';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, MessageSquare, BarChart3, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { studentAPI } from '@/lib/api/student';
 import type { DashboardData } from '@/types/student';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -61,13 +61,6 @@ const StudentDashboard = () => {
       setLoading(false);
     }
   };
-  
-  const quickActions = [
-    { icon: ClipboardList, label: 'Tasks', color: 'bg-primary' },
-    { icon: MessageSquare, label: 'Chat', color: 'bg-blue-500' },
-    { icon: BarChart3, label: 'Progress', color: 'bg-purple-500' },
-    { icon: FileText, label: 'Docs', color: 'bg-indigo-500' },
-  ];
 
   // Get user initials for avatar
   const getInitials = () => {
@@ -143,7 +136,7 @@ const StudentDashboard = () => {
   }
 
   return (
-      <div className="h-screen bg-background overflow-hidden">
+      <div className="h-screen bg-[#f5f5f5] overflow-hidden">
         {/* Desktop View */}
         <div className="hidden lg:flex h-full">
           {/* Left Sidebar */}
@@ -155,39 +148,53 @@ const StudentDashboard = () => {
           <StudentHeader />
           
           {/* Dashboard Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid lg:grid-cols-4 gap-6">
-                  {/* Main Content Area */}
-                  <div className="lg:col-span-3 space-y-6">
-                    {/* Current Internship Card */}
-                    <CurrentInternshipCard 
-                      internship={dashboardData.internship}
-                      progress={dashboardData.progress}
-                    />
-                    
-                    {/* Two Column Layout for Cards */}
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <EvaluationsCard evaluations={dashboardData.recent_evaluations} />
-                      <SkillsAssessmentCard />
-                    </div>
-                    
-                    {/* Quick Actions */}
-                    <QuickActionsCard />
-                  </div>
-                  
-                  {/* Right Sidebar */}
-                  <div className="space-y-6">
-                    <AIInsightsCard insights={dashboardData.ai_insights || null} />
-                    <RecentMessagesCard />
-                    <UpcomingDeadlinesCard tasks={dashboardData.upcoming_tasks} />
-                  </div>
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+            <div className="max-w-[1800px] mx-auto">
+            {/* Welcome Banner */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">
+                Welcome back, {user?.first_name || 'Jimmar'}!
+              </h1>
+              <p className="text-base text-gray-600">
+                {user?.profile_data?.education || 'Computer Science'} • Spring 2024
+              </p>
+            </div>
+
+            {/* Dashboard Grid Layout - Matching Figma */}
+            <div className="grid xl:grid-cols-3 gap-8">
+              {/* Left Column */}
+              <div className="xl:col-span-2 space-y-8">
+                {/* Current Internship - Full Width */}
+                <CurrentInternshipCard 
+                  internship={dashboardData.internship}
+                  progress={dashboardData.progress}
+                />
+                
+                {/* Weekly Logs and Quick Actions - Side by Side */}
+                <div className="grid md:grid-cols-2 gap-8">
+                  <WeeklyLogsCard logsCount={4} />
+                  <QuickActionsNewCard />
                 </div>
+                
+                {/* Progress & Analytics and Document Tracker - Side by Side */}
+                <div className="grid md:grid-cols-2 gap-8">
+                  <ProgressAnalyticsCard />
+                  <DocumentTrackerCard />
+                </div>
+              </div>
+              
+              {/* Right Column - Activity Feed */}
+              <div className="space-y-8">
+                <ActivityFeedCard />
+              </div>
+            </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
+      <div className="lg:hidden h-screen flex flex-col overflow-hidden bg-[#f5f5f5]">
         {/* Mobile Header */}
         <MobileHeader 
           title="Intern-Galing"
@@ -196,20 +203,20 @@ const StudentDashboard = () => {
         {/* Mobile Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
           {/* Welcome Card */}
-          <Card className="bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20">
+          <Card className="bg-white border-gray-200 shadow-sm">
             <CardContent className="p-4 flex items-center space-x-4">
-              <Avatar className="w-16 h-16 border-2 border-primary">
+              <Avatar className="w-16 h-16 border-2 border-[#4CAF50]">
                 <AvatarImage src={user?.profile_data?.avatar_url} />
-                <AvatarFallback className="bg-gradient-primary text-white font-bold text-lg">
+                <AvatarFallback className="bg-[#4CAF50] text-white font-bold text-lg">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-bold text-foreground">
+                <h2 className="text-xl font-bold text-gray-900">
                   Welcome, {user?.first_name || 'Student'}!
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  {user?.profile_data?.education || 'Computer Science'} \u2022 MIT
+                <p className="text-sm text-gray-600">
+                  {user?.profile_data?.education || 'Computer Science'} • MIT
                 </p>
               </div>
             </CardContent>
@@ -221,21 +228,17 @@ const StudentDashboard = () => {
             progress={dashboardData.progress}
           />
 
-          {/* Quick Actions Grid - Mobile */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <QuickActionGrid actions={quickActions} />
-            </CardContent>
-          </Card>
+          {/* Weekly Logs - Mobile */}
+          <WeeklyLogsCard logsCount={4} />
 
-          {/* Latest Evaluation - Mobile */}
-          <EvaluationsCard evaluations={dashboardData.recent_evaluations} />
+          {/* Quick Actions - Mobile */}
+          <QuickActionsNewCard />
 
-          {/* AI Insights - Mobile */}
-          <AIInsightsCard insights={dashboardData.ai_insights || null} />
+          {/* Document Tracker - Mobile */}
+          <DocumentTrackerCard />
+
+          {/* Activity Feed - Mobile */}
+          <ActivityFeedCard />
         </div>
 
         {/* Bottom Navigation */}

@@ -37,7 +37,7 @@ import {
   Search,
   Plus,
   Edit,
-  Trash2,
+  Archive,
   Eye,
   Filter,
   Download,
@@ -46,7 +46,8 @@ import {
 import { CreateInternshipModal } from '@/components/admin/CreateInternshipModal';
 import { EditInternshipModal } from '@/components/admin/EditInternshipModal';
 import { ViewInternshipModal } from '@/components/admin/ViewInternshipModal';
-import { DeleteInternshipDialog } from '@/components/admin/DeleteInternshipDialog';
+import { ArchiveInternshipDialog } from '@/components/admin/ArchiveInternshipDialog';
+import { UnarchiveInternshipDialog } from '@/components/admin/UnarchiveInternshipDialog';
 import BulkActionsToolbar from '@/components/admin/BulkActionsToolbar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
@@ -79,7 +80,8 @@ export default function AdminInternshipsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false);
   const [selectedInternship, setSelectedInternship] =
     useState<InternshipWithRelations | null>(null);
 
@@ -159,19 +161,26 @@ export default function AdminInternshipsPage() {
     setEditModalOpen(true);
   };
 
-  // Handle delete internship
-  const handleDelete = (internship: InternshipWithRelations) => {
+  // Handle archive internship
+  const handleArchive = (internship: InternshipWithRelations) => {
     setSelectedInternship(internship);
-    setDeleteDialogOpen(true);
+    setArchiveDialogOpen(true);
   };
 
-  // Handle successful create/update/delete
+  // Handle unarchive internship
+  const handleUnarchive = (internship: InternshipWithRelations) => {
+    setSelectedInternship(internship);
+    setUnarchiveDialogOpen(true);
+  };
+
+  // Handle successful create/update/archive
   const handleSuccess = () => {
     fetchInternships();
     fetchStats();
     setCreateModalOpen(false);
     setEditModalOpen(false);
-    setDeleteDialogOpen(false);
+    setArchiveDialogOpen(false);
+    setUnarchiveDialogOpen(false);
     setSelectedInternship(null);
   };
 
@@ -421,7 +430,17 @@ export default function AdminInternshipsPage() {
                         </TableCell>
                         <TableCell>{internship.advisor?.name || 'N/A'}</TableCell>
                         <TableCell>{internship.supervisor?.name || 'N/A'}</TableCell>
-                        <TableCell>{getStatusBadge(internship.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {internship.is_archived && (
+                              <Badge variant="outline" className="text-xs border-gray-400 text-gray-600 dark:border-gray-600 dark:text-gray-400">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archived
+                              </Badge>
+                            )}
+                            {getStatusBadge(internship.status)}
+                          </div>
+                        </TableCell>
                         <TableCell>{formatDate(internship.start_date)}</TableCell>
                         <TableCell>{formatDate(internship.end_date)}</TableCell>
                         <TableCell className="text-right">
@@ -440,13 +459,25 @@ export default function AdminInternshipsPage() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(internship)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                            {internship.is_archived ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnarchive(internship)}
+                                title="Unarchive internship"
+                              >
+                                <Archive className="h-4 w-4 text-green-600" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleArchive(internship)}
+                                title="Archive internship"
+                              >
+                                <Archive className="h-4 w-4 text-orange-600" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -466,7 +497,15 @@ export default function AdminInternshipsPage() {
                             <div className="font-medium text-sm">{internship.student?.name || 'N/A'}</div>
                             <div className="text-xs text-muted-foreground">{internship.student?.email}</div>
                           </div>
-                          {getStatusBadge(internship.status)}
+                          <div className="flex gap-1 flex-wrap justify-end">
+                            {internship.is_archived && (
+                              <Badge variant="outline" className="text-xs border-gray-400 text-gray-600 dark:border-gray-600 dark:text-gray-400">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archived
+                              </Badge>
+                            )}
+                            {getStatusBadge(internship.status)}
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -515,13 +554,25 @@ export default function AdminInternshipsPage() {
                             <Edit className="h-3 w-3 mr-1" />
                             Edit
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(internship)}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-600" />
-                          </Button>
+                          {internship.is_archived ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUnarchive(internship)}
+                              title="Unarchive"
+                            >
+                              <Archive className="h-3 w-3 text-green-600" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleArchive(internship)}
+                              title="Archive"
+                            >
+                              <Archive className="h-3 w-3 text-orange-600" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -588,10 +639,20 @@ export default function AdminInternshipsPage() {
             internshipId={selectedInternship.id}
           />
 
-          <DeleteInternshipDialog
-            open={deleteDialogOpen}
+          <ArchiveInternshipDialog
+            open={archiveDialogOpen}
             onClose={() => {
-              setDeleteDialogOpen(false);
+              setArchiveDialogOpen(false);
+              setSelectedInternship(null);
+            }}
+            internship={selectedInternship}
+            onSuccess={handleSuccess}
+          />
+
+          <UnarchiveInternshipDialog
+            open={unarchiveDialogOpen}
+            onClose={() => {
+              setUnarchiveDialogOpen(false);
               setSelectedInternship(null);
             }}
             internship={selectedInternship}

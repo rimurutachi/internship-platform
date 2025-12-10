@@ -1,6 +1,7 @@
-import AdvisorDashboard from './AdvisorDashboard';
+import { redirect } from 'next/navigation';
 
 export default function AdvisorDashboardPage() {
-  return <AdvisorDashboard />;
+  // Redirect to My Students as default landing page
+  redirect('/dashboard/advisor/students');
 }
 

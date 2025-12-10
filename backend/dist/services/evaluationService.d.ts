@@ -32,8 +32,45 @@ export declare class EvaluationService {
     getAll(filters?: {
         supervisor_id?: string;
         status?: string;
+        evaluation_type?: 'weekly' | 'midterm' | 'final';
         limit?: number;
         offset?: number;
     }): Promise<any[]>;
+    /**
+     * Get evaluation timeline for an internship
+     * Shows all evaluations (weekly, midterm, final) in chronological order
+     */
+    getTimelineByInternship(internshipId: string): Promise<any[]>;
+    /**
+     * Get evaluations by type for an internship
+     */
+    getByType(internshipId: string, evaluationType: 'weekly' | 'midterm' | 'final'): Promise<any[]>;
+    /**
+     * Get weekly evaluations for an internship
+     */
+    getWeeklyEvaluations(internshipId: string): Promise<any[]>;
+    /**
+     * Get overdue evaluations (draft evaluations past due date)
+     */
+    getOverdueEvaluations(supervisorId?: string): Promise<any[]>;
+    /**
+     * Get evaluation progress summary for an internship
+     * Returns count of completed evaluations by type
+     */
+    getProgressSummary(internshipId: string): Promise<{
+        weekly: {
+            total: number;
+            completed: number;
+            pending: number;
+        };
+        midterm: {
+            completed: boolean;
+            status?: string;
+        };
+        final: {
+            completed: boolean;
+            status?: string;
+        };
+    }>;
 }
 //# sourceMappingURL=evaluationService.d.ts.map

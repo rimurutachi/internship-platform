@@ -69,6 +69,9 @@ router.patch('/users/:id', adminController.updateUser);
 router.patch('/users/:id/status', adminController.updateUserStatus);
 // Update user role
 router.patch('/users/:id/role', adminController.updateUserRole);
+// Archive/unarchive user (soft delete)
+router.post('/users/:id/archive', adminController.archiveUser);
+router.post('/users/:id/unarchive', adminController.unarchiveUser);
 // Delete user
 router.delete('/users/:id', adminController.deleteUser);
 // Document management routes

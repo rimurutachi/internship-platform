@@ -37,7 +37,7 @@ import {
   Search,
   Plus,
   Edit,
-  Trash2,
+  Archive,
   Eye,
   RefreshCw,
   Building2,
@@ -53,7 +53,8 @@ import { useUserContext } from '@/components/providers/UserProvider';
 import { CreateCompanyModal } from '@/components/admin/CreateCompanyModal';
 import { EditCompanyModal } from '@/components/admin/EditCompanyModal';
 import { ViewCompanyModal } from '@/components/admin/ViewCompanyModal';
-import { DeleteCompanyDialog } from '@/components/admin/DeleteCompanyDialog';
+import { ArchiveCompanyDialog } from '@/components/admin/ArchiveCompanyDialog';
+import { UnarchiveCompanyDialog } from '@/components/admin/UnarchiveCompanyDialog';
 
 export default function AdminCompaniesPage() {
   const { toast } = useToast();
@@ -79,7 +80,8 @@ export default function AdminCompaniesPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] =
     useState<CompanyWithSupervisors | null>(null);
 
@@ -141,19 +143,26 @@ export default function AdminCompaniesPage() {
     setEditModalOpen(true);
   };
 
-  // Handle delete company
-  const handleDelete = (company: CompanyWithSupervisors) => {
+  // Handle archive company
+  const handleArchive = (company: CompanyWithSupervisors) => {
     setSelectedCompany(company);
-    setDeleteDialogOpen(true);
+    setArchiveDialogOpen(true);
   };
 
-  // Handle successful create/update/delete
+  // Handle unarchive company
+  const handleUnarchive = (company: CompanyWithSupervisors) => {
+    setSelectedCompany(company);
+    setUnarchiveDialogOpen(true);
+  };
+
+  // Handle successful create/update/archive
   const handleSuccess = () => {
     fetchCompanies();
     fetchStats();
     setCreateModalOpen(false);
     setEditModalOpen(false);
-    setDeleteDialogOpen(false);
+    setArchiveDialogOpen(false);
+    setUnarchiveDialogOpen(false);
     setSelectedCompany(null);
   };
 
@@ -368,7 +377,13 @@ export default function AdminCompaniesPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-wrap">
+                            {company.is_archived && (
+                              <Badge variant="outline" className="text-xs border-gray-400 text-gray-600 dark:border-gray-600 dark:text-gray-400">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archived
+                              </Badge>
+                            )}
                             {company.is_verified && (
                               <Badge variant="default" className="text-xs">
                                 <CheckCircle className="h-3 w-3 mr-1" />
@@ -399,13 +414,25 @@ export default function AdminCompaniesPage() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(company)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                            {company.is_archived ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUnarchive(company)}
+                                title="Unarchive company"
+                              >
+                                <Archive className="h-4 w-4 text-green-600" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleArchive(company)}
+                                title="Archive company"
+                              >
+                                <Archive className="h-4 w-4 text-orange-600" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -426,6 +453,12 @@ export default function AdminCompaniesPage() {
                             <div className="text-xs text-muted-foreground">{company.industry || 'No industry'}</div>
                           </div>
                           <div className="flex gap-1 flex-wrap justify-end">
+                            {company.is_archived && (
+                              <Badge variant="outline" className="text-xs border-gray-400 text-gray-600 dark:border-gray-600 dark:text-gray-400">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archived
+                              </Badge>
+                            )}
                             {company.is_verified && (
                               <Badge variant="default" className="text-xs">
                                 Verified
@@ -479,13 +512,25 @@ export default function AdminCompaniesPage() {
                             <Edit className="h-3 w-3 mr-1" />
                             Edit
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(company)}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-600" />
-                          </Button>
+                          {company.is_archived ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUnarchive(company)}
+                              title="Unarchive"
+                            >
+                              <Archive className="h-3 w-3 text-green-600" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleArchive(company)}
+                              title="Archive"
+                            >
+                              <Archive className="h-3 w-3 text-orange-600" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -552,10 +597,20 @@ export default function AdminCompaniesPage() {
             companyId={selectedCompany.id}
           />
 
-          <DeleteCompanyDialog
-            open={deleteDialogOpen}
+          <ArchiveCompanyDialog
+            open={archiveDialogOpen}
             onClose={() => {
-              setDeleteDialogOpen(false);
+              setArchiveDialogOpen(false);
+              setSelectedCompany(null);
+            }}
+            company={selectedCompany}
+            onSuccess={handleSuccess}
+          />
+
+          <UnarchiveCompanyDialog
+            open={unarchiveDialogOpen}
+            onClose={() => {
+              setUnarchiveDialogOpen(false);
               setSelectedCompany(null);
             }}
             company={selectedCompany}

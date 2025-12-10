@@ -8,6 +8,9 @@ import {
   deleteCompany,
   getCompanyStats,
   getCompanySupervisors,
+  archiveCompany,
+  updateCompanyStudentsCount,
+  unarchiveCompany,
 } from '../../controllers/admin/companiesController';
 
 const router = Router();
@@ -54,6 +57,24 @@ router.post('/', createCompany);
  * Body: { name?, industry?, address?, contact_info?, code?, capacity_limit?, is_verified?, is_moa_standardized? }
  */
 router.patch('/:id', updateCompany);
+
+/**
+ * POST /api/admin/companies/:id/archive
+ * Archive company (soft delete)
+ */
+router.post('/:id/archive', archiveCompany);
+
+/**
+ * POST /api/admin/companies/:id/unarchive
+ * Unarchive company (restore)
+ */
+router.post('/:id/unarchive', unarchiveCompany);
+
+/**
+ * GET /api/admin/companies/:id/students-count
+ * Update and get current students count
+ */
+router.get('/:id/students-count', updateCompanyStudentsCount);
 
 /**
  * DELETE /api/admin/companies/:id

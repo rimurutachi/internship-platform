@@ -9,6 +9,8 @@ exports.updateUserRole = updateUserRole;
 exports.deleteUser = deleteUser;
 exports.getUserStats = getUserStats;
 exports.migrateUserNames = migrateUserNames;
+exports.archiveUser = archiveUser;
+exports.unarchiveUser = unarchiveUser;
 const supabase_js_1 = require("@supabase/supabase-js");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
@@ -613,6 +615,124 @@ async function migrateUserNames(req, res) {
     }
     catch (error) {
         console.error('Migrate user names error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Archive a user (soft delete)
+ * @route POST /api/admin/users/:id/archive
+ */
+async function archiveUser(req, res) {
+    try {
+        const { id } = req.params;
+        // Check if user exists
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('id, email, role, is_archived')
+            .eq('id', id)
+            .single();
+        if (fetchError || !user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found',
+                message: 'The specified user does not exist',
+            });
+        }
+        // Check if already archived
+        if (user.is_archived) {
+            return res.status(400).json({
+                success: false,
+                error: 'Already archived',
+                message: 'User is already archived',
+            });
+        }
+        // Archive the user
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+            is_archived: true,
+            archived_at: new Date().toISOString(),
+            status: 'inactive',
+        })
+            .eq('id', id);
+        if (updateError) {
+            throw updateError;
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'User archived successfully',
+            data: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Archive user error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Unarchive a user (restore)
+ * @route POST /api/admin/users/:id/unarchive
+ */
+async function unarchiveUser(req, res) {
+    try {
+        const { id } = req.params;
+        // Check if user exists
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('id, email, role, is_archived')
+            .eq('id', id)
+            .single();
+        if (fetchError || !user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found',
+                message: 'The specified user does not exist',
+            });
+        }
+        // Check if not archived
+        if (!user.is_archived) {
+            return res.status(400).json({
+                success: false,
+                error: 'Not archived',
+                message: 'User is not archived',
+            });
+        }
+        // Unarchive the user
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+            is_archived: false,
+            archived_at: null,
+            status: 'active',
+        })
+            .eq('id', id);
+        if (updateError) {
+            throw updateError;
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'User unarchived successfully',
+            data: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Unarchive user error:', error);
         return res.status(500).json({
             success: false,
             error: 'Internal server error',

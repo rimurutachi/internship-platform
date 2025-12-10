@@ -1,6 +1,6 @@
-import AIEvaluations from './AIEvaluations';
+import EvaluationsReports from './EvaluationsReports';
 
-export default function AIEvaluationsPage() {
-  return <AIEvaluations />;
+export default function AdvisorEvaluationsPage() {
+  return <EvaluationsReports />;
 }
 

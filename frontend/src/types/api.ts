@@ -114,6 +114,8 @@ export interface ActivityLogEntry {
 /**
  * Evaluation entity from backend
  */
+export type EvaluationType = 'weekly' | 'midterm' | 'final';
+
 export interface Evaluation {
   id: string;
   internship_id: string;
@@ -130,6 +132,11 @@ export interface Evaluation {
   bias_check_passed: boolean | null;
   final_grade: number | null;
   status: 'draft' | 'submitted' | 'processed' | 'approved';
+  evaluation_type: EvaluationType;
+  week_number?: number | null;
+  evaluation_period?: string | null;
+  due_date?: string | null;
+  is_mandatory?: boolean | null;
   submitted_at: string | null;
   processed_at: string | null;
   created_at: string;
@@ -184,6 +191,7 @@ export interface EvaluationFilters {
   page?: number;
   limit?: number;
   status?: string;
+  evaluation_type?: EvaluationType;
   supervisor_id?: string;
   company_id?: string;
   date_range?: { start: string; end: string };

@@ -8,6 +8,7 @@ import { NotificationsDropdown } from "@/components/ui/NotificationsDropdown";
 import { logout } from "@/lib/auth";
 import { useUserContext } from "@/components/providers/UserProvider";
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,7 +69,7 @@ export const MobileHeader = ({
   const paths = getRolePaths();
 
   return (
-    <header className="lg:hidden bg-card border-b border-border z-40 px-4 py-3 flex-shrink-0">
+    <header className="lg:hidden bg-white border-b border-gray-200 z-40 px-4 py-3 flex-shrink-0 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {onMenuClick && (
@@ -78,70 +79,39 @@ export const MobileHeader = ({
               className="lg:hidden"
               onClick={onMenuClick}
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5 text-gray-700" />
             </Button>
           )}
           
-          {logo && <div className="w-8 h-8">{logo}</div>}
+          {/* Logo */}
+          <Image 
+            src="/logo.png" 
+            alt="Intern-Galing Logo" 
+            width={32} 
+            height={32}
+            className="object-contain"
+          />
           
           <div>
-            <h1 className="text-lg font-bold text-foreground">{title}</h1>
+            <h1 className="text-base font-bold text-gray-900">{title}</h1>
             {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
+              <p className="text-xs text-gray-600">{subtitle}</p>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Theme Toggle */}
-          <ThemeToggle />
-
           {/* Notifications */}
           <NotificationsDropdown />
 
-          {/* Profile Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="User menu">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={user?.profile_data?.avatar_url} alt={user?.email || 'User'} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {getInitials()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={paths.profile} className="cursor-pointer flex items-center">
-                  <User className="w-4 h-4 mr-2" />
-                  Profile Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={paths.preferences} className="cursor-pointer flex items-center">
-                  <SettingsIcon className="w-4 h-4 mr-2" />
-                  Preferences
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={paths.help} className="cursor-pointer flex items-center">
-                  <HelpCircle className="w-4 h-4 mr-2" />
-                  Help & Support
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                className="text-destructive cursor-pointer"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* CVSU Logo */}
+          <Image 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
+            width={28} 
+            height={28}
+            className="object-contain"
+          />
         </div>
       </div>
     </header>

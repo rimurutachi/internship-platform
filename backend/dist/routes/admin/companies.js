@@ -41,6 +41,21 @@ router.post('/', companiesController_1.createCompany);
  */
 router.patch('/:id', companiesController_1.updateCompany);
 /**
+ * POST /api/admin/companies/:id/archive
+ * Archive company (soft delete)
+ */
+router.post('/:id/archive', companiesController_1.archiveCompany);
+/**
+ * POST /api/admin/companies/:id/unarchive
+ * Unarchive company (restore)
+ */
+router.post('/:id/unarchive', companiesController_1.unarchiveCompany);
+/**
+ * GET /api/admin/companies/:id/students-count
+ * Update and get current students count
+ */
+router.get('/:id/students-count', companiesController_1.updateCompanyStudentsCount);
+/**
  * DELETE /api/admin/companies/:id
  * Delete company (checks for active internships and supervisors first)
  */

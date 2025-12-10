@@ -1,49 +1,270 @@
 'use client';
 
-import { Save } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
+import { User, Bell, Shield, Save, Loader2, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useUser } from '@/hooks/use-user';
+import { advisorAPI, type AdvisorProfileData, type NotificationPreferences } from '@/lib/api/advisor';
 
 export default function Settings() {
+  const { user: currentUser } = useUser();
+  
+  // Profile state
+  const [profile, setProfile] = useState<AdvisorProfileData | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // Form data
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [department, setDepartment] = useState('');
+  const [facultyId, setFacultyId] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  
+  // Notification preferences state
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [smsNotifications, setSmsNotifications] = useState(false);
+  const [notifyEvaluations, setNotifyEvaluations] = useState(true);
+  const [notifyReports, setNotifyReports] = useState(true);
+  const [notifyMessages, setNotifyMessages] = useState(true);
+  const [notifyStudents, setNotifyStudents] = useState(true);
+  const [notifySystem, setNotifySystem] = useState(false);
+  
+  // Avatar upload
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Load profile data
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setProfileLoading(true);
+      setError(null);
+      
+      const response = await advisorAPI.getProfile();
+      
+      if (response.user) {
+        setProfile(response.user);
+        
+        // Populate form fields
+        setFirstName(response.user.first_name || '');
+        setLastName(response.user.last_name || '');
+        setEmail(response.user.email || '');
+        setDepartment(response.user.profile_data?.department || '');
+        setFacultyId(response.user.profile_data?.faculty_id || '');
+        setBio(response.user.profile_data?.bio || '');
+        setAvatarUrl(response.user.avatar_url || null);
+        
+        // Load notification preferences
+        const notifPrefs = response.user.profile_data?.notification_preferences || {};
+        setEmailNotifications(notifPrefs.email_notifications ?? true);
+        setPushNotifications(notifPrefs.push_notifications ?? true);
+        setSmsNotifications(notifPrefs.sms_notifications ?? false);
+        
+        const notifTypes = notifPrefs.notification_types || {};
+        setNotifyEvaluations(notifTypes.evaluations ?? true);
+        setNotifyReports(notifTypes.reports ?? true);
+        setNotifyMessages(notifTypes.messages ?? true);
+        setNotifyStudents(notifTypes.students ?? true);
+        setNotifySystem(notifTypes.system ?? false);
+      }
+    } catch (err: any) {
+      console.error('Error loading profile:', err);
+      setError(err.message || 'Failed to load profile');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+      
+      const profileData = {
+        first_name: firstName,
+        last_name: lastName,
+        profile_data: {
+          ...profile?.profile_data,
+          department,
+          faculty_id: facultyId,
+          bio,
+        },
+      };
+      
+      await advisorAPI.updateProfile(profileData);
+      
+      setSuccess('Profile updated successfully!');
+      setTimeout(() => setSuccess(null), 3000);
+      
+      // Reload to get fresh data
+      await loadProfile();
+    } catch (err: any) {
+      console.error('Error saving profile:', err);
+      setError(err.message || 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+      
+      const notificationPrefs: NotificationPreferences = {
+        email_notifications: emailNotifications,
+        push_notifications: pushNotifications,
+        sms_notifications: smsNotifications,
+        notification_types: {
+          evaluations: notifyEvaluations,
+          reports: notifyReports,
+          messages: notifyMessages,
+          students: notifyStudents,
+          system: notifySystem,
+        },
+      };
+      
+      const profileData = {
+        profile_data: {
+          ...profile?.profile_data,
+          notification_preferences: notificationPrefs,
+        },
+      };
+      
+      await advisorAPI.updateProfile(profileData);
+      
+      setSuccess('Notification preferences saved!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      console.error('Error saving notifications:', err);
+      setError(err.message || 'Failed to save notification preferences');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+    
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be less than 5MB');
+      return;
+    }
+    
+    try {
+      setUploadingAvatar(true);
+      setError(null);
+      
+      const response = await advisorAPI.uploadAvatar(file);
+      
+      if (response.avatar_url) {
+        setAvatarUrl(response.avatar_url);
+        setSuccess('Avatar uploaded successfully!');
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error uploading avatar:', err);
+      setError(err.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const getInitials = () => {
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
+    }
+    if (email) {
+      return email.substring(0, 2).toUpperCase();
+    }
+    return 'AD';
+  };
+
+  if (profileLoading) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[#4CAF50] mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-background overflow-hidden">
       {/* Desktop View */}
       <div className="hidden lg:flex h-full">
-        {/* Left Sidebar */}
         <AdvisorSidebar />
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Header */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           <AdvisorHeader />
-          
-          {/* Page Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
+            <div className="max-w-4xl mx-auto">
               {/* Header */}
-              <div>
+              <div className="mb-6">
                 <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-                <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
+                <p className="text-muted-foreground mt-2">Manage your account and preferences</p>
               </div>
 
+              {/* Success/Error Alerts */}
+              {success && (
+                <Alert className="mb-4 border-green-500 bg-green-50">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertDescription className="text-green-700">{success}</AlertDescription>
+                </Alert>
+              )}
+              
+              {error && (
+                <Alert className="mb-4 border-red-500 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                </Alert>
+              )}
+
               <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="profile">Profile</TabsTrigger>
-                  <TabsTrigger value="notifications">Notifications</TabsTrigger>
-                  <TabsTrigger value="security">Security</TabsTrigger>
-                  <TabsTrigger value="preferences">Preferences</TabsTrigger>
-                  <TabsTrigger value="ai">AI Settings</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 h-14">
+                  <TabsTrigger value="profile" className="text-base">
+                    <User className="w-4 h-4 mr-2" />
+                    Profile
+                  </TabsTrigger>
+                  <TabsTrigger value="notifications" className="text-base">
+                    <Bell className="w-4 h-4 mr-2" />
+                    Notifications
+                  </TabsTrigger>
+                  <TabsTrigger value="security" className="text-base">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Security
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* Profile Tab */}
@@ -51,19 +272,50 @@ export default function Settings() {
                   <Card>
                     <CardHeader>
                       <CardTitle>Profile Information</CardTitle>
-                      <CardDescription>Update your personal information and profile picture</CardDescription>
+                      <CardDescription>Update your personal information and profile details</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Profile Picture */}
+                      {/* Avatar */}
                       <div className="flex items-center gap-6">
                         <Avatar className="w-24 h-24">
-                          <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                            AR
-                          </AvatarFallback>
+                          {avatarUrl ? (
+                            <AvatarImage src={avatarUrl} alt={`${firstName} ${lastName}`} />
+                          ) : (
+                            <AvatarFallback className="bg-[#4CAF50]/10 text-[#4CAF50] text-2xl font-semibold">
+                              {getInitials()}
+                            </AvatarFallback>
+                          )}
                         </Avatar>
                         <div className="space-y-2">
-                          <Button variant="outline" size="sm">Change Photo</Button>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">Remove</Button>
+                          <input
+                            type="file"
+                            id="avatar-upload"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarUpload}
+                            disabled={uploadingAvatar}
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => document.getElementById('avatar-upload')?.click()}
+                            disabled={uploadingAvatar}
+                          >
+                            {uploadingAvatar ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Change Photo
+                              </>
+                            )}
+                          </Button>
+                          <p className="text-xs text-muted-foreground">
+                            JPG, PNG or GIF (max 5MB)
+                          </p>
                         </div>
                       </div>
 
@@ -71,41 +323,78 @@ export default function Settings() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>First Name</Label>
-                          <Input defaultValue="Ana" className="mt-2" />
+                          <Input 
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className="mt-2"
+                            placeholder="Enter first name"
+                          />
                         </div>
                         <div>
                           <Label>Last Name</Label>
-                          <Input defaultValue="Rodriguez" className="mt-2" />
+                          <Input 
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            className="mt-2"
+                            placeholder="Enter last name"
+                          />
                         </div>
                         <div>
                           <Label>Email</Label>
-                          <Input type="email" defaultValue="ana.rodriguez@university.edu" className="mt-2" />
-                        </div>
-                        <div>
-                          <Label>Phone</Label>
-                          <Input type="tel" defaultValue="+1 234-567-8900" className="mt-2" />
+                          <Input 
+                            type="email" 
+                            value={email}
+                            className="mt-2 bg-muted"
+                            disabled
+                          />
                         </div>
                         <div>
                           <Label>Department</Label>
-                          <Input defaultValue="Computer Science" className="mt-2" />
+                          <Input 
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="mt-2"
+                            placeholder="Enter department"
+                          />
                         </div>
                         <div>
                           <Label>Faculty ID</Label>
-                          <Input defaultValue="FAC-2025-001" className="mt-2" disabled />
+                          <Input 
+                            value={facultyId}
+                            className="mt-2 bg-muted"
+                            disabled
+                          />
                         </div>
                       </div>
 
+                      {/* Bio */}
                       <div>
                         <Label>Bio</Label>
                         <Textarea 
-                          defaultValue="Assistant Professor specializing in Software Engineering and AI. Passionate about mentoring students and advancing technology education."
-                          className="mt-2 min-h-24"
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          className="mt-2"
+                          rows={4}
+                          placeholder="Tell us about yourself..."
                         />
                       </div>
 
-                      <Button className="bg-primary hover:bg-primary/90">
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
+                      <Button 
+                        className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-base py-6"
+                        onClick={handleSaveProfile}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5 mr-2" />
+                            Save Changes
+                          </>
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
@@ -115,71 +404,120 @@ export default function Settings() {
                 <TabsContent value="notifications" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Notification Preferences</CardTitle>
+                      <CardTitle>Notification Channels</CardTitle>
                       <CardDescription>Choose how you want to receive notifications</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent className="space-y-4">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="font-medium text-foreground">Email Notifications</div>
                             <div className="text-sm text-muted-foreground">Receive notifications via email</div>
                           </div>
-                          <Switch defaultChecked />
+                          <Switch 
+                            checked={emailNotifications}
+                            onCheckedChange={setEmailNotifications}
+                          />
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="font-medium text-foreground">Push Notifications</div>
-                            <div className="text-sm text-muted-foreground">Receive push notifications in browser</div>
+                            <div className="text-sm text-muted-foreground">Receive browser push notifications</div>
                           </div>
-                          <Switch defaultChecked />
+                          <Switch 
+                            checked={pushNotifications}
+                            onCheckedChange={setPushNotifications}
+                          />
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="font-medium text-foreground">SMS Notifications</div>
-                            <div className="text-sm text-muted-foreground">Receive notifications via SMS</div>
+                            <div className="text-sm text-muted-foreground">Receive text messages</div>
                           </div>
-                          <Switch />
+                          <Switch 
+                            checked={smsNotifications}
+                            onCheckedChange={setSmsNotifications}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notification Types</CardTitle>
+                      <CardDescription>Select which types of notifications you want to receive</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-foreground">Student Evaluations</div>
+                            <div className="text-sm text-muted-foreground">When students submit evaluations</div>
+                          </div>
+                          <Switch 
+                            checked={notifyEvaluations}
+                            onCheckedChange={setNotifyEvaluations}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-foreground">Weekly Reports</div>
+                            <div className="text-sm text-muted-foreground">When students submit reports</div>
+                          </div>
+                          <Switch 
+                            checked={notifyReports}
+                            onCheckedChange={setNotifyReports}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-foreground">Messages</div>
+                            <div className="text-sm text-muted-foreground">When you receive new messages</div>
+                          </div>
+                          <Switch 
+                            checked={notifyMessages}
+                            onCheckedChange={setNotifyMessages}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-foreground">Student Updates</div>
+                            <div className="text-sm text-muted-foreground">Updates from your students</div>
+                          </div>
+                          <Switch 
+                            checked={notifyStudents}
+                            onCheckedChange={setNotifyStudents}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-foreground">System Updates</div>
+                            <div className="text-sm text-muted-foreground">Platform updates and announcements</div>
+                          </div>
+                          <Switch 
+                            checked={notifySystem}
+                            onCheckedChange={setNotifySystem}
+                          />
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t">
-                        <h3 className="font-semibold text-foreground mb-4">Notification Types</h3>
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-foreground">Student Evaluations</div>
-                              <div className="text-sm text-muted-foreground">When students submit evaluations</div>
-                            </div>
-                            <Switch defaultChecked />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-foreground">AI Processing Complete</div>
-                              <div className="text-sm text-muted-foreground">When AI analysis is completed</div>
-                            </div>
-                            <Switch defaultChecked />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-foreground">Messages</div>
-                              <div className="text-sm text-muted-foreground">When you receive new messages</div>
-                            </div>
-                            <Switch defaultChecked />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-medium text-foreground">System Updates</div>
-                              <div className="text-sm text-muted-foreground">Platform updates and announcements</div>
-                            </div>
-                            <Switch />
-                          </div>
-                        </div>
-                      </div>
-
-                      <Button className="bg-primary hover:bg-primary/90">
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Preferences
+                      <Button 
+                        className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-base py-6"
+                        onClick={handleSaveNotifications}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5 mr-2" />
+                            Save Preferences
+                          </>
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
@@ -193,24 +531,13 @@ export default function Settings() {
                       <CardDescription>Manage your password and security settings</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Current Password</Label>
-                          <Input type="password" className="mt-2" />
-                        </div>
-                        <div>
-                          <Label>New Password</Label>
-                          <Input type="password" className="mt-2" />
-                        </div>
-                        <div>
-                          <Label>Confirm New Password</Label>
-                          <Input type="password" className="mt-2" />
-                        </div>
-                      </div>
-
-                      <Button className="bg-primary hover:bg-primary/90">
-                        Update Password
-                      </Button>
+                      <Alert className="border-blue-500 bg-blue-50">
+                        <AlertCircle className="h-4 w-4 text-blue-500" />
+                        <AlertDescription className="text-blue-700">
+                          Password changes are managed through your Supabase authentication.
+                          Please use the &quot;Forgot Password&quot; link on the login page to reset your password.
+                        </AlertDescription>
+                      </Alert>
 
                       <div className="pt-6 border-t">
                         <h3 className="font-semibold text-foreground mb-4">Two-Factor Authentication</h3>
@@ -219,158 +546,12 @@ export default function Settings() {
                             <div className="font-medium text-foreground">Enable 2FA</div>
                             <div className="text-sm text-muted-foreground">Add an extra layer of security</div>
                           </div>
-                          <Switch />
+                          <Switch disabled />
                         </div>
-                      </div>
-
-                      <div className="pt-6 border-t">
-                        <h3 className="font-semibold text-foreground mb-4">Active Sessions</h3>
-                        <div className="space-y-3">
-                          <Card>
-                            <CardContent className="pt-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-foreground">Current Device</div>
-                                  <div className="text-sm text-muted-foreground">Windows 10 - Chrome - San Francisco, CA</div>
-                                  <div className="text-xs text-muted-foreground mt-1">Last active: Just now</div>
-                                </div>
-                                <Button variant="ghost" size="sm" disabled>Active</Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* Preferences Tab */}
-                <TabsContent value="preferences" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Display Preferences</CardTitle>
-                      <CardDescription>Customize your platform experience</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div>
-                        <Label>Language</Label>
-                        <Select defaultValue="en">
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="en">English</SelectItem>
-                            <SelectItem value="fil">Filipino</SelectItem>
-                            <SelectItem value="es">Spanish</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label>Timezone</Label>
-                        <Select defaultValue="pst">
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pst">Pacific Time (PST)</SelectItem>
-                            <SelectItem value="est">Eastern Time (EST)</SelectItem>
-                            <SelectItem value="cst">Central Time (CST)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label>Theme</Label>
-                        <Select defaultValue="light">
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="light">Light</SelectItem>
-                            <SelectItem value="dark">Dark</SelectItem>
-                            <SelectItem value="auto">Auto</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label>Default Dashboard View</Label>
-                        <Select defaultValue="overview">
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="overview">Overview</SelectItem>
-                            <SelectItem value="students">My Students</SelectItem>
-                            <SelectItem value="evaluations">Evaluations</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Button className="bg-primary hover:bg-primary/90">
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Preferences
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* AI Settings Tab */}
-                <TabsContent value="ai" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>AI Processing Settings</CardTitle>
-                      <CardDescription>Configure AI-powered evaluation preferences</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-foreground">Auto-Process Evaluations</div>
-                          <div className="text-sm text-muted-foreground">Automatically run AI analysis on new evaluations</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-foreground">Bias Detection</div>
-                          <div className="text-sm text-muted-foreground">Enable bias checking in AI recommendations</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-foreground">Sentiment Analysis</div>
-                          <div className="text-sm text-muted-foreground">Analyze sentiment in evaluation feedback</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-
-                      <div>
-                        <Label>Confidence Threshold</Label>
-                        <Select defaultValue="85">
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="70">70% (Low)</SelectItem>
-                            <SelectItem value="80">80% (Medium)</SelectItem>
-                            <SelectItem value="85">85% (Recommended)</SelectItem>
-                            <SelectItem value="90">90% (High)</SelectItem>
-                            <SelectItem value="95">95% (Very High)</SelectItem>
-                          </SelectContent>
-                        </Select>
                         <p className="text-xs text-muted-foreground mt-2">
-                          AI recommendations below this threshold will require manual review
+                          Two-factor authentication is coming soon.
                         </p>
                       </div>
-
-                      <Button className="bg-primary hover:bg-primary/90">
-                        <Save className="w-4 h-4 mr-2" />
-                        Save AI Settings
-                      </Button>
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -385,23 +566,29 @@ export default function Settings() {
         <MobileHeader 
           title="Settings"
           subtitle="Manage your account"
-          notificationCount={15}
         />
         <div className="flex-1 overflow-y-auto p-4 pb-20">
           <div className="space-y-4">
-            {/* Header */}
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-              <p className="text-sm text-muted-foreground mt-1">Manage your account and preferences</p>
-            </div>
+            {/* Success/Error Alerts */}
+            {success && (
+              <Alert className="border-green-500 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <AlertDescription className="text-green-700">{success}</AlertDescription>
+              </Alert>
+            )}
+            
+            {error && (
+              <Alert className="border-red-500 bg-red-50">
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <AlertDescription className="text-red-700">{error}</AlertDescription>
+              </Alert>
+            )}
 
             <Tabs defaultValue="profile" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2 h-auto">
+              <TabsList className="grid w-full grid-cols-3 h-auto">
                 <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
                 <TabsTrigger value="notifications" className="text-xs">Notifications</TabsTrigger>
                 <TabsTrigger value="security" className="text-xs">Security</TabsTrigger>
-                <TabsTrigger value="preferences" className="text-xs">Preferences</TabsTrigger>
-                <TabsTrigger value="ai" className="text-xs col-span-2">AI Settings</TabsTrigger>
               </TabsList>
 
               {/* Profile Tab - Mobile */}
@@ -414,40 +601,95 @@ export default function Settings() {
                   <CardContent className="space-y-4">
                     <div className="flex items-center gap-4">
                       <Avatar className="w-16 h-16">
-                        <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
-                          AR
-                        </AvatarFallback>
+                        {avatarUrl ? (
+                          <AvatarImage src={avatarUrl} alt={`${firstName} ${lastName}`} />
+                        ) : (
+                          <AvatarFallback className="bg-[#4CAF50]/10 text-[#4CAF50] text-lg font-semibold">
+                            {getInitials()}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                       <div className="space-y-2">
-                        <Button variant="outline" size="sm" className="text-xs">Change Photo</Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive text-xs">Remove</Button>
+                        <input
+                          type="file"
+                          id="avatar-upload-mobile"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarUpload}
+                          disabled={uploadingAvatar}
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => document.getElementById('avatar-upload-mobile')?.click()}
+                          disabled={uploadingAvatar}
+                        >
+                          {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
+                        </Button>
                       </div>
                     </div>
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs">First Name</Label>
-                        <Input defaultValue="Ana" className="mt-1 h-9" />
+                        <Input 
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="mt-1 h-9"
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Last Name</Label>
-                        <Input defaultValue="Rodriguez" className="mt-1 h-9" />
+                        <Input 
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="mt-1 h-9"
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Email</Label>
-                        <Input type="email" defaultValue="ana.rodriguez@university.edu" className="mt-1 h-9" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Phone</Label>
-                        <Input type="tel" defaultValue="+1 234-567-8900" className="mt-1 h-9" />
+                        <Input 
+                          type="email" 
+                          value={email}
+                          className="mt-1 h-9 bg-muted"
+                          disabled
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Department</Label>
-                        <Input defaultValue="Computer Science" className="mt-1 h-9" />
+                        <Input 
+                          value={department}
+                          onChange={(e) => setDepartment(e.target.value)}
+                          className="mt-1 h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Bio</Label>
+                        <Textarea 
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          className="mt-1"
+                          rows={3}
+                        />
                       </div>
                     </div>
-                    <Button size="sm" className="w-full">
-                      <Save className="w-3 h-3 mr-2" />
-                      Save Changes
+                    <Button 
+                      size="sm" 
+                      className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                      onClick={handleSaveProfile}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 mr-2" />
+                          Save Changes
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
@@ -466,33 +708,59 @@ export default function Settings() {
                           <div className="font-medium text-sm text-foreground">Email Notifications</div>
                           <div className="text-xs text-muted-foreground">Receive via email</div>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch 
+                          checked={emailNotifications}
+                          onCheckedChange={setEmailNotifications}
+                        />
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium text-sm text-foreground">Push Notifications</div>
                           <div className="text-xs text-muted-foreground">Browser notifications</div>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch 
+                          checked={pushNotifications}
+                          onCheckedChange={setPushNotifications}
+                        />
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium text-sm text-foreground">Student Evaluations</div>
                           <div className="text-xs text-muted-foreground">When students submit</div>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch 
+                          checked={notifyEvaluations}
+                          onCheckedChange={setNotifyEvaluations}
+                        />
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-sm text-foreground">AI Processing Complete</div>
-                          <div className="text-xs text-muted-foreground">When analysis is done</div>
+                          <div className="font-medium text-sm text-foreground">Messages</div>
+                          <div className="text-xs text-muted-foreground">New messages</div>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch 
+                          checked={notifyMessages}
+                          onCheckedChange={setNotifyMessages}
+                        />
                       </div>
                     </div>
-                    <Button size="sm" className="w-full">
-                      <Save className="w-3 h-3 mr-2" />
-                      Save Preferences
+                    <Button 
+                      size="sm" 
+                      className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                      onClick={handleSaveNotifications}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 mr-2" />
+                          Save Preferences
+                        </>
+                      )}
                     </Button>
                   </CardContent>
                 </Card>
@@ -505,139 +773,21 @@ export default function Settings() {
                     <CardTitle className="text-base">Password & Security</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-xs">Current Password</Label>
-                        <Input type="password" className="mt-1 h-9" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">New Password</Label>
-                        <Input type="password" className="mt-1 h-9" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Confirm New Password</Label>
-                        <Input type="password" className="mt-1 h-9" />
-                      </div>
-                    </div>
-                    <Button size="sm" className="w-full">
-                      Update Password
-                    </Button>
+                    <Alert className="border-blue-500 bg-blue-50">
+                      <AlertCircle className="h-4 w-4 text-blue-500" />
+                      <AlertDescription className="text-xs text-blue-700">
+                        Use &quot;Forgot Password&quot; on the login page to reset your password.
+                      </AlertDescription>
+                    </Alert>
                     <div className="pt-4 border-t">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium text-sm text-foreground">Two-Factor Authentication</div>
-                          <div className="text-xs text-muted-foreground">Extra security layer</div>
+                          <div className="text-xs text-muted-foreground">Coming soon</div>
                         </div>
-                        <Switch />
+                        <Switch disabled />
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Preferences Tab - Mobile */}
-              <TabsContent value="preferences" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Display Preferences</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label className="text-xs">Language</Label>
-                      <Select defaultValue="en">
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="fil">Filipino</SelectItem>
-                          <SelectItem value="es">Spanish</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Timezone</Label>
-                      <Select defaultValue="pst">
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pst">Pacific Time (PST)</SelectItem>
-                          <SelectItem value="est">Eastern Time (EST)</SelectItem>
-                          <SelectItem value="cst">Central Time (CST)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Theme</Label>
-                      <Select defaultValue="light">
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="light">Light</SelectItem>
-                          <SelectItem value="dark">Dark</SelectItem>
-                          <SelectItem value="auto">Auto</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button size="sm" className="w-full">
-                      <Save className="w-3 h-3 mr-2" />
-                      Save Preferences
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* AI Settings Tab - Mobile */}
-              <TabsContent value="ai" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">AI Processing Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-sm text-foreground">Auto-Process Evaluations</div>
-                          <div className="text-xs text-muted-foreground">Auto-run AI analysis</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-sm text-foreground">Bias Detection</div>
-                          <div className="text-xs text-muted-foreground">Check for bias</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-sm text-foreground">Sentiment Analysis</div>
-                          <div className="text-xs text-muted-foreground">Analyze feedback sentiment</div>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Confidence Threshold</Label>
-                      <Select defaultValue="85">
-                        <SelectTrigger className="mt-1 h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="70">70% (Low)</SelectItem>
-                          <SelectItem value="80">80% (Medium)</SelectItem>
-                          <SelectItem value="85">85% (Recommended)</SelectItem>
-                          <SelectItem value="90">90% (High)</SelectItem>
-                          <SelectItem value="95">95% (Very High)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button size="sm" className="w-full">
-                      <Save className="w-3 h-3 mr-2" />
-                      Save AI Settings
-                    </Button>
                   </CardContent>
                 </Card>
               </TabsContent>

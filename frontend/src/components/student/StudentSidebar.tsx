@@ -7,7 +7,7 @@ import { useUserContext } from '@/components/providers/UserProvider';
 import { 
   BarChart3, 
   Briefcase, 
-  TrendingUp, 
+  FileText, 
   MessageSquare, 
   FileCheck,
   Settings
@@ -15,12 +15,12 @@ import {
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-  { icon: BarChart3, label: 'Dashboard', path: '/dashboard/student', emoji: '📊' },
-  { icon: Briefcase, label: 'Current Internship', path: '/dashboard/student/current-internship', emoji: '📋' },
-  { icon: TrendingUp, label: 'Evaluations', path: '/dashboard/student/evaluations', emoji: '📈' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/student/messages', emoji: '💬' },
-  { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents', emoji: '📄' },
-  { icon: Settings, label: 'Settings', path: '/dashboard/student/settings', emoji: '⚙️' },
+  { icon: BarChart3, label: 'Dashboard', path: '/dashboard/student' },
+  { icon: Briefcase, label: 'Current Internship', path: '/dashboard/student/current-internship' },
+  { icon: FileText, label: 'Weekly Reports', path: '/dashboard/student/weekly-reports' },
+  { icon: MessageSquare, label: 'Messages', path: '/dashboard/student/messages' },
+  { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents' },
+  { icon: Settings, label: 'Settings', path: '/dashboard/student/settings' },
 ];
 
 export const StudentSidebar = () => {
@@ -41,25 +41,26 @@ export const StudentSidebar = () => {
   };
 
   return (
-    <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
+    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col overflow-y-auto">
       {/* User Profile Section */}
-      <div className="p-6 border-b border-border">
+      <div className="p-6 bg-white">
         <div className="flex items-center space-x-3">
-          <Avatar className="w-12 h-12">
+          <Avatar className="w-14 h-14 border-2 border-[#4CAF50]">
             <AvatarImage src={user?.profile_data?.avatar_url} alt={getDisplayName()} />
-            <AvatarFallback className="bg-primary text-primary-foreground">{getInitials()}</AvatarFallback>
+            <AvatarFallback className="bg-[#4CAF50] text-white font-bold text-lg">{getInitials()}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-foreground">{getDisplayName()}</h3>
-            <p className="text-sm text-muted-foreground">{user?.profile_data?.education || 'Computer Science Major'}</p>
+            <h3 className="font-bold text-gray-900 text-base">{getDisplayName()}</h3>
+            <p className="text-xs text-gray-600">{user?.profile_data?.education || 'Computer Science Major'}</p>
           </div>
         </div>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
+      <nav className="flex-1 px-3 py-4">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
+            const Icon = item.icon;
             const isActive = pathname === item.path;
             
             return (
@@ -67,13 +68,13 @@ export const StudentSidebar = () => {
                 <Link
                   href={item.path}
                   className={cn(
-                    'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium transition-all',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-[#4CAF50] text-white shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100'
                   )}
                 >
-                  <span className="text-base">{item.emoji}</span>
+                  <Icon className="w-5 h-5" />
                   <span>{item.label}</span>
                 </Link>
               </li>
