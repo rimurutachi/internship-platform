@@ -190,12 +190,64 @@ async function getHistoricalMetrics(universityId, days = 30) {
  */
 async function getAIInsights(universityId) {
     try {
-        // Get recent evaluation analytics
+        // Step 1: Get internship IDs for students in this university
+        const { data: internships, error: internshipsError } = await supabase
+            .from('internships')
+            .select('id, student:users!internships_student_id_fkey(university_id)')
+            .eq('student.university_id', universityId);
+        if (internshipsError) {
+            console.error('Error fetching internships:', internshipsError);
+            return { success: true, data: [] };
+        }
+        if (!internships || internships.length === 0) {
+            return {
+                success: true,
+                data: [
+                    {
+                        type: 'info',
+                        message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
+                    },
+                ],
+            };
+        }
+        const internshipIds = internships.map((i) => i.id);
+        // Step 2: Get evaluation IDs for these internships
+        const { data: evaluations, error: evaluationsError } = await supabase
+            .from('evaluations')
+            .select('id')
+            .in('internship_id', internshipIds);
+        if (evaluationsError) {
+            console.error('Error fetching evaluations:', evaluationsError);
+            return { success: true, data: [] };
+        }
+        if (!evaluations || evaluations.length === 0) {
+            return {
+                success: true,
+                data: [
+                    {
+                        type: 'info',
+                        message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
+                    },
+                ],
+            };
+        }
+        const evaluationIds = evaluations.map((e) => e.id);
+        // Step 3: Get AI analysis for these evaluations
         const { data: analytics, error } = await supabase
-            .from('evaluation_analytics')
-            .select('insights, recommendations, trends')
-            .eq('university_id', universityId)
-            .order('generated_at', { ascending: false })
+            .from('evaluations_ai_analysis')
+            .select(`
+        id,
+        ai_recommendations,
+        suggested_improvements,
+        extracted_technical_skills,
+        extracted_soft_skills,
+        overall_sentiment,
+        overall_confidence_score,
+        created_at,
+        evaluation_id
+      `)
+            .in('evaluation_id', evaluationIds)
+            .order('created_at', { ascending: false })
             .limit(10);
         if (error) {
             console.error('Failed to fetch AI insights:', error);
@@ -215,11 +267,14 @@ async function getAIInsights(universityId) {
                 ],
             };
         }
-        // Aggregate top insights
+        // Aggregate top insights from AI recommendations and suggested improvements
         const allInsights = [];
         analytics.forEach(a => {
-            if (a.insights && Array.isArray(a.insights)) {
-                allInsights.push(...a.insights);
+            if (a.ai_recommendations && Array.isArray(a.ai_recommendations)) {
+                allInsights.push(...a.ai_recommendations);
+            }
+            if (a.suggested_improvements && Array.isArray(a.suggested_improvements)) {
+                allInsights.push(...a.suggested_improvements);
             }
         });
         // Get top 3 unique insights

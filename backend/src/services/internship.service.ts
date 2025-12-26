@@ -33,49 +33,109 @@ export class InternshipServiceFacade {
    * Create a new internship
    */
   async create(data: CreateInternshipDTO): Promise<Internship> {
-    return this.crudService.create(data);
+    console.log('[InternshipFacade] create start', { studentId: data.student_id, companyId: data.company_id, advisorId: data.advisor_id, supervisorId: data.supervisor_id });
+    try {
+      const result = await this.crudService.create(data);
+      console.log('[InternshipFacade] create success', { internshipId: result.id });
+      return result;
+    } catch (error) {
+      console.error('[InternshipFacade] create failed', { studentId: data.student_id, error });
+      throw error;
+    }
   }
 
   /**
    * Get internship by ID with full relations
    */
   async getById(id: string): Promise<Internship | null> {
-    return this.crudService.getById(id);
+    console.log('[InternshipFacade] getById', { internshipId: id });
+    try {
+      return await this.crudService.getById(id);
+    } catch (error) {
+      console.error('[InternshipFacade] getById failed', { internshipId: id, error });
+      throw error;
+    }
   }
 
   /**
    * Get all internships with optional filters
    */
   async getAll(filters?: any): Promise<Internship[]> {
-    return this.crudService.getAll(filters);
+    console.log('[InternshipFacade] getAll', { filters });
+    try {
+      return await this.crudService.getAll(filters);
+    } catch (error) {
+      console.error('[InternshipFacade] getAll failed', { filters, error });
+      throw error;
+    }
   }
 
   /**
    * Update internship
    */
   async update(id: string, updates: UpdateInternshipDTO): Promise<Internship> {
-    return this.crudService.update(id, updates);
+    console.log('[InternshipFacade] update start', { internshipId: id });
+    try {
+      const result = await this.crudService.update(id, updates);
+      console.log('[InternshipFacade] update success', { internshipId: id });
+      return result;
+    } catch (error) {
+      console.error('[InternshipFacade] update failed', { internshipId: id, error });
+      throw error;
+    }
   }
 
   /**
    * Delete internship
    */
   async delete(id: string): Promise<void> {
-    return this.crudService.delete(id);
+    console.log('[InternshipFacade] delete start', { internshipId: id });
+    try {
+      await this.crudService.delete(id);
+      console.log('[InternshipFacade] delete success', { internshipId: id });
+    } catch (error) {
+      console.error('[InternshipFacade] delete failed', { internshipId: id, error });
+      throw error;
+    }
   }
 
   /**
    * Get all internships for a student
    */
   async getStudentInternships(studentId: string): Promise<Internship[]> {
-    return this.crudService.getStudentInternships(studentId);
+    console.log('[InternshipFacade] getStudentInternships', { studentId });
+    try {
+      return await this.crudService.getStudentInternships(studentId);
+    } catch (error) {
+      console.error('[InternshipFacade] getStudentInternships failed', { studentId, error });
+      throw error;
+    }
   }
 
   /**
    * Get all internships for an advisor
    */
   async getAdvisorInternships(advisorId: string): Promise<Internship[]> {
-    return this.crudService.getAdvisorInternships(advisorId);
+    console.log('[InternshipFacade] getAdvisorInternships', { advisorId });
+    try {
+      return await this.crudService.getAdvisorInternships(advisorId);
+    } catch (error) {
+      console.error('[InternshipFacade] getAdvisorInternships failed', { advisorId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get all internships for a supervisor
+   */
+  async getSupervisorInternships(supervisorId: string): Promise<Internship[]> {
+    console.log('[InternshipFacade] getSupervisorInternships', { supervisorId });
+    try {
+      return await this.crudService.getSupervisorInternships(supervisorId);
+    } catch (error) {
+      console.error('[InternshipFacade] getSupervisorInternships failed', { supervisorId, error });
+      throw error;
+    }
   }
 
   // ============================================================
@@ -122,19 +182,26 @@ export class InternshipServiceFacade {
    * Log activity for internship audit trail
    */
   async logActivity(
-    internship_id: string,
+    user_id: string,
     action: string,
-    performed_by: string,
-    old_values?: any,
-    new_values?: any
+    internship_id: string,
+    description: string,
+    metadata?: Record<string, any>
   ): Promise<void> {
     return this.validationService.logActivity(
-      internship_id,
+      user_id,
       action,
-      performed_by,
-      old_values,
-      new_values
+      internship_id,
+      description,
+      metadata
     );
+  }
+
+  /**
+   * Calculate field changes for audit logging
+   */
+  calculateChanges(oldData: any, newData: any): Record<string, any> {
+    return this.validationService.calculateChanges(oldData, newData);
   }
 
   // ============================================================

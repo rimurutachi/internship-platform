@@ -1,11 +1,8 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InternshipsEnhancedController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
-const internshipsEnhancedService_1 = __importDefault(require("../../services/internshipsEnhancedService"));
+const internship_service_1 = require("../../services/internship.service");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class InternshipsEnhancedController {
     /**
@@ -455,7 +452,7 @@ class InternshipsEnhancedController {
                 return;
             }
             const exportFormat = format || 'json';
-            const exportData = await internshipsEnhancedService_1.default.exportInternships(ids, exportFormat);
+            const exportData = await internship_service_1.internshipService.exportInternships(ids, exportFormat);
             res.json({
                 success: true,
                 export_data: exportData,
@@ -599,7 +596,7 @@ class InternshipsEnhancedController {
      */
     static async getCapacityAnalytics(req, res) {
         try {
-            const analytics = await internshipsEnhancedService_1.default.getCompanyCapacityAnalytics();
+            const analytics = await internship_service_1.internshipService.getCompanyCapacityAnalytics();
             res.json({ success: true, data: analytics });
         }
         catch (error) {
@@ -622,7 +619,7 @@ class InternshipsEnhancedController {
                 return;
             }
             const internshipIds = (internships || []).map((i) => i.id);
-            const completionRates = await internshipsEnhancedService_1.default.getDocumentCompletionRate(internshipIds);
+            const completionRates = await internship_service_1.internshipService.getDocumentCompletionRate(internshipIds);
             const totalRate = Object.values(completionRates).reduce((sum, rate) => sum + rate, 0) / internshipIds.length;
             // Group by company
             const byCompany = {};
@@ -659,7 +656,7 @@ class InternshipsEnhancedController {
                 res.status(400).json({ success: false, error: 'company_id is required' });
                 return;
             }
-            const isValid = await internshipsEnhancedService_1.default.validateCompanyCapacity(company_id);
+            const isValid = await internship_service_1.internshipService.validateCompanyCapacity(company_id);
             res.json({
                 is_valid: isValid,
                 message: isValid ? 'Company has available capacity' : 'Company is at full capacity'
@@ -718,7 +715,7 @@ class InternshipsEnhancedController {
                 return;
             }
             const ids = internship_ids.split(',');
-            const completionRates = await internshipsEnhancedService_1.default.getDocumentCompletionRate(ids);
+            const completionRates = await internship_service_1.internshipService.getDocumentCompletionRate(ids);
             const totalRate = Object.values(completionRates).reduce((sum, rate) => sum + rate, 0) / ids.length;
             res.json({
                 overall_completion: Math.round(totalRate),

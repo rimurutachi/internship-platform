@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import { InternshipService } from '../services/internshipService';
-
-const internshipService = new InternshipService();
+import { internshipService } from '../services/internship.service';
 
 export async function createInternship(req: Request, res: Response) {
     try {

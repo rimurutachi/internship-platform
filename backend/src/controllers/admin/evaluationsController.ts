@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { EvaluationsService } from '../../services/evaluationsService';
+import { evaluationService } from '../../services/evaluation.service';
 import { AuthRequest } from '../../middleware/auth';
 
 const supabase = createClient(
@@ -9,17 +9,14 @@ const supabase = createClient(
 );
 
 export class EvaluationsController {
-  private evaluationsService: EvaluationsService;
-
-  constructor() {
-    this.evaluationsService = new EvaluationsService();
-  }
+  private evaluationService = evaluationService;
 
   /**
    * Get all evaluations with filters
    * GET /admin/evaluations
    */
   getEvaluations = async (req: AuthRequest, res: Response) => {
+    console.log('[AdminEvaluations] getEvaluations request', { filters: req.query, user: req.user?.id });
     try {
       const {
         page = '1',
@@ -84,12 +81,13 @@ export class EvaluationsController {
       // Calculate average ratings for each evaluation
       const evaluationsWithAvg = (data || []).map((evaluation) => ({
         ...evaluation,
-        avg_rating: this.evaluationsService.calculateAverageRating(evaluation),
+        avg_rating: this.evaluationService.calculateAverageRating(evaluation),
       }));
 
       // Get metrics
-      const metrics = await this.evaluationsService.getQualityMetrics();
+      const metrics = await this.evaluationService.getQualityMetrics();
 
+      console.log('[AdminEvaluations] getEvaluations success', { count: count || 0, page: pageNum });
       res.json({
         success: true,
         data: {
@@ -149,7 +147,7 @@ export class EvaluationsController {
       // Add average rating
       const evaluationWithAvg = {
         ...evaluation,
-        avg_rating: this.evaluationsService.calculateAverageRating(evaluation),
+        avg_rating: this.evaluationService.calculateAverageRating(evaluation),
       };
 
       res.json({
@@ -193,7 +191,7 @@ export class EvaluationsController {
         });
       }
 
-      const aiResults = this.evaluationsService.formatAIResults(evaluation);
+      const aiResults = this.evaluationService.formatAIResults(evaluation);
 
       res.json({
         success: true,
@@ -314,6 +312,7 @@ export class EvaluationsController {
    * POST /admin/evaluations/:id/approve
    */
   approveEvaluation = async (req: AuthRequest, res: Response) => {
+    console.log('[AdminEvaluations] approveEvaluation request', { evaluationId: req.params.id, finalGrade: req.body.final_grade, user: req.user?.id });
     try {
       const { id } = req.params;
       const { final_grade, notes, use_ai_grade } = req.body;
@@ -373,6 +372,7 @@ export class EvaluationsController {
         metadata: { final_grade: gradeToSet, notes, use_ai_grade },
       });
 
+      console.log('[AdminEvaluations] approveEvaluation success', { evaluationId: id, finalGrade: gradeToSet });
       res.json({
         success: true,
         data: { message: 'Evaluation approved successfully' },
@@ -541,7 +541,7 @@ export class EvaluationsController {
    */
   getQualityMetrics = async (req: AuthRequest, res: Response) => {
     try {
-      const metrics = await this.evaluationsService.getQualityMetrics();
+      const metrics = await this.evaluationService.getQualityMetrics();
 
       res.json({
         success: true,
@@ -560,7 +560,7 @@ export class EvaluationsController {
   getMetricsBySupervisor = async (req: AuthRequest, res: Response) => {
     try {
       const metrics =
-        await this.evaluationsService.getMetricsBySupervisor();
+        await this.evaluationService.getMetricsBySupervisor();
 
       res.json({
         success: true,
@@ -578,7 +578,7 @@ export class EvaluationsController {
    */
   getMetricsByCompany = async (req: AuthRequest, res: Response) => {
     try {
-      const metrics = await this.evaluationsService.getMetricsByCompany();
+      const metrics = await this.evaluationService.getMetricsByCompany();
 
       res.json({
         success: true,
@@ -625,7 +625,7 @@ export class EvaluationsController {
             continue;
           }
 
-          if (!this.evaluationsService.isReadyForApproval(evaluation)) {
+          if (!this.evaluationService.isReadyForApproval(evaluation)) {
             failedCount++;
             errors.push({ id, error: 'Evaluation not ready for approval' });
             continue;
@@ -687,7 +687,7 @@ export class EvaluationsController {
     try {
       const { format = 'json', filters = {}, include_ai_results = false } = req.body;
 
-      const exportData = await this.evaluationsService.exportEvaluations(
+      const exportData = await this.evaluationService.exportEvaluations(
         filters,
         format as 'json' | 'csv',
         include_ai_results

@@ -51,7 +51,7 @@ export const StudentSidebar = () => {
           </Avatar>
           <div>
             <h3 className="font-bold text-gray-900 text-base">{getDisplayName()}</h3>
-            <p className="text-xs text-gray-600">{user?.profile_data?.education || 'Computer Science Major'}</p>
+            <p className="text-xs text-gray-600">{user?.profile_data?.education || 'Student'}</p>
           </div>
         </div>
       </div>

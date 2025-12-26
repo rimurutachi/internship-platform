@@ -1,30 +1,26 @@
 'use client';
 
-import { Bell, ChevronDown, Sparkles, LogOut } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { logout } from '@/lib/auth';
 import { useUserContext } from '@/components/providers/UserProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
 /**
  * SupervisorHeader Component
  * 
- * Header component for supervisor dashboard with welcome message,
- * AI evaluation badge, notifications, and profile dropdown menu.
+ * Header component for supervisor dashboard with CVSU branding,
+ * notifications, and profile dropdown menu.
  */
 export const SupervisorHeader = () => {
-  const { user } = useUserContext();
+  const { user, loading } = useUserContext();
   const notificationCount = 8;
 
   const handleLogout = async () => {
@@ -35,49 +31,32 @@ export const SupervisorHeader = () => {
     }
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    if (!firstName || !lastName) return '??';
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  };
-
-  const fullName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Supervisor' : 'Supervisor';
-  const initials = user && user.first_name && user.last_name 
-    ? getInitials(user.first_name, user.last_name) 
-    : 'SU';
-
   return (
-    <header className="bg-card border-b border-border px-6 py-4">
+    <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
       <div className="flex items-center justify-between">
-        {/* Welcome Message with CvSU Logo */}
-        <div className="flex items-center space-x-4">
+        {/* Left: CVSU Branding */}
+        <div className="flex items-center space-x-3">
           <Image 
-            src="/cvsu-logo.png" 
-            alt="CvSU Logo" 
+            src="/logo.png" 
+            alt="Intern-Galing Logo" 
             width={40} 
             height={40}
             className="object-contain"
           />
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.first_name || 'Supervisor'}!</h1>
-            <p className="text-muted-foreground">{user?.email || 'Supervisor Portal'}</p>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+              CAVITE STATE UNIVERSITY - BACOOR CITY CAMPUS
+            </span>
           </div>
         </div>
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
-          <ThemeToggle />
-          
-          {/* AI Evaluation Badge */}
-          <Badge className="bg-gradient-ai text-white border-0 px-3 py-1.5">
-            <Sparkles className="w-4 h-4 mr-2" />
-            SMART EVALUATION
-          </Badge>
-
           {/* Notifications */}
           <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
-            <Bell className="w-5 h-5" />
+            <Bell className="w-5 h-5 text-gray-700" />
             {notificationCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-xs p-0 flex items-center justify-center">
+              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs p-0 flex items-center justify-center">
                 {notificationCount > 9 ? '9+' : notificationCount}
               </Badge>
             )}
@@ -87,22 +66,12 @@ export const SupervisorHeader = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2" aria-label="User menu">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src="/placeholder.svg" alt={fullName} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">{initials}</AvatarFallback>
-                </Avatar>
-                <ChevronDown className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-900">Log out</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-              <DropdownMenuItem>Company Info</DropdownMenuItem>
-              <DropdownMenuItem>Help & Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem 
-                className="text-destructive cursor-pointer"
+                className="text-red-600 cursor-pointer font-medium"
                 onClick={handleLogout}
               >
                 <LogOut className="w-4 h-4 mr-2" />
@@ -110,6 +79,22 @@ export const SupervisorHeader = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* CVSU and Bagong Pilipinas Logos */}
+          <Image 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
+            width={32} 
+            height={32}
+            className="object-contain"
+          />
+          <Image 
+            src="/bagong-pilipinas-logo.png" 
+            alt="Bagong Pilipinas Logo" 
+            width={32} 
+            height={32}
+            className="object-contain"
+          />
         </div>
       </div>
     </header>

@@ -19,12 +19,24 @@ import communicationRoutes from "./routes/communications";
 import adminRoutes from "./routes/admin";
 import studentRoutes from "./routes/student";
 import advisorRoutes from "./routes/advisor";
+import supervisorRoutes from "./routes/supervisor";
 import systemMetricsService from "./services/systemMetricsService";
 
 // Initialize global system metrics tracker
 global.systemMetrics = systemMetricsService;
 
 const app = express();
+
+// Disable ETag to prevent 304 responses for dynamic APIs
+app.set("etag", false);
+
+// Global no-store for API responses to avoid client caching
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    res.set("Cache-Control", "no-store");
+  }
+  next();
+});
 const PORT = process.env.PORT || 5000;
 
 // Create HTTP server
@@ -99,6 +111,12 @@ app.use("/api/student", studentRoutes);
 
 // Advisor APIs
 app.use("/api/advisor", advisorRoutes);
+
+// Supervisor APIs
+app.use("/api/supervisor", supervisorRoutes);
+
+// Supervisor APIs
+app.use("/api/supervisor", supervisorRoutes);
 
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes);

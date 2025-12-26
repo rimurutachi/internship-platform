@@ -29,6 +29,8 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       comments,
     } = req.body;
 
+    console.log('Creating final evaluation:', { supervisorId, internship_id, criterion_scores });
+
     if (!supervisorId) {
       return res.status(401).json({
         success: false,
@@ -44,10 +46,13 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       .eq('id', internship_id)
       .single();
 
+    console.log('Internship lookup result:', { internship, internshipError });
+
     if (internshipError || !internship) {
       return res.status(404).json({
         success: false,
         error: 'Internship not found',
+        message: internshipError?.message || 'Could not find internship with provided ID',
       });
     }
 
@@ -60,29 +65,28 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
     }
 
     // Validate criterion scores
-    if (!criterion_scores || !Array.isArray(criterion_scores) || criterion_scores.length !== 7) {
+    if (!criterion_scores || !Array.isArray(criterion_scores) || criterion_scores.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Must provide exactly 7 criterion scores (A-G)',
+        message: 'Must provide criterion scores',
       });
     }
 
-    const requiredCodes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-    for (const code of requiredCodes) {
-      const score = criterion_scores.find((s: CriterionScore) => s.criterion_code === code);
-      if (!score) {
+    // Validate each score
+    for (const score of criterion_scores) {
+      if (!score.criterion_code || !score.criterion_name) {
         return res.status(400).json({
           success: false,
           error: 'Validation error',
-          message: `Missing score for criterion ${code}`,
+          message: 'Each criterion must have a code and name',
         });
       }
       if (score.score < 1 || score.score > 10) {
         return res.status(400).json({
           success: false,
           error: 'Validation error',
-          message: `Score for criterion ${code} must be between 1 and 10`,
+          message: `Score for criterion ${score.criterion_code} must be between 1 and 10`,
         });
       }
     }
@@ -103,32 +107,79 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       gradeEquivalent = await calculateGrade(rubric.id, totalScore);
     }
 
-    // Create evaluation (draft status)
-    const { data: evaluation, error: createError } = await supabase
+    // Check if a draft already exists for this internship
+    const { data: existingDraft } = await supabase
       .from('evaluations')
-      .insert({
-        internship_id,
-        student_id: internship.student_id,
-        supervisor_id: supervisorId,
-        evaluator_id: supervisorId,
-        rubric_id: rubric?.id || null,
-        total_score: totalScore,
-        final_grade: gradeEquivalent,
-        attendance,
-        punctuality,
-        supervisor_comments: comments?.trim() || null,
-        status: 'draft',
-        evaluation_type: 'final',
-      })
-      .select()
+      .select('id')
+      .eq('internship_id', internship_id)
+      .eq('supervisor_id', supervisorId)
+      .eq('evaluation_type', 'final')
+      .eq('status', 'draft')
       .single();
 
-    if (createError) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create evaluation',
-        message: createError.message,
-      });
+    let evaluation;
+
+    if (existingDraft) {
+      // Update existing draft
+      const { data: updated, error: updateError } = await supabase
+        .from('evaluations')
+        .update({
+          rubric_id: rubric?.id || null,
+          total_score: totalScore,
+          final_grade: gradeEquivalent,
+          attendance,
+          punctuality,
+          supervisor_comments: comments?.trim() || null,
+        })
+        .eq('id', existingDraft.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to update evaluation',
+          message: updateError.message,
+        });
+      }
+
+      evaluation = updated;
+
+      // Delete old criterion scores
+      await supabase
+        .from('evaluation_criterion_scores')
+        .delete()
+        .eq('evaluation_id', existingDraft.id);
+    } else {
+      // Create new evaluation (draft status)
+      const { data: created, error: createError } = await supabase
+        .from('evaluations')
+        .insert({
+          internship_id,
+          student_id: internship.student_id,
+          supervisor_id: supervisorId,
+          evaluator_id: supervisorId,
+          rubric_id: rubric?.id || null,
+          total_score: totalScore,
+          final_grade: gradeEquivalent,
+          attendance,
+          punctuality,
+          supervisor_comments: comments?.trim() || null,
+          status: 'draft',
+          evaluation_type: 'final',
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create evaluation',
+          message: createError.message,
+        });
+      }
+
+      evaluation = created;
     }
 
     // Store individual criterion scores

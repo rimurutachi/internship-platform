@@ -34,12 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const auth_1 = require("../../middleware/auth");
 const advisorEvaluationService = __importStar(require("../../services/advisorEvaluationService"));
 const router = (0, express_1.Router)();
-// All routes require authentication and advisor role
-router.use(auth_1.authenticateToken);
-router.use((0, auth_1.requireRole)(['advisor']));
 /**
  * GET /api/advisor/evaluations/pending
  * Get all pending evaluations (submitted status)

@@ -1,8 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 export declare class EvaluationsController {
-    private evaluationsService;
-    constructor();
+    private evaluationService;
     /**
      * Get all evaluations with filters
      * GET /admin/evaluations

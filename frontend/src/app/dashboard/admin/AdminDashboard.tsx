@@ -39,12 +39,6 @@ const AdminDashboard = () => {
           {/* Page Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6">
-              {/* Page Header */}
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">OJT Dashboard</h1>
-                <p className="text-muted-foreground mt-1">Internship platform overview and analytics</p>
-              </div>
-
               {/* OJT Analytics Content */}
               <AdminAnalyticsOJT />
             </div>
@@ -70,12 +64,6 @@ const AdminDashboard = () => {
         {/* Mobile Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 pb-20">
           <div className="space-y-4">
-            {/* Header */}
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">OJT Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-1">Internship platform overview</p>
-            </div>
-
             {/* OJT Analytics Content */}
             <AdminAnalyticsOJT />
           </div>

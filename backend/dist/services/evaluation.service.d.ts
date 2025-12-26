@@ -28,6 +28,14 @@ export declare class EvaluationServiceFacade {
      */
     processWithAI(evaluationId: string): Promise<any>;
     /**
+     * Analyze draft text for quick feedback (no persistence)
+     */
+    analyzeDraft(text: string): Promise<any>;
+    /**
+     * Update draft evaluation (only allowed while status is draft)
+     */
+    update(id: string, data: any): Promise<Evaluation>;
+    /**
      * Submit evaluation for review (triggers AI processing)
      */
     submit(evaluationId: string): Promise<Evaluation>;
@@ -39,6 +47,46 @@ export declare class EvaluationServiceFacade {
      * Get all evaluations for an internship
      */
     getByInternship(internshipId: string): Promise<Evaluation[]>;
+    /**
+     * Get evaluations with filters (supervisor/status/type)
+     */
+    getAll(filters?: {
+        supervisor_id?: string;
+        status?: string;
+        evaluation_type?: 'weekly' | 'midterm' | 'final';
+        limit?: number;
+        offset?: number;
+    }): Promise<any[]>;
+    /**
+     * Timeline of evaluations for an internship
+     */
+    getTimelineByInternship(internshipId: string): Promise<any[]>;
+    /**
+     * Get evaluations by type for an internship
+     */
+    getByType(internshipId: string, evaluationType: 'weekly' | 'midterm' | 'final'): Promise<any[]>;
+    /**
+     * Get overdue evaluations (draft past due)
+     */
+    getOverdueEvaluations(supervisorId?: string): Promise<any[]>;
+    /**
+     * Progress summary for an internship
+     */
+    getProgressSummary(internshipId: string): Promise<{
+        weekly: {
+            total: number;
+            completed: number;
+            pending: number;
+        };
+        midterm: {
+            completed: boolean;
+            status?: string;
+        };
+        final: {
+            completed: boolean;
+            status?: string;
+        };
+    }>;
     /**
      * Calculate average rating from all rating fields
      */

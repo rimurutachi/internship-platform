@@ -153,10 +153,10 @@ const StudentDashboard = () => {
             {/* Welcome Banner */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                Welcome back, {user?.first_name || 'Jimmar'}!
+                Welcome back, {user?.first_name}!
               </h1>
               <p className="text-base text-gray-600">
-                {user?.profile_data?.education || 'Computer Science'} • Spring 2024
+                {user?.profile_data?.education || 'CvSU Student'}
               </p>
             </div>
 
@@ -213,10 +213,10 @@ const StudentDashboard = () => {
               </Avatar>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
-                  Welcome, {user?.first_name || 'Student'}!
+                  Welcome, {user?.first_name}!
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {user?.profile_data?.education || 'Computer Science'} • MIT
+                  {user?.profile_data?.education || 'CvSU Student'}
                 </p>
               </div>
             </CardContent>

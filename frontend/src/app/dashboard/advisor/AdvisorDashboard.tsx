@@ -360,7 +360,6 @@ const AdvisorDashboard = () => {
         <MobileHeader 
           title="Advisor Portal"
           subtitle={user?.email || 'Advisor'}
-          notificationCount={15}
           logo={
             <div className="w-8 h-8 bg-gradient-ai rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">{initials}</span>

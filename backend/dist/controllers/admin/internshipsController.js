@@ -2,14 +2,18 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.internshipsController = exports.InternshipsController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
-const internshipsService_1 = require("../../services/internshipsService");
+const internship_service_1 = require("../../services/internship.service");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class InternshipsController {
+    constructor() {
+        this.internshipService = internship_service_1.internshipService;
+    }
     /**
      * GET /admin/internships
      * Get all internships with filters and pagination
      */
     async getInternships(req, res) {
+        console.log('[AdminInternships] getInternships request', { filters: req.query, user: req.user?.id });
         try {
             const { page = 1, limit = 20, status, university_id, company_id, search, } = req.query;
             const pageNum = parseInt(page);
@@ -82,12 +86,13 @@ class InternshipsController {
                 .order('created_at', { ascending: false })
                 .range(offset, offset + limitNum - 1);
             if (error) {
-                console.error('Error fetching internships:', error);
+                console.error('[AdminInternships] getInternships query error', error);
                 return res.status(500).json({
                     success: false,
                     error: 'Failed to fetch internships',
                 });
             }
+            console.log('[AdminInternships] getInternships success', { count: count || 0, page: pageNum });
             res.json({
                 success: true,
                 data: {
@@ -164,6 +169,7 @@ class InternshipsController {
      * Create new internship with validation
      */
     async createInternship(req, res) {
+        console.log('[AdminInternships] createInternship request', { studentId: req.body.student_id, companyId: req.body.company_id, user: req.user?.id });
         try {
             const { student_id, company_id, position, department, advisor_id, supervisor_id, start_date, end_date, status = 'pending', } = req.body;
             // Validate required fields
@@ -187,7 +193,7 @@ class InternshipsController {
                 });
             }
             // Validate internship assignment constraints
-            const validation = await internshipsService_1.internshipsService.validateInternshipAssignment(student_id, company_id, advisor_id, supervisor_id);
+            const validation = await this.internshipService.validateInternshipAssignment(student_id, company_id, advisor_id, supervisor_id);
             if (!validation.valid) {
                 return res.status(validation.errors.includes('Student already has an active internship') ? 409 : 400).json({
                     success: false,
@@ -219,7 +225,8 @@ class InternshipsController {
                 });
             }
             // Log activity
-            await internshipsService_1.internshipsService.logActivity(req.user.id, 'internship_created', internship.id, `Admin created internship for student at company as ${position}`, { internship_data: internship });
+            await this.internshipService.logActivity(req.user.id, 'internship_created', internship.id, `Admin created internship for student at company as ${position}`, { internship_data: internship });
+            console.log('[AdminInternships] createInternship success', { internshipId: internship.id });
             res.status(201).json({
                 success: true,
                 data: {
@@ -241,6 +248,7 @@ class InternshipsController {
      * Update internship (cannot change student or company)
      */
     async updateInternship(req, res) {
+        console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: req.user?.id });
         try {
             const { id } = req.params;
             const { position, department, advisor_id, supervisor_id, start_date, end_date, status } = req.body;
@@ -282,7 +290,7 @@ class InternshipsController {
                 });
             }
             // Validate advisor/supervisor changes
-            const validation = await internshipsService_1.internshipsService.validateInternshipUpdate(id, advisor_id, supervisor_id);
+            const validation = await this.internshipService.validateInternshipUpdate(id, advisor_id, supervisor_id);
             if (!validation.valid) {
                 return res.status(400).json({
                     success: false,
@@ -305,9 +313,9 @@ class InternshipsController {
                 });
             }
             // Calculate and log changes
-            const changes = internshipsService_1.internshipsService.calculateChanges(currentInternship, updateData);
+            const changes = this.internshipService.calculateChanges(currentInternship, updateData);
             if (Object.keys(changes).length > 0) {
-                await internshipsService_1.internshipsService.logActivity(req.user.id, 'internship_updated', id, 'Admin updated internship', { changes });
+                await this.internshipService.logActivity(req.user.id, 'internship_updated', id, 'Admin updated internship', { changes });
             }
             res.json({
                 success: true,
@@ -356,7 +364,7 @@ class InternshipsController {
                 });
             }
             // Log deletion
-            await internshipsService_1.internshipsService.logActivity(req.user.id, 'internship_cancelled', id, 'Admin cancelled internship', { previous_status: internship.status });
+            await this.internshipService.logActivity(req.user.id, 'internship_cancelled', id, 'Admin cancelled internship', { previous_status: internship.status });
             res.json({
                 success: true,
                 data: {
@@ -421,7 +429,7 @@ class InternshipsController {
                 throw updateError;
             }
             // Log activity
-            await internshipsService_1.internshipsService.logActivity(req.user.id, 'internship_archived', id, 'Admin archived internship', { previous_status: internship.status });
+            await this.internshipService.logActivity(req.user.id, 'internship_archived', id, 'Admin archived internship', { previous_status: internship.status });
             return res.status(200).json({
                 success: true,
                 message: 'Internship archived successfully',
@@ -476,7 +484,7 @@ class InternshipsController {
                 throw updateError;
             }
             // Log activity
-            await internshipsService_1.internshipsService.logActivity(req.user.id, 'internship_unarchived', id, 'Admin unarchived internship', { current_status: internship.status });
+            await this.internshipService.logActivity(req.user.id, 'internship_unarchived', id, 'Admin unarchived internship', { current_status: internship.status });
             return res.status(200).json({
                 success: true,
                 message: 'Internship unarchived successfully',
