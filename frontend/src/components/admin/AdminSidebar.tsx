@@ -6,80 +6,81 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   LayoutDashboard, 
   Users, 
-  Server, 
-  Shield,
   FileText,
-  Brain,
   Settings,
   BarChart3,
   Briefcase,
-  Building2
+  Building2,
+  FileCheck,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/admin', emoji: '📊' },
-  { icon: Users, label: 'Users', path: '/dashboard/admin/users', emoji: '👥' },
-  { icon: Building2, label: 'Companies', path: '/dashboard/admin/companies', emoji: '🏢' },
-  { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships', emoji: '💼' },
-  { icon: Brain, label: 'Evaluations', path: '/dashboard/admin/evaluations', emoji: '🧠' },
-  { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents', emoji: '📄' },
-  { icon: Server, label: 'System', path: '/dashboard/admin/system', emoji: '🖥️' },
-  { icon: Shield, label: 'Security', path: '/dashboard/admin/security', emoji: '🔒' },
-  { icon: BarChart3, label: 'Reports', path: '/dashboard/admin/reports', emoji: '📈' },
-  { icon: Settings, label: 'Settings', path: '/dashboard/admin/settings', emoji: '⚙️' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/admin' },
+  { icon: Users, label: 'Users', path: '/dashboard/admin/users' },
+  { icon: Building2, label: 'Companies', path: '/dashboard/admin/companies' },
+  { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships' },
+  { icon: FileCheck, label: 'Evaluations', path: '/dashboard/admin/evaluations' },
+  { icon: ClipboardList, label: 'Rubrics', path: '/dashboard/admin/rubrics' },
+  { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents' },
+  { icon: BarChart3, label: 'Reports', path: '/dashboard/admin/reports' },
+  { icon: Settings, label: 'Settings', path: '/dashboard/admin/settings' },
 ];
 
 export const AdminSidebar = () => {
   const pathname = usePathname();
   const { user } = useUserContext();
 
-  const getInitials = (firstName: string, lastName: string) => {
-    if (!firstName || !lastName) return '??';
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  const getInitials = () => {
+    if (!user) return 'AD';
+    const firstInitial = user.first_name?.charAt(0) || '';
+    const lastInitial = user.last_name?.charAt(0) || '';
+    return (firstInitial + lastInitial).toUpperCase() || 'AD';
   };
 
-  const fullName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Admin' : 'Admin';
-  const initials = user && user.first_name && user.last_name 
-    ? getInitials(user.first_name, user.last_name) 
-    : 'AD';
-  const avatarUrl = user?.profile_data?.avatar_url;
+  const getDisplayName = () => {
+    if (!user) return 'Administrator';
+    return `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email?.split('@')[0] || 'Administrator';
+  };
 
   return (
-    <div className="w-64 bg-card border-r border-border h-screen flex flex-col overflow-y-auto">
+    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col overflow-y-auto">
       {/* User Profile Section */}
-      <div className="p-6 border-b border-border">
+      <div className="p-6 bg-white">
         <div className="flex items-center space-x-3">
-          <Avatar className="w-12 h-12">
-            <AvatarImage src={avatarUrl || '/placeholder.svg'} alt={fullName} />
-            <AvatarFallback className="bg-gradient-primary text-white font-bold">{initials}</AvatarFallback>
+          <Avatar className="w-14 h-14 border-2 border-[#4CAF50]">
+            <AvatarImage src={user?.profile_data?.avatar_url} alt={getDisplayName()} />
+            <AvatarFallback className="bg-[#4CAF50] text-white font-bold text-lg">{getInitials()}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-semibold text-foreground">{fullName}</h3>
-            <p className="text-sm text-muted-foreground">{user?.role || 'Administrator'}</p>
+            <h3 className="font-bold text-gray-900 text-base">{getDisplayName()}</h3>
+            <p className="text-xs text-gray-600">admin</p>
           </div>
         </div>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
+      <nav className="flex-1 px-3 py-4">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
-            const isActive = pathname === item.path;
+            const Icon = item.icon;
+            const isActive = pathname === item.path || 
+                           (item.path !== '/dashboard/admin' && pathname?.startsWith(item.path));
             
             return (
               <li key={item.path}>
                 <Link
                   href={item.path}
                   className={cn(
-                    'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium transition-all',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-[#4CAF50] text-white shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100'
                   )}
                 >
-                  <span className="text-base">{item.emoji}</span>
+                  <Icon className="w-5 h-5" />
                   <span>{item.label}</span>
                 </Link>
               </li>

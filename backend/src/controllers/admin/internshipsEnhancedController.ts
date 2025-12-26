@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import InternshipsEnhancedService from '../../services/internshipsEnhancedService';
+import { internshipService } from '../../services/internship.service';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -508,7 +508,7 @@ export class InternshipsEnhancedController {
 
       const exportFormat = format || 'json';
 
-      const exportData = await InternshipsEnhancedService.exportInternships(
+      const exportData = await internshipService.exportInternships(
         ids,
         exportFormat as any
       );
@@ -670,7 +670,7 @@ export class InternshipsEnhancedController {
    */
   static async getCapacityAnalytics(req: Request, res: Response): Promise<void> {
     try {
-      const analytics = await InternshipsEnhancedService.getCompanyCapacityAnalytics();
+      const analytics = await internshipService.getCompanyCapacityAnalytics();
 
       res.json({ success: true, data: analytics });
     } catch (error: any) {
@@ -696,7 +696,7 @@ export class InternshipsEnhancedController {
       }
 
       const internshipIds = (internships || []).map((i: any) => i.id);
-      const completionRates = await InternshipsEnhancedService.getDocumentCompletionRate(internshipIds);
+      const completionRates = await internshipService.getDocumentCompletionRate(internshipIds);
 
       const totalRate = Object.values(completionRates).reduce((sum: number, rate: any) => sum + rate, 0) / internshipIds.length;
 
@@ -738,7 +738,7 @@ export class InternshipsEnhancedController {
         return;
       }
 
-      const isValid = await InternshipsEnhancedService.validateCompanyCapacity(company_id);
+      const isValid = await internshipService.validateCompanyCapacity(company_id);
 
       res.json({
         is_valid: isValid,
@@ -804,7 +804,7 @@ export class InternshipsEnhancedController {
       }
 
       const ids = (internship_ids as string).split(',');
-      const completionRates = await InternshipsEnhancedService.getDocumentCompletionRate(ids);
+      const completionRates = await internshipService.getDocumentCompletionRate(ids);
 
       const totalRate = Object.values(completionRates).reduce((sum: number, rate: any) => sum + rate, 0) / ids.length;
 

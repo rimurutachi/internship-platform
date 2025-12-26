@@ -6,11 +6,10 @@ exports.getAllInternships = getAllInternships;
 exports.updateInternship = updateInternship;
 exports.deleteInternship = deleteInternship;
 exports.getMyInternships = getMyInternships;
-const internshipService_1 = require("../services/internshipService");
-const internshipService = new internshipService_1.InternshipService();
+const internship_service_1 = require("../services/internship.service");
 async function createInternship(req, res) {
     try {
-        const internship = await internshipService.create(req.body);
+        const internship = await internship_service_1.internshipService.create(req.body);
         res.status(201).json({ success: true, data: internship });
     }
     catch (error) {
@@ -19,7 +18,7 @@ async function createInternship(req, res) {
 }
 async function getInternship(req, res) {
     try {
-        const internship = await internshipService.getById(req.params.id);
+        const internship = await internship_service_1.internshipService.getById(req.params.id);
         if (!internship) {
             return res.status(404).json({ success: false, error: 'Internship not found.' });
         }
@@ -31,7 +30,7 @@ async function getInternship(req, res) {
 }
 async function getAllInternships(req, res) {
     try {
-        const internships = await internshipService.getAll(req.query);
+        const internships = await internship_service_1.internshipService.getAll(req.query);
         res.json({ success: true, data: internships, count: internships.length });
     }
     catch (error) {
@@ -40,7 +39,7 @@ async function getAllInternships(req, res) {
 }
 async function updateInternship(req, res) {
     try {
-        const internship = await internshipService.update(req.params.id, req.body);
+        const internship = await internship_service_1.internshipService.update(req.params.id, req.body);
         res.json({ success: true, data: internship });
     }
     catch (error) {
@@ -49,7 +48,7 @@ async function updateInternship(req, res) {
 }
 async function deleteInternship(req, res) {
     try {
-        await internshipService.delete(req.params.id);
+        await internship_service_1.internshipService.delete(req.params.id);
         res.json({ success: true, message: 'Internship deleted successfully.' });
     }
     catch (error) {
@@ -65,13 +64,13 @@ async function getMyInternships(req, res) {
         }
         let internships;
         if (userRole === 'student') {
-            internships = await internshipService.getStudentInternships(userId);
+            internships = await internship_service_1.internshipService.getStudentInternships(userId);
         }
         else if (userRole === 'advisor') {
-            internships = await internshipService.getAdvisorInternships(userId);
+            internships = await internship_service_1.internshipService.getAdvisorInternships(userId);
         }
         else if (userRole === 'supervisor') {
-            internships = await internshipService.getSupervisorInternships(userId);
+            internships = await internship_service_1.internshipService.getSupervisorInternships(userId);
         }
         else {
             return res.status(403).json({ success: false, error: 'Unauthorized role' });

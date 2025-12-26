@@ -1,11 +1,16 @@
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { ReactNode } from 'react';
 import { UserProvider } from '@/components/providers/UserProvider';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
-export default function SupervisorLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+interface SupervisorLayoutProps {
+  children: ReactNode;
+}
+
+/**
+ * Layout for supervisor dashboard pages
+ * Wraps all supervisor pages with authentication and user context
+ */
+export default function SupervisorLayout({ children }: SupervisorLayoutProps) {
   return (
     <ProtectedRoute requiredRole="supervisor">
       <UserProvider>

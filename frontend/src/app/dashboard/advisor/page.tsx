@@ -1,7 +1,26 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function AdvisorDashboardPage() {
-  // Redirect to My Students as default landing page
-  redirect('/dashboard/advisor/students');
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+
+/**
+ * Advisor Landing Page
+ * Redirects to student list (My Students) as the main landing page
+ */
+export default function AdvisorPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/dashboard/advisor/students');
+  }, [router]);
+
+  return (
+    <div className="h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#4CAF50] mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
 }
-

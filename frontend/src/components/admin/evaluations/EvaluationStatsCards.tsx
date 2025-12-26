@@ -38,28 +38,28 @@ export function EvaluationStatsCards({ metrics, loading }: EvaluationStatsCardsP
 
   const stats = [
     {
-      title: 'This Month',
-      value: metrics.total_this_month || 0,
+      title: 'Total Evaluations',
+      value: (metrics.total_this_month || 0) + (metrics.total_processed || 0),
       icon: FileText,
-      color: 'text-primary',
+      color: 'text-blue-600',
     },
     {
-      title: 'Total Processed',
-      value: metrics.total_processed || 0,
+      title: 'On Draft',
+      value: metrics.total_this_month || 0,
       icon: Clock,
-      color: 'text-info',
+      color: 'text-yellow-600',
     },
     {
-      title: 'Avg Confidence',
-      value: `${Math.round((metrics.avg_confidence || 0) * 100)}%`,
+      title: 'Submitted',
+      value: metrics.total_processed || 0,
       icon: CheckCircle,
-      color: 'text-success',
+      color: 'text-blue-500',
     },
     {
-      title: 'Bias Pass Rate',
-      value: `${Math.round((metrics.bias_pass_rate || 0) * 100)}%`,
+      title: 'Approved',
+      value: Math.round((metrics.total_processed || 0) * (metrics.bias_pass_rate || 0)),
       icon: TrendingUp,
-      color: 'text-warning',
+      color: 'text-green-600',
     },
   ];
 

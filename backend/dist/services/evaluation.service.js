@@ -27,37 +27,182 @@ class EvaluationServiceFacade {
      * Create a new evaluation (status: draft)
      */
     async create(data) {
-        return this.crudService.create(data);
+        console.log('[EvaluationFacade] create start', { internshipId: data.internship_id, supervisorId: data.supervisor_id, evaluationType: data.evaluation_type });
+        try {
+            const result = await this.crudService.create(data);
+            console.log('[EvaluationFacade] create success', { evaluationId: result.id, internshipId: result.internship_id });
+            return result;
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] create failed', { internshipId: data.internship_id, error });
+            throw error;
+        }
     }
     /**
      * Get evaluation by ID with full relations
      */
     async getById(id) {
-        return this.crudService.getById(id);
+        console.log('[EvaluationFacade] getById', { evaluationId: id });
+        try {
+            return await this.crudService.getById(id);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getById failed', { evaluationId: id, error });
+            throw error;
+        }
     }
     /**
      * Process evaluation with AI analysis
      */
     async processWithAI(evaluationId) {
-        return this.crudService.processWithAI(evaluationId);
+        console.log('[EvaluationFacade] processWithAI start', { evaluationId: evaluationId });
+        try {
+            const result = await this.crudService.processWithAI(evaluationId);
+            console.log('[EvaluationFacade] processWithAI success', { evaluationId: evaluationId });
+            return result;
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] processWithAI failed', { evaluationId: evaluationId, error });
+            throw error;
+        }
+    }
+    /**
+     * Analyze draft text for quick feedback (no persistence)
+     */
+    async analyzeDraft(text) {
+        console.log('[EvaluationFacade] analyzeDraft start');
+        try {
+            const result = await this.crudService.analyzeDraft(text);
+            console.log('[EvaluationFacade] analyzeDraft success');
+            return result;
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] analyzeDraft failed', { error });
+            throw error;
+        }
+    }
+    /**
+     * Update draft evaluation (only allowed while status is draft)
+     */
+    async update(id, data) {
+        console.log('[EvaluationFacade] update start', { evaluationId: id });
+        try {
+            const result = await this.crudService.update(id, data);
+            console.log('[EvaluationFacade] update success', { evaluationId: id });
+            return result;
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] update failed', { evaluationId: id, error });
+            throw error;
+        }
     }
     /**
      * Submit evaluation for review (triggers AI processing)
      */
     async submit(evaluationId) {
-        return this.crudService.submit(evaluationId);
+        console.log('[EvaluationFacade] submit start', { evaluationId: evaluationId });
+        try {
+            const result = await this.crudService.submit(evaluationId);
+            console.log('[EvaluationFacade] submit success', { evaluationId: evaluationId });
+            return result;
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] submit failed', { evaluationId: evaluationId, error });
+            throw error;
+        }
     }
     /**
      * Approve evaluation and set final grade
      */
     async approve(evaluationId, finalGrade) {
-        return this.crudService.approve(evaluationId, finalGrade);
+        console.log('[EvaluationFacade] approve start', { evaluationId: evaluationId, finalGrade });
+        try {
+            const result = await this.crudService.approve(evaluationId, finalGrade);
+            console.log('[EvaluationFacade] approve success', { evaluationId: evaluationId });
+            return result;
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] approve failed', { evaluationId: evaluationId, error });
+            throw error;
+        }
     }
     /**
      * Get all evaluations for an internship
      */
     async getByInternship(internshipId) {
-        return this.crudService.getByInternship(internshipId);
+        console.log('[EvaluationFacade] getByInternship', { internshipId });
+        try {
+            return await this.crudService.getByInternship(internshipId);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getByInternship failed', { internshipId, error });
+            throw error;
+        }
+    }
+    /**
+     * Get evaluations with filters (supervisor/status/type)
+     */
+    async getAll(filters) {
+        console.log('[EvaluationFacade] getAll', { filters });
+        try {
+            return await this.crudService.getAll(filters);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getAll failed', { filters, error });
+            throw error;
+        }
+    }
+    /**
+     * Timeline of evaluations for an internship
+     */
+    async getTimelineByInternship(internshipId) {
+        console.log('[EvaluationFacade] getTimelineByInternship', { internshipId });
+        try {
+            return await this.crudService.getTimelineByInternship(internshipId);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getTimelineByInternship failed', { internshipId, error });
+            throw error;
+        }
+    }
+    /**
+     * Get evaluations by type for an internship
+     */
+    async getByType(internshipId, evaluationType) {
+        console.log('[EvaluationFacade] getByType', { internshipId, evaluationType });
+        try {
+            return await this.crudService.getByType(internshipId, evaluationType);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getByType failed', { internshipId, evaluationType, error });
+            throw error;
+        }
+    }
+    /**
+     * Get overdue evaluations (draft past due)
+     */
+    async getOverdueEvaluations(supervisorId) {
+        console.log('[EvaluationFacade] getOverdueEvaluations', { supervisorId });
+        try {
+            return await this.crudService.getOverdueEvaluations(supervisorId);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getOverdueEvaluations failed', { supervisorId, error });
+            throw error;
+        }
+    }
+    /**
+     * Progress summary for an internship
+     */
+    async getProgressSummary(internshipId) {
+        console.log('[EvaluationFacade] getProgressSummary', { internshipId });
+        try {
+            return await this.crudService.getProgressSummary(internshipId);
+        }
+        catch (error) {
+            console.error('[EvaluationFacade] getProgressSummary failed', { internshipId, error });
+            throw error;
+        }
     }
     // ============================================================
     // Analytics & Metrics (from EvaluationsService)

@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
-import { EvaluationService } from "../services/evaluationService";
-
-const evaluationService = new EvaluationService();
+import { evaluationService } from "../services/evaluation.service";
 
 /**
  * Analyze draft evaluation text (real-time feedback)

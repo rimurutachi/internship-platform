@@ -12,8 +12,7 @@ exports.getEvaluationTimeline = getEvaluationTimeline;
 exports.getEvaluationsByType = getEvaluationsByType;
 exports.getOverdueEvaluations = getOverdueEvaluations;
 exports.getEvaluationProgress = getEvaluationProgress;
-const evaluationService_1 = require("../services/evaluationService");
-const evaluationService = new evaluationService_1.EvaluationService();
+const evaluation_service_1 = require("../services/evaluation.service");
 /**
  * Analyze draft evaluation text (real-time feedback)
  * POST /api/evaluations/analyze-draft
@@ -35,7 +34,7 @@ async function analyzeDraftEvaluation(req, res) {
             });
         }
         // Call service
-        const result = await evaluationService.analyzeDraft(text);
+        const result = await evaluation_service_1.evaluationService.analyzeDraft(text);
         res.json({
             success: true,
             data: result,
@@ -51,7 +50,7 @@ async function analyzeDraftEvaluation(req, res) {
 }
 async function createEvaluation(req, res) {
     try {
-        const evaluation = await evaluationService.create(req.body);
+        const evaluation = await evaluation_service_1.evaluationService.create(req.body);
         res.status(201).json({ success: true, data: evaluation });
     }
     catch (error) {
@@ -60,7 +59,7 @@ async function createEvaluation(req, res) {
 }
 async function getEvaluation(req, res) {
     try {
-        const evaluation = await evaluationService.getById(req.params.id);
+        const evaluation = await evaluation_service_1.evaluationService.getById(req.params.id);
         if (!evaluation) {
             return res.status(404).json({ success: false, error: 'Evaluation not found' });
         }
@@ -72,7 +71,7 @@ async function getEvaluation(req, res) {
 }
 async function updateEvaluation(req, res) {
     try {
-        const evaluation = await evaluationService.update(req.params.id, req.body);
+        const evaluation = await evaluation_service_1.evaluationService.update(req.params.id, req.body);
         res.json({ success: true, data: evaluation });
     }
     catch (error) {
@@ -82,7 +81,7 @@ async function updateEvaluation(req, res) {
 }
 async function submitEvaluation(req, res) {
     try {
-        const evaluation = await evaluationService.submit(req.params.id);
+        const evaluation = await evaluation_service_1.evaluationService.submit(req.params.id);
         res.json({ success: true, data: evaluation, message: 'Evaluation submitted and processing!' });
     }
     catch (error) {
@@ -94,7 +93,7 @@ async function submitEvaluation(req, res) {
 async function approveEvaluation(req, res) {
     try {
         const { final_grade } = req.body;
-        const evaluation = await evaluationService.approve(req.params.id, final_grade);
+        const evaluation = await evaluation_service_1.evaluationService.approve(req.params.id, final_grade);
         res.json({ success: true, data: evaluation });
     }
     catch (error) {
@@ -103,7 +102,7 @@ async function approveEvaluation(req, res) {
 }
 async function getInternshipEvaluations(req, res) {
     try {
-        const evaluations = await evaluationService.getByInternship(req.params.internshipId);
+        const evaluations = await evaluation_service_1.evaluationService.getByInternship(req.params.internshipId);
         res.json({ success: true, data: evaluations });
     }
     catch (error) {
@@ -117,7 +116,7 @@ async function getInternshipEvaluations(req, res) {
 async function getEvaluations(req, res) {
     try {
         const { supervisor_id, status, evaluation_type, limit, offset } = req.query;
-        const evaluations = await evaluationService.getAll({
+        const evaluations = await evaluation_service_1.evaluationService.getAll({
             supervisor_id: supervisor_id,
             status: status,
             evaluation_type: evaluation_type,
@@ -138,7 +137,7 @@ async function getEvaluations(req, res) {
 async function getEvaluationTimeline(req, res) {
     try {
         const { internshipId } = req.params;
-        const timeline = await evaluationService.getTimelineByInternship(internshipId);
+        const timeline = await evaluation_service_1.evaluationService.getTimelineByInternship(internshipId);
         res.json({ success: true, data: timeline });
     }
     catch (error) {
@@ -159,7 +158,7 @@ async function getEvaluationsByType(req, res) {
                 error: 'Invalid evaluation type. Must be weekly, midterm, or final'
             });
         }
-        const evaluations = await evaluationService.getByType(internshipId, evaluationType);
+        const evaluations = await evaluation_service_1.evaluationService.getByType(internshipId, evaluationType);
         res.json({ success: true, data: evaluations });
     }
     catch (error) {
@@ -174,7 +173,7 @@ async function getEvaluationsByType(req, res) {
 async function getOverdueEvaluations(req, res) {
     try {
         const { supervisor_id } = req.query;
-        const evaluations = await evaluationService.getOverdueEvaluations(supervisor_id);
+        const evaluations = await evaluation_service_1.evaluationService.getOverdueEvaluations(supervisor_id);
         res.json({ success: true, data: evaluations });
     }
     catch (error) {
@@ -189,7 +188,7 @@ async function getOverdueEvaluations(req, res) {
 async function getEvaluationProgress(req, res) {
     try {
         const { internshipId } = req.params;
-        const progress = await evaluationService.getProgressSummary(internshipId);
+        const progress = await evaluation_service_1.evaluationService.getProgressSummary(internshipId);
         res.json({ success: true, data: progress });
     }
     catch (error) {

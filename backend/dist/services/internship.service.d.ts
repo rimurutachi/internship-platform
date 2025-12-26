@@ -46,6 +46,10 @@ export declare class InternshipServiceFacade {
      */
     getAdvisorInternships(advisorId: string): Promise<Internship[]>;
     /**
+     * Get all internships for a supervisor
+     */
+    getSupervisorInternships(supervisorId: string): Promise<Internship[]>;
+    /**
      * Validate internship assignment constraints
      * Checks student, advisor, supervisor roles and relationships
      */
@@ -67,7 +71,11 @@ export declare class InternshipServiceFacade {
     /**
      * Log activity for internship audit trail
      */
-    logActivity(internship_id: string, action: string, performed_by: string, old_values?: any, new_values?: any): Promise<void>;
+    logActivity(user_id: string, action: string, internship_id: string, description: string, metadata?: Record<string, any>): Promise<void>;
+    /**
+     * Calculate field changes for audit logging
+     */
+    calculateChanges(oldData: any, newData: any): Record<string, any>;
     /**
      * Update company student count when internship created/deleted
      * Call this after create (+1) or delete (-1)
