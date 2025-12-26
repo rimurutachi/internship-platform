@@ -6,7 +6,7 @@ import {
   FileText, 
   Eye, 
   Archive, 
-  Trash2, 
+  ArchiveRestore,
   Loader2,
   RefreshCw,
   MoreHorizontal
@@ -69,12 +69,12 @@ export default function DocumentsPage() {
       setLoading(true);
       
       const filters: {
-        type?: string;
-        status?: string;
+        type?: DocumentType;
+        status?: DocumentStatus;
         search?: string;
       } = {};
-      if (filterType !== 'all') filters.type = filterType;
-      if (filterStatus !== 'all') filters.status = filterStatus;
+      if (filterType !== 'all') filters.type = filterType as DocumentType;
+      if (filterStatus !== 'all') filters.status = filterStatus as DocumentStatus;
       if (searchQuery) filters.search = searchQuery;
       
       const response = await adminDocumentsAPI.getDocuments(
@@ -90,7 +90,7 @@ export default function DocumentsPage() {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch documents';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to fetch documents',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -157,7 +157,7 @@ export default function DocumentsPage() {
     }
   };
 
-  // Handle archive
+  // Handle archive/unarchive
   const handleArchive = async (documentId: string) => {
     try {
       await adminDocumentsAPI.archiveDocument(documentId);
@@ -177,22 +177,18 @@ export default function DocumentsPage() {
     }
   };
 
-  // Handle delete
-  const handleDelete = async (documentId: string) => {
-    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
-      return;
-    }
-
+  const handleUnarchive = async (documentId: string) => {
     try {
-      await adminDocumentsAPI.deleteDocument(documentId);
+      // Use updateStatus to change status from archived back to draft
+      await adminDocumentsAPI.updateStatus(documentId, { status: 'draft' });
       toast({
         title: 'Success',
-        description: 'Document deleted successfully',
+        description: 'Document unarchived successfully',
       });
       fetchDocuments();
       fetchStats();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete document';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to unarchive document';
       toast({
         title: 'Error',
         description: errorMessage,
@@ -418,7 +414,16 @@ export default function DocumentsPage() {
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  {doc.status !== 'archived' && (
+                                  {doc.status === 'archived' ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleUnarchive(doc.id)}
+                                      className="text-blue-600 hover:text-blue-700"
+                                    >
+                                      <ArchiveRestore className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -427,14 +432,6 @@ export default function DocumentsPage() {
                                       <Archive className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDelete(doc.id)}
-                                    className="text-destructive hover:text-destructive/80"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -591,17 +588,17 @@ export default function DocumentsPage() {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleArchive(doc.id)}>
-                              <Archive className="h-4 w-4 mr-2" />
-                              Archive
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(doc.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            {doc.status === 'archived' ? (
+                              <DropdownMenuItem onClick={() => handleUnarchive(doc.id)}>
+                                <ArchiveRestore className="h-4 w-4 mr-2" />
+                                Unarchive
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => handleArchive(doc.id)}>
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archive
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

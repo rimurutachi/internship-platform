@@ -62,28 +62,12 @@ export default function SettingsPage() {
                 <span className="text-xs">General</span>
               </Button>
               <Button
-                variant={activeTab === 'platform' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('platform')}
-                className="h-auto py-3"
-              >
-                <Globe className="w-4 h-4 mr-2" />
-                <span className="text-xs">Platform</span>
-              </Button>
-              <Button
                 variant={activeTab === 'notifications' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('notifications')}
                 className="h-auto py-3"
               >
                 <Bell className="w-4 h-4 mr-2" />
                 <span className="text-xs">Notifications</span>
-              </Button>
-              <Button
-                variant={activeTab === 'advanced' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('advanced')}
-                className="h-auto py-3"
-              >
-                <Database className="w-4 h-4 mr-2" />
-                <span className="text-xs">Advanced</span>
               </Button>
             </div>
 

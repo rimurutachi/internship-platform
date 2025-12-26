@@ -1,7 +1,7 @@
 
 import dotenv from 'dotenv';
 import path from 'path';
-import InternshipsEnhancedService from '../services/internshipsEnhancedService';
+import { InternshipsEnhancedService } from '../services/internship.service';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });

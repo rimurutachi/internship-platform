@@ -2,15 +2,17 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EvaluationsController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
-const evaluationsService_1 = require("../../services/evaluationsService");
+const evaluation_service_1 = require("../../services/evaluation.service");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class EvaluationsController {
     constructor() {
+        this.evaluationService = evaluation_service_1.evaluationService;
         /**
          * Get all evaluations with filters
          * GET /admin/evaluations
          */
         this.getEvaluations = async (req, res) => {
+            console.log('[AdminEvaluations] getEvaluations request', { filters: req.query, user: req.user?.id });
             try {
                 const { page = '1', limit = '20', status, supervisor_id, company_id, date_range, search, } = req.query;
                 const pageNum = parseInt(page, 10);
@@ -61,10 +63,11 @@ class EvaluationsController {
                 // Calculate average ratings for each evaluation
                 const evaluationsWithAvg = (data || []).map((evaluation) => ({
                     ...evaluation,
-                    avg_rating: this.evaluationsService.calculateAverageRating(evaluation),
+                    avg_rating: this.evaluationService.calculateAverageRating(evaluation),
                 }));
                 // Get metrics
-                const metrics = await this.evaluationsService.getQualityMetrics();
+                const metrics = await this.evaluationService.getQualityMetrics();
+                console.log('[AdminEvaluations] getEvaluations success', { count: count || 0, page: pageNum });
                 res.json({
                     success: true,
                     data: {
@@ -118,7 +121,7 @@ class EvaluationsController {
                 // Add average rating
                 const evaluationWithAvg = {
                     ...evaluation,
-                    avg_rating: this.evaluationsService.calculateAverageRating(evaluation),
+                    avg_rating: this.evaluationService.calculateAverageRating(evaluation),
                 };
                 res.json({
                     success: true,
@@ -155,7 +158,7 @@ class EvaluationsController {
                         status: evaluation.status,
                     });
                 }
-                const aiResults = this.evaluationsService.formatAIResults(evaluation);
+                const aiResults = this.evaluationService.formatAIResults(evaluation);
                 res.json({
                     success: true,
                     data: {
@@ -266,6 +269,7 @@ class EvaluationsController {
          * POST /admin/evaluations/:id/approve
          */
         this.approveEvaluation = async (req, res) => {
+            console.log('[AdminEvaluations] approveEvaluation request', { evaluationId: req.params.id, finalGrade: req.body.final_grade, user: req.user?.id });
             try {
                 const { id } = req.params;
                 const { final_grade, notes, use_ai_grade } = req.body;
@@ -317,6 +321,7 @@ class EvaluationsController {
                     description: `Admin approved evaluation with final grade: ${gradeToSet}`,
                     metadata: { final_grade: gradeToSet, notes, use_ai_grade },
                 });
+                console.log('[AdminEvaluations] approveEvaluation success', { evaluationId: id, finalGrade: gradeToSet });
                 res.json({
                     success: true,
                     data: { message: 'Evaluation approved successfully' },
@@ -466,7 +471,7 @@ class EvaluationsController {
          */
         this.getQualityMetrics = async (req, res) => {
             try {
-                const metrics = await this.evaluationsService.getQualityMetrics();
+                const metrics = await this.evaluationService.getQualityMetrics();
                 res.json({
                     success: true,
                     data: { metrics },
@@ -483,7 +488,7 @@ class EvaluationsController {
          */
         this.getMetricsBySupervisor = async (req, res) => {
             try {
-                const metrics = await this.evaluationsService.getMetricsBySupervisor();
+                const metrics = await this.evaluationService.getMetricsBySupervisor();
                 res.json({
                     success: true,
                     data: { supervisors: metrics },
@@ -500,7 +505,7 @@ class EvaluationsController {
          */
         this.getMetricsByCompany = async (req, res) => {
             try {
-                const metrics = await this.evaluationsService.getMetricsByCompany();
+                const metrics = await this.evaluationService.getMetricsByCompany();
                 res.json({
                     success: true,
                     data: { companies: metrics },
@@ -539,7 +544,7 @@ class EvaluationsController {
                             errors.push({ id, error: 'Evaluation not found' });
                             continue;
                         }
-                        if (!this.evaluationsService.isReadyForApproval(evaluation)) {
+                        if (!this.evaluationService.isReadyForApproval(evaluation)) {
                             failedCount++;
                             errors.push({ id, error: 'Evaluation not ready for approval' });
                             continue;
@@ -594,7 +599,7 @@ class EvaluationsController {
         this.bulkExport = async (req, res) => {
             try {
                 const { format = 'json', filters = {}, include_ai_results = false } = req.body;
-                const exportData = await this.evaluationsService.exportEvaluations(filters, format, include_ai_results);
+                const exportData = await this.evaluationService.exportEvaluations(filters, format, include_ai_results);
                 if (format === 'csv') {
                     res.setHeader('Content-Type', 'text/csv');
                     res.setHeader('Content-Disposition', `attachment; filename=evaluations-export-${Date.now()}.csv`);
@@ -610,7 +615,6 @@ class EvaluationsController {
                 res.status(500).json({ error: 'Internal server error' });
             }
         };
-        this.evaluationsService = new evaluationsService_1.EvaluationsService();
     }
 }
 exports.EvaluationsController = EvaluationsController;

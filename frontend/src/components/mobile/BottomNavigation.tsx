@@ -21,12 +21,10 @@ const studentNavItems: NavItem[] = [
 ];
 
 const supervisorNavItems: NavItem[] = [
-  { icon: BarChart3, label: 'Dashboard', path: '/dashboard/supervisor' },
   { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
-  { icon: Brain, label: 'AI Evaluations', path: '/dashboard/supervisor/evaluations' },
+  { icon: Brain, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
   { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/supervisor/documents' },
-  { icon: Building2, label: 'Company', path: '/dashboard/supervisor/company' },
   { icon: Settings, label: 'Settings', path: '/dashboard/supervisor/settings' },
 ];
 
@@ -45,9 +43,8 @@ const adminNavItems: NavItem[] = [
   { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships' },
   { icon: Brain, label: 'Evaluations', path: '/dashboard/admin/evaluations' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/admin/documents' },
-  { icon: Server, label: 'System', path: '/dashboard/admin/system' },
-  { icon: Shield, label: 'Security', path: '/dashboard/admin/security' },
   { icon: FileText, label: 'Reports', path: '/dashboard/admin/reports' },
+  { icon: Settings, label: 'Settings', path: '/dashboard/admin/settings' },
 ];
 
 interface BottomNavigationProps {

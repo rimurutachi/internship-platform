@@ -22,10 +22,21 @@ const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const communications_1 = __importDefault(require("./routes/communications"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const student_1 = __importDefault(require("./routes/student"));
+const advisor_1 = __importDefault(require("./routes/advisor"));
+const supervisor_1 = __importDefault(require("./routes/supervisor"));
 const systemMetricsService_1 = __importDefault(require("./services/systemMetricsService"));
 // Initialize global system metrics tracker
 global.systemMetrics = systemMetricsService_1.default;
 const app = (0, express_1.default)();
+// Disable ETag to prevent 304 responses for dynamic APIs
+app.set("etag", false);
+// Global no-store for API responses to avoid client caching
+app.use((req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+        res.set("Cache-Control", "no-store");
+    }
+    next();
+});
 const PORT = process.env.PORT || 5000;
 // Create HTTP server
 const httpServer = (0, http_1.createServer)(app);
@@ -82,6 +93,12 @@ app.use("/api/communications", communications_1.default);
 app.use("/api/admin", admin_1.default);
 // Student APIs
 app.use("/api/student", student_1.default);
+// Advisor APIs
+app.use("/api/advisor", advisor_1.default);
+// Supervisor APIs
+app.use("/api/supervisor", supervisor_1.default);
+// Supervisor APIs
+app.use("/api/supervisor", supervisor_1.default);
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes_1.default);
 // Error Handling Middleware

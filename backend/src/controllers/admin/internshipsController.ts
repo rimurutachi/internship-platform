@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { internshipsService } from '../../services/internshipsService';
+import { internshipService } from '../../services/internship.service';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -8,11 +8,13 @@ const supabase = createClient(
 );
 
 export class InternshipsController {
+  private internshipService = internshipService;
   /**
    * GET /admin/internships
    * Get all internships with filters and pagination
    */
   async getInternships(req: Request, res: Response) {
+    console.log('[AdminInternships] getInternships request', { filters: req.query, user: (req as any).user?.id });
     try {
       const {
         page = 1,
@@ -105,13 +107,14 @@ export class InternshipsController {
         .range(offset, offset + limitNum - 1);
 
       if (error) {
-        console.error('Error fetching internships:', error);
+        console.error('[AdminInternships] getInternships query error', error);
         return res.status(500).json({
           success: false,
           error: 'Failed to fetch internships',
         });
       }
 
+      console.log('[AdminInternships] getInternships success', { count: count || 0, page: pageNum });
       res.json({
         success: true,
         data: {
@@ -196,6 +199,7 @@ export class InternshipsController {
    * Create new internship with validation
    */
   async createInternship(req: Request, res: Response) {
+    console.log('[AdminInternships] createInternship request', { studentId: req.body.student_id, companyId: req.body.company_id, user: (req as any).user?.id });
     try {
       const {
         student_id,
@@ -234,7 +238,7 @@ export class InternshipsController {
       }
 
       // Validate internship assignment constraints
-      const validation = await internshipsService.validateInternshipAssignment(
+      const validation = await this.internshipService.validateInternshipAssignment(
         student_id,
         company_id,
         advisor_id,
@@ -275,7 +279,7 @@ export class InternshipsController {
       }
 
       // Log activity
-      await internshipsService.logActivity(
+      await this.internshipService.logActivity(
         (req as any).user.id,
         'internship_created',
         internship.id,
@@ -283,6 +287,7 @@ export class InternshipsController {
         { internship_data: internship }
       );
 
+      console.log('[AdminInternships] createInternship success', { internshipId: internship.id });
       res.status(201).json({
         success: true,
         data: {
@@ -304,6 +309,7 @@ export class InternshipsController {
    * Update internship (cannot change student or company)
    */
   async updateInternship(req: Request, res: Response) {
+    console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: (req as any).user?.id });
     try {
       const { id } = req.params;
       const { position, department, advisor_id, supervisor_id, start_date, end_date, status } =
@@ -344,7 +350,7 @@ export class InternshipsController {
       }
 
       // Validate advisor/supervisor changes
-      const validation = await internshipsService.validateInternshipUpdate(
+      const validation = await this.internshipService.validateInternshipUpdate(
         id,
         advisor_id,
         supervisor_id
@@ -375,13 +381,13 @@ export class InternshipsController {
       }
 
       // Calculate and log changes
-      const changes = internshipsService.calculateChanges(
+      const changes = this.internshipService.calculateChanges(
         currentInternship,
         updateData
       );
 
       if (Object.keys(changes).length > 0) {
-        await internshipsService.logActivity(
+        await this.internshipService.logActivity(
           (req as any).user.id,
           'internship_updated',
           id,
@@ -442,7 +448,7 @@ export class InternshipsController {
       }
 
       // Log deletion
-      await internshipsService.logActivity(
+      await this.internshipService.logActivity(
         (req as any).user.id,
         'internship_cancelled',
         id,
@@ -522,7 +528,7 @@ export class InternshipsController {
       }
 
       // Log activity
-      await internshipsService.logActivity(
+      await this.internshipService.logActivity(
         (req as any).user.id,
         'internship_archived',
         id,
@@ -590,7 +596,7 @@ export class InternshipsController {
       }
 
       // Log activity
-      await internshipsService.logActivity(
+      await this.internshipService.logActivity(
         (req as any).user.id,
         'internship_unarchived',
         id,

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 export declare class InternshipsController {
+    private internshipService;
     /**
      * GET /admin/internships
      * Get all internships with filters and pagination

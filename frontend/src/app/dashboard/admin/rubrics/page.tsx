@@ -44,9 +44,10 @@ interface RubricCriterion {
 
 interface Rubric {
   id: string;
-  name: string;
-  description: string;
+  rubric_name: string;
+  description?: string;
   university_id: string;
+  academic_year: string;
   version: number;
   is_active: boolean;
   criteria: RubricCriterion[];
@@ -57,7 +58,6 @@ interface Rubric {
   }[];
   created_at: string;
   created_by: string;
-  activated_at?: string;
   deactivated_at?: string;
   deactivation_reason?: string;
 }
@@ -249,7 +249,7 @@ export default function AdminRubricsPage() {
       const supabase = createSupabaseClient();
       
       const { data, error } = await supabase
-        .from('rubrics')
+        .from('evaluation_rubrics')
         .select('*')
         .eq('university_id', univId)
         .order('created_at', { ascending: false });
@@ -266,13 +266,13 @@ export default function AdminRubricsPage() {
       const supabase = createSupabaseClient();
       
       const { data, error } = await supabase
-        .from('rubric_history')
+        .from('evaluation_rubric_history')
         .select(`
           *,
-          changer:users!rubric_history_changed_by_fkey(first_name, last_name)
+          changer:users!evaluation_rubric_history_changed_by_fkey(first_name, last_name)
         `)
         .eq('rubric_id', rubricId)
-        .order('changed_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -306,8 +306,8 @@ export default function AdminRubricsPage() {
 
   const openEditDialog = (rubric: Rubric) => {
     setSelectedRubric(rubric);
-    setRubricName(rubric.name);
-    setRubricDescription(rubric.description);
+    setRubricName(rubric.rubric_name || '');
+    setRubricDescription(rubric.description || '');
     setCriteria(rubric.criteria);
     setGradingScale(rubric.grading_scale);
     setChangeReason('');
@@ -352,10 +352,19 @@ export default function AdminRubricsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      if (!universityId) {
+        throw new Error('University ID is required');
+      }
+
+      // Get current academic year (e.g., "2024-2025")
+      const currentYear = new Date().getFullYear();
+      const academicYear = `${currentYear}-${currentYear + 1}`;
+
       const newRubric = {
-        name: rubricName,
-        description: rubricDescription,
+        rubric_name: rubricName,
+        description: rubricDescription || null,
         university_id: universityId,
+        academic_year: academicYear,
         version: 1,
         is_active: false,
         criteria: criteria,
@@ -363,11 +372,16 @@ export default function AdminRubricsPage() {
         created_by: user.id,
       };
 
+      console.log('Creating rubric with data:', newRubric);
+
       const { error } = await supabase
-        .from('rubrics')
+        .from('evaluation_rubrics')
         .insert([newRubric]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw new Error(error.message || 'Failed to create rubric');
+      }
 
       toast({
         title: 'Rubric Created',
@@ -408,13 +422,13 @@ export default function AdminRubricsPage() {
 
       // Create history record
       const { error: historyError } = await supabase
-        .from('rubric_history')
+        .from('evaluation_rubric_history')
         .insert([{
           rubric_id: selectedRubric.id,
           version: selectedRubric.version,
           changes: JSON.stringify({
             previous: {
-              name: selectedRubric.name,
+              name: selectedRubric.rubric_name,
               description: selectedRubric.description,
               criteria: selectedRubric.criteria,
               grading_scale: selectedRubric.grading_scale,
@@ -434,7 +448,7 @@ export default function AdminRubricsPage() {
 
       // Update rubric with incremented version
       const { error: updateError } = await supabase
-        .from('rubrics')
+        .from('evaluation_rubrics')
         .update({
           name: rubricName,
           description: rubricDescription,
@@ -472,7 +486,7 @@ export default function AdminRubricsPage() {
 
       // Deactivate all other rubrics for this university
       const { error: deactivateError } = await supabase
-        .from('rubrics')
+        .from('evaluation_rubrics')
         .update({ is_active: false })
         .eq('university_id', universityId)
         .eq('is_active', true);
@@ -481,10 +495,9 @@ export default function AdminRubricsPage() {
 
       // Activate selected rubric
       const { error: activateError } = await supabase
-        .from('rubrics')
+        .from('evaluation_rubrics')
         .update({ 
           is_active: true,
-          activated_at: new Date().toISOString(),
         })
         .eq('id', rubric.id);
 
@@ -492,7 +505,7 @@ export default function AdminRubricsPage() {
 
       toast({
         title: 'Rubric Activated',
-        description: `${rubric.name} is now the active rubric`,
+        description: `${rubric.rubric_name} is now the active rubric`,
       });
 
       fetchRubrics(universityId);
@@ -524,7 +537,7 @@ export default function AdminRubricsPage() {
       const supabase = createSupabaseClient();
 
       const { error } = await supabase
-        .from('rubrics')
+        .from('evaluation_rubrics')
         .update({ 
           is_active: false,
           deactivated_at: new Date().toISOString(),
@@ -536,7 +549,7 @@ export default function AdminRubricsPage() {
 
       toast({
         title: 'Rubric Deactivated',
-        description: `${selectedRubric.name} has been deactivated`,
+        description: `${selectedRubric.rubric_name} has been deactivated`,
       });
 
       setDeactivateDialogOpen(false);
@@ -634,7 +647,7 @@ export default function AdminRubricsPage() {
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="font-semibold text-lg text-foreground">{rubric.name}</h3>
+                                  <h3 className="font-semibold text-lg text-foreground">{rubric.rubric_name}</h3>
                                   {rubric.is_active && (
                                     <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400">
                                       <CheckCircle className="w-3 h-3 mr-1" />
@@ -663,9 +676,6 @@ export default function AdminRubricsPage() {
 
                                 <div className="text-xs text-muted-foreground">
                                   Created: {formatDate(rubric.created_at)}
-                                  {rubric.activated_at && (
-                                    <> • Activated: {formatDate(rubric.activated_at)}</>
-                                  )}
                                 </div>
                               </div>
 
@@ -752,7 +762,7 @@ export default function AdminRubricsPage() {
                       <div className="space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="font-semibold text-sm">{rubric.name}</div>
+                            <div className="font-semibold text-sm">{rubric.rubric_name}</div>
                             <div className="text-xs text-muted-foreground">v{rubric.version}</div>
                           </div>
                           {rubric.is_active && (
@@ -878,7 +888,7 @@ export default function AdminRubricsPage() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Rubric - {selectedRubric?.name}</DialogTitle>
+            <DialogTitle>Edit Rubric - {selectedRubric?.rubric_name}</DialogTitle>
             <DialogDescription>
               Editing will create version {selectedRubric ? selectedRubric.version + 1 : ''}
             </DialogDescription>
@@ -947,7 +957,7 @@ export default function AdminRubricsPage() {
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Version History - {selectedRubric?.name}</DialogTitle>
+            <DialogTitle>Version History - {selectedRubric?.rubric_name}</DialogTitle>
             <DialogDescription>
               View all changes made to this rubric
             </DialogDescription>
@@ -995,7 +1005,7 @@ export default function AdminRubricsPage() {
           <DialogHeader>
             <DialogTitle>Deactivate Rubric</DialogTitle>
             <DialogDescription>
-              This will deactivate {selectedRubric?.name}. Provide a reason for this action.
+              This will deactivate {selectedRubric?.rubric_name}. Provide a reason for this action.
             </DialogDescription>
           </DialogHeader>
           

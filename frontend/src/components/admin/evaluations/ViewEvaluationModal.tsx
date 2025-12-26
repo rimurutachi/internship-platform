@@ -39,9 +39,8 @@ export function ViewEvaluationModal({ evaluation, open, onClose }: ViewEvaluatio
         </DialogHeader>
 
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
 
@@ -109,87 +108,6 @@ export function ViewEvaluationModal({ evaluation, open, onClose }: ViewEvaluatio
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm whitespace-pre-wrap">{evaluation.feedback_text}</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="ai-analysis" className="space-y-4">
-            {aiResults ? (
-              <>
-                {aiResults.sentiment && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Sentiment Analysis</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm">Overall Sentiment</span>
-                          <Badge>{aiResults.sentiment.overall}</Badge>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Confidence</span>
-                          <span className="text-sm">{Math.round(aiResults.sentiment.confidence * 100)}%</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {aiResults.bias_check && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Bias Check</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm">Has Bias</span>
-                          <Badge variant={aiResults.bias_check.has_bias ? 'destructive' : 'default'}>
-                            {aiResults.bias_check.has_bias ? 'Yes' : 'No'}
-                          </Badge>
-                        </div>
-                        {aiResults.bias_check.detected_biases?.length > 0 && (
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-1">Detected Biases:</p>
-                            <ul className="list-disc list-inside text-sm space-y-1">
-                              {aiResults.bias_check.detected_biases.map((bias: string, i: number) => (
-                                <li key={i}>{bias}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {evaluation.confidence_score !== null && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>AI Confidence</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-secondary rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full"
-                            style={{ width: `${evaluation.confidence_score * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-medium">
-                          {Math.round(evaluation.confidence_score * 100)}%
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
-            ) : (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No AI analysis available
                 </CardContent>
               </Card>
             )}

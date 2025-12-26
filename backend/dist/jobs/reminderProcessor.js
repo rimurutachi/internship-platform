@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
-const internshipsEnhancedService_1 = __importDefault(require("../services/internshipsEnhancedService"));
+const internship_service_1 = require("../services/internship.service");
 // Load environment variables
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 /**
@@ -14,7 +14,7 @@ dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') 
 async function processReminders() {
     console.log(`[${new Date().toISOString()}] Starting reminder processor...`);
     try {
-        const processedCount = await internshipsEnhancedService_1.default.processScheduledReminders();
+        const processedCount = await internship_service_1.InternshipsEnhancedService.processScheduledReminders();
         console.log(`[${new Date().toISOString()}] Reminder processor completed successfully.`);
         console.log(`[${new Date().toISOString()}] Processed ${processedCount} reminders.`);
         // Exit with success code

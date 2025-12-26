@@ -1,31 +1,27 @@
 'use client';
 
-import { ChevronDown, LogOut, User, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import { NotificationsDropdown } from '@/components/ui/NotificationsDropdown';
 import { logout } from '@/lib/auth';
 import { useUserContext } from '@/components/providers/UserProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
 /**
  * AdminHeader Component
  * 
- * Header component for admin dashboard with welcome message,
+ * Header component for admin dashboard with CVSU branding,
  * notifications, and profile dropdown menu.
  */
 export const AdminHeader = () => {
-  const { user } = useUserContext();
+  const { user, loading } = useUserContext();
+  const notificationCount = 15;
 
   const handleLogout = async () => {
     try {
@@ -35,77 +31,47 @@ export const AdminHeader = () => {
     }
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    if (!firstName || !lastName) return '??';
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  };
-
-  const fullName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Admin' : 'Admin';
-  const initials = user && user.first_name && user.last_name 
-    ? getInitials(user.first_name, user.last_name) 
-    : 'AD';
-  const avatarUrl = user?.profile_data?.avatar_url;
-
   return (
-    <header className="bg-card border-b border-border px-6 py-4">
+    <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
       <div className="flex items-center justify-between">
-        {/* Welcome Message with CvSU Logo */}
-        <div className="flex items-center space-x-4">
+        {/* Left: CVSU Branding */}
+        <div className="flex items-center space-x-3">
           <Image 
-            src="/cvsu-logo.png" 
-            alt="CvSU Logo" 
+            src="/logo.png" 
+            alt="Intern-Galing Logo" 
             width={40} 
             height={40}
             className="object-contain"
           />
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Welcome back, {user?.first_name || 'Admin'}!</h1>
-            <p className="text-muted-foreground">{user?.email || 'System Administrator Dashboard'}</p>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+              CAVITE STATE UNIVERSITY - BACOOR CITY CAMPUS
+            </span>
           </div>
         </div>
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
-          <ThemeToggle />
-          
           {/* Notifications */}
-          <NotificationsDropdown />
+          <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
+            <Bell className="w-5 h-5 text-gray-700" />
+            {notificationCount > 0 && (
+              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs p-0 flex items-center justify-center">
+                {notificationCount > 9 ? '9+' : notificationCount}
+              </Badge>
+            )}
+          </Button>
 
           {/* Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2" aria-label="User menu">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={avatarUrl || '/placeholder.svg'} alt={fullName} />
-                  <AvatarFallback className="bg-gradient-primary text-white text-sm font-bold">{initials}</AvatarFallback>
-                </Avatar>
-                <ChevronDown className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-900">Log out</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/admin/settings" className="cursor-pointer flex items-center">
-                  <User className="w-4 h-4 mr-2" />
-                  Profile Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/admin/system" className="cursor-pointer flex items-center">
-                  <SettingsIcon className="w-4 h-4 mr-2" />
-                  System Preferences
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/admin/security" className="cursor-pointer flex items-center">
-                  <HelpCircle className="w-4 h-4 mr-2" />
-                  Help & Support
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem 
-                className="text-destructive cursor-pointer"
+                className="text-red-600 cursor-pointer font-medium"
                 onClick={handleLogout}
               >
                 <LogOut className="w-4 h-4 mr-2" />
@@ -113,6 +79,22 @@ export const AdminHeader = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* CVSU and Bagong Pilipinas Logos */}
+          <Image 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
+            width={32} 
+            height={32}
+            className="object-contain"
+          />
+          <Image 
+            src="/bagong-pilipinas-logo.png" 
+            alt="Bagong Pilipinas Logo" 
+            width={32} 
+            height={32}
+            className="object-contain"
+          />
         </div>
       </div>
     </header>

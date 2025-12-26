@@ -464,19 +464,25 @@ async function triggerAIAnalytics(evaluationId, universityId) {
         }
         const analyticsResult = await response.json();
         // Store analytics insights in database
+        // NOTE: This is legacy code - the evaluations_ai_analysis table has a different schema
+        // The actual AI analysis is done in evaluationService.ts which uses the correct schema
+        // Commenting out to prevent errors
+        /*
         if (analyticsResult?.insights && analyticsResult.insights.length > 0) {
-            await supabase.from('evaluation_analytics').insert({
-                evaluation_id: evaluationId,
-                university_id: universityId,
-                insights: analyticsResult.insights,
-                total_evaluations_analyzed: analyticsResult.total_evaluations_analyzed,
-                generated_at: analyticsResult.generated_at || new Date().toISOString(),
-            });
-            console.log(`AI analytics generated successfully: ${analyticsResult.insights.length} insights for evaluation ${evaluationId}`);
+          await supabase.from('evaluations_ai_analysis').insert({
+            evaluation_id: evaluationId,
+            university_id: universityId,
+            insights: analyticsResult.insights,
+            total_evaluations_analyzed: analyticsResult.total_evaluations_analyzed,
+            generated_at: analyticsResult.generated_at || new Date().toISOString(),
+          });
+    
+          console.log(`AI analytics generated successfully: ${analyticsResult.insights.length} insights for evaluation ${evaluationId}`);
+        } else {
+          console.log('AI analytics returned no insights');
         }
-        else {
-            console.log('AI analytics returned no insights');
-        }
+        */
+        console.log('AI analytics generation skipped (using real-time analysis in evaluationService instead)');
     }
     catch (error) {
         console.error('Failed to generate AI analytics (non-critical):', error);
