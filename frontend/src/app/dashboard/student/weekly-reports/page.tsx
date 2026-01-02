@@ -41,6 +41,7 @@ interface WeeklyReport {
   learnings?: string;
   status: 'pending_approval' | 'approved' | 'rejected';
   rejection_reason?: string;
+  supervisor_comments?: string;
   submitted_at: string;
   approved_at?: string;
   supervisor_id?: string;
@@ -54,6 +55,34 @@ interface Internship {
   end_date: string;
   status: string;
 }
+
+const computeWeekDates = (startDate: string, weekNumber: number) => {
+  if (!startDate || !weekNumber) {
+    return { week_start_date: '', week_end_date: '' };
+  }
+
+  const start = new Date(startDate);
+  const weekStart = new Date(start);
+  weekStart.setDate(weekStart.getDate() + (weekNumber - 1) * 7);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  return {
+    week_start_date: weekStart.toISOString(),
+    week_end_date: weekEnd.toISOString(),
+  };
+};
+
+const extractSections = (text: string) => {
+  const match = text.match(/^(.*?)(?:\n\nChallenges:\s*([\s\S]*?))?(?:\n\nLearnings:\s*([\s\S]*?))?$/i);
+
+  return {
+    accomplishments: match?.[1]?.trim() || text.trim(),
+    challenges: match?.[2]?.trim() || '',
+    learnings: match?.[3]?.trim() || '',
+  };
+};
 
 export default function WeeklyReportsPage() {
   const router = useRouter();
@@ -112,6 +141,8 @@ export default function WeeklyReportsPage() {
       }
       setCurrentUserId(user.id);
 
+      console.log('🔵 [Weekly Reports] Fetching data for user:', user.id);
+
       // Get active internship
       const { data: internshipData, error: internshipError } = await supabase
         .from('internships')
@@ -127,29 +158,69 @@ export default function WeeklyReportsPage() {
         .in('status', ['active', 'ongoing'])
         .single();
 
-      if (internshipError) throw internshipError;
+      if (internshipError) {
+        console.error('❌ [Weekly Reports] Internship fetch error:', internshipError);
+        throw internshipError;
+      }
       
       if (internshipData) {
-        setInternship({
+        const internshipInfo = {
           id: internshipData.id,
           position: internshipData.position,
           company_name: (internshipData.companies as any)?.name || 'Unknown Company',
           start_date: internshipData.start_date,
           end_date: internshipData.end_date,
           status: internshipData.status,
+        };
+        setInternship(internshipInfo);
+
+        console.log('✅ [Weekly Reports] Internship found:', internshipInfo.id);
+
+        // Fetch weekly reports from backend API
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('No session token available');
+        }
+
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        // Handle both cases: with and without /api in the base URL
+        const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+        const response = await fetch(`${apiBase}/student/weekly-reports?internship_id=${internshipData.id}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
         });
 
-        // Fetch weekly reports for this internship
-        const { data: reportsData, error: reportsError } = await supabase
-          .from('student_weekly_accomplishments')
-          .select('*')
-          .eq('internship_id', internshipData.id)
-          .order('week_number', { ascending: false });
+        console.log('🔵 [Weekly Reports] API response status:', response.status);
 
-        if (reportsError) throw reportsError;
-        setReports(reportsData || []);
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ [Weekly Reports] API error:', errorData);
+          throw new Error(errorData.message || 'Failed to fetch reports');
+        }
+
+        const result = await response.json();
+        console.log('✅ [Weekly Reports] Fetched reports:', result.data?.length || 0);
+
+        const normalizedReports = (result.data || []).map((report: any) => {
+          const parsed = extractSections(report.accomplishments || '');
+          const dates = computeWeekDates(internshipInfo.start_date, report.week_number);
+
+          return {
+            ...report,
+            accomplishments: parsed.accomplishments,
+            challenges: parsed.challenges,
+            learnings: parsed.learnings,
+            week_start_date: report.week_start_date || dates.week_start_date,
+            week_end_date: report.week_end_date || dates.week_end_date,
+          };
+        });
+
+        setReports(normalizedReports);
       }
     } catch (error: any) {
+      console.error('❌ [Weekly Reports] Error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to fetch data',
@@ -163,14 +234,32 @@ export default function WeeklyReportsPage() {
   const saveDraft = async () => {
     try {
       setSaving(true);
-      // Save to localStorage as draft
-      localStorage.setItem('weeklyReportDraft', JSON.stringify(formData));
+      
+      // Save to localStorage as draft with timestamp
+      const draft = {
+        ...formData,
+        savedAt: new Date().toISOString(),
+        internshipId: internship?.id,
+      };
+      
+      localStorage.setItem('weeklyReportDraft', JSON.stringify(draft));
+      
+      console.log('✅ [Weekly Reports] Draft saved:', {
+        weekNumber: formData.week_number,
+        savedAt: draft.savedAt
+      });
+      
       toast({
         title: 'Draft Saved',
-        description: 'Your progress has been saved',
+        description: 'Your progress has been saved locally',
       });
     } catch (error: any) {
-      console.error('Failed to save draft:', error);
+      console.error('❌ [Weekly Reports] Failed to save draft:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save draft',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
@@ -181,14 +270,30 @@ export default function WeeklyReportsPage() {
       const draft = localStorage.getItem('weeklyReportDraft');
       if (draft) {
         const parsed = JSON.parse(draft);
-        setFormData(parsed);
-        toast({
-          title: 'Draft Loaded',
-          description: 'Your previous draft has been restored',
-        });
+        
+        // Check if draft is for the current internship
+        if (parsed.internshipId === internship?.id) {
+          setFormData({
+            week_number: parsed.week_number || getNextWeekNumber(),
+            accomplishments: parsed.accomplishments || '',
+            hours_rendered: parsed.hours_rendered || 0,
+            challenges: parsed.challenges || '',
+            learnings: parsed.learnings || '',
+          });
+          
+          const savedAt = new Date(parsed.savedAt).toLocaleString();
+          console.log('✅ [Weekly Reports] Draft loaded from:', savedAt);
+          
+          toast({
+            title: 'Draft Loaded',
+            description: `Previous draft from ${savedAt} has been restored`,
+          });
+        } else {
+          console.log('⚠️ [Weekly Reports] Draft ignored: Different internship');
+        }
       }
     } catch (error) {
-      console.error('Failed to load draft:', error);
+      console.error('❌ [Weekly Reports] Failed to load draft:', error);
     }
   };
 
@@ -227,8 +332,11 @@ export default function WeeklyReportsPage() {
   const handleCreateReport = async () => {
     if (!internship) return;
 
+    console.log('🔵 [Weekly Reports] Validating form data...');
+
     // Validation
     if (!formData.accomplishments || formData.accomplishments.trim().length < 50) {
+      console.error('❌ [Weekly Reports] Validation failed: Accomplishments too short');
       toast({
         title: 'Validation Error',
         description: 'Accomplishments must be at least 50 characters',
@@ -238,6 +346,7 @@ export default function WeeklyReportsPage() {
     }
 
     if (formData.hours_rendered < 0 || formData.hours_rendered > 168) {
+      console.error('❌ [Weekly Reports] Validation failed: Invalid hours');
       toast({
         title: 'Validation Error',
         description: 'Hours rendered must be between 0 and 168',
@@ -249,21 +358,49 @@ export default function WeeklyReportsPage() {
     try {
       setSubmitting(true);
       const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { error } = await supabase
-        .from('student_weekly_accomplishments')
-        .insert({
-          student_id: currentUserId,
-          internship_id: internship.id,
-          week_number: formData.week_number,
-          accomplishments: formData.accomplishments.trim(),
-          hours_rendered: formData.hours_rendered,
-          challenges: formData.challenges?.trim() || null,
-          learnings: formData.learnings?.trim() || null,
-          status: 'pending_approval',
-        });
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
 
-      if (error) throw error;
+      const payload = {
+        internship_id: internship.id,
+        week_number: formData.week_number,
+        accomplishments: formData.accomplishments.trim(),
+        hours_rendered: formData.hours_rendered,
+        challenges: formData.challenges?.trim() || null,
+        learnings: formData.learnings?.trim() || null,
+      };
+
+      console.log('🔵 [Weekly Reports] Submitting report:', {
+        weekNumber: payload.week_number,
+        accomplishmentsLength: payload.accomplishments.length,
+        hours: payload.hours_rendered
+      });
+
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      // Handle both cases: with and without /api in the base URL
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+      const response = await fetch(`${apiBase}/student/weekly-reports`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('🔵 [Weekly Reports] API response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ [Weekly Reports] Submission failed:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to submit report');
+      }
+
+      const result = await response.json();
+      console.log('✅ [Weekly Reports] Report submitted successfully:', result);
 
       toast({
         title: 'Report Submitted',
@@ -274,6 +411,7 @@ export default function WeeklyReportsPage() {
       setCreateDialogOpen(false);
       fetchData();
     } catch (error: any) {
+      console.error('❌ [Weekly Reports] Error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to submit report',
@@ -287,8 +425,11 @@ export default function WeeklyReportsPage() {
   const handleUpdateReport = async (reportId: string) => {
     if (!selectedReport) return;
 
+    console.log('🔵 [Weekly Reports] Validating update...');
+
     // Validation
     if (!formData.accomplishments || formData.accomplishments.trim().length < 50) {
+      console.error('❌ [Weekly Reports] Validation failed: Accomplishments too short');
       toast({
         title: 'Validation Error',
         description: 'Accomplishments must be at least 50 characters',
@@ -300,20 +441,46 @@ export default function WeeklyReportsPage() {
     try {
       setSubmitting(true);
       const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { error } = await supabase
-        .from('student_weekly_accomplishments')
-        .update({
-          accomplishments: formData.accomplishments.trim(),
-          hours_rendered: formData.hours_rendered,
-          challenges: formData.challenges?.trim() || null,
-          learnings: formData.learnings?.trim() || null,
-          status: 'pending_approval', // Reset to pending when edited
-        })
-        .eq('id', reportId)
-        .eq('student_id', currentUserId);
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
 
-      if (error) throw error;
+      const payload = {
+        accomplishments: formData.accomplishments.trim(),
+        hours_rendered: formData.hours_rendered,
+        challenges: formData.challenges?.trim() || null,
+        learnings: formData.learnings?.trim() || null,
+      };
+
+      console.log('🔵 [Weekly Reports] Updating report:', {
+        reportId,
+        accomplishmentsLength: payload.accomplishments.length,
+        hours: payload.hours_rendered
+      });
+
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+      const response = await fetch(`${apiBase}/student/weekly-reports/${reportId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('🔵 [Weekly Reports] Update response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ [Weekly Reports] Update failed:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to update report');
+      }
+
+      const result = await response.json();
+      console.log('✅ [Weekly Reports] Report updated successfully:', result);
 
       toast({
         title: 'Report Updated',
@@ -324,6 +491,7 @@ export default function WeeklyReportsPage() {
       setSelectedReport(null);
       fetchData();
     } catch (error: any) {
+      console.error('❌ [Weekly Reports] Update error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update report',
@@ -368,8 +536,12 @@ export default function WeeklyReportsPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -822,13 +994,24 @@ export default function WeeklyReportsPage() {
               />
             </div>
 
-            {selectedReport?.status === 'rejected' && selectedReport.rejection_reason && (
+            {selectedReport?.status === 'approved' && selectedReport.supervisor_comments && (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-md">
+                <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-2">
+                  Supervisor's Comments
+                </p>
+                <p className="text-sm text-green-700 dark:text-green-300 whitespace-pre-wrap">
+                  {selectedReport.supervisor_comments}
+                </p>
+              </div>
+            )}
+
+            {selectedReport?.status === 'rejected' && (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-md">
                 <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">
                   Rejection Reason:
                 </p>
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {selectedReport.rejection_reason}
+                <p className="text-sm text-red-600 dark:text-red-400 whitespace-pre-wrap">
+                  {selectedReport.supervisor_comments || selectedReport.rejection_reason}
                 </p>
               </div>
             )}

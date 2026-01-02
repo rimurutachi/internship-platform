@@ -339,15 +339,6 @@ export default function MyInterns() {
                               <MessageSquare className="w-4 h-4 mr-2" />
                               Message
                             </Button>
-                            <Button 
-                              size="sm" 
-                              className="w-full bg-primary hover:bg-primary/90"
-                              onClick={() => handleEvaluate(student)}
-                              disabled={!student.internship}
-                            >
-                              <Award className="w-4 h-4 mr-2" />
-                              Evaluate
-                            </Button>
                           </div>
                         </div>
                       </CardContent>

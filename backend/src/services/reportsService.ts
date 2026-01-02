@@ -235,32 +235,12 @@ class ReportsService {
   }
 
   static async generatePerformanceMetrics() {
-    // API response times
-    const { data: logs, error } = await supabaseAdmin
-      .from('api_request_logs')
-      .select('response_time_ms, status_code, user_id, endpoint')
-      .order('created_at', { ascending: false })
-      .limit(1000); // limit for performance
-    if (error) throw new Error('DB error in performance metrics');
-    // Response time stats
-    const times = logs.map((l: any) => l.response_time_ms).filter((n: number) => typeof n === 'number');
-    const avg = times.length ? +(times.reduce((a, b) => a + b, 0) / times.length).toFixed(2) : 0;
-    const sorted = [...times].sort((a, b) => a - b);
-    const p95 = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : 0;
-    const p99 = sorted.length ? sorted[Math.floor(sorted.length * 0.99)] : 0;
-    // Error rate
-    const errorCount = logs.filter((l: any) => l.status_code >= 400).length;
-    const error_rate = logs.length ? +(errorCount / logs.length * 100).toFixed(2) : 0;
-    // Active sessions (unique user_id in last 30 min)
-    const now = Date.now();
-    const active_sessions = new Set(logs.filter((l: any) => l.user_id && (now - new Date(l.created_at).getTime() < 30 * 60 * 1000)).map((l: any) => l.user_id)).size;
-    // Slowest queries
-    const slow_queries = logs.sort((a: any, b: any) => b.response_time_ms - a.response_time_ms).slice(0, 5).map((l: any) => ({ endpoint: l.endpoint, response_time_ms: l.response_time_ms, status_code: l.status_code }));
+    // Request logging tables are gone, so return static performance placeholders to keep reports stable
     return {
-      api_response_time: { avg, p95, p99 },
-      error_rate,
-      active_sessions,
-      slow_queries,
+      api_response_time: { avg: 0, p95: 0, p99: 0 },
+      error_rate: 0,
+      active_sessions: 0,
+      slow_queries: [],
     };
   }
 
@@ -331,25 +311,9 @@ class ReportsService {
           .lt('created_at', nextDay.toISOString());
         value = count || 0;
       } else if (metric === 'api_response_time') {
-        const { data } = await supabaseAdmin
-          .from('api_request_logs')
-          .select('response_time_ms')
-          .gte('created_at', day.toISOString())
-          .lt('created_at', nextDay.toISOString());
-        if (data && data.length) {
-          const avg = data.reduce((sum: number, l: any) => sum + (l.response_time_ms || 0), 0) / data.length;
-          value = +avg.toFixed(2);
-        }
+        value = 0;
       } else if (metric === 'error_rate') {
-        const { data } = await supabaseAdmin
-          .from('api_request_logs')
-          .select('status_code')
-          .gte('created_at', day.toISOString())
-          .lt('created_at', nextDay.toISOString());
-        if (data && data.length) {
-          const errors = data.filter((l: any) => l.status_code >= 400).length;
-          value = +((errors / data.length) * 100).toFixed(2);
-        }
+        value = 0;
       }
       trend.push({ date: dateStr, value });
     }

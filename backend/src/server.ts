@@ -6,7 +6,6 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import { initializeSocket } from "./socket/socketConfig";
-import { requestTracker } from "./middleware/requestTracker";
 
 // Load environment variables FIRST before importing any modules that need them
 dotenv.config();
@@ -20,10 +19,6 @@ import adminRoutes from "./routes/admin";
 import studentRoutes from "./routes/student";
 import advisorRoutes from "./routes/advisor";
 import supervisorRoutes from "./routes/supervisor";
-import systemMetricsService from "./services/systemMetricsService";
-
-// Initialize global system metrics tracker
-global.systemMetrics = systemMetricsService;
 
 const app = express();
 
@@ -85,9 +80,6 @@ const limiter = rateLimit({
   }
 });
 app.use(limiter);
-
-// Request Tracking Middleware (after rate limiting, before routes)
-app.use(requestTracker);
 
 // Routes
 app.get("/health", (req, res) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Briefcase, TrendingUp, MessageSquare, FileCheck, Settings, Users, Brain, BarChart3, Building2, Shield, Server, FileText } from 'lucide-react';
+import { Home, Briefcase, TrendingUp, MessageSquare, FileCheck, Settings, Users, Brain, BarChart3, Building2, Shield, Server, FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ const studentNavItems: NavItem[] = [
 
 const supervisorNavItems: NavItem[] = [
   { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
+  { icon: ClipboardList, label: 'Reports', path: '/dashboard/supervisor/student-reports' },
   { icon: Brain, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
   { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/supervisor/documents' },
