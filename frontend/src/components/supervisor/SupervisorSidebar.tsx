@@ -8,13 +8,15 @@ import {
   FileText, 
   Settings,
   MessageSquare,
-  FileCheck
+  FileCheck,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 const menuItems = [
   { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
+  { icon: ClipboardList, label: 'Weekly Reports', path: '/dashboard/supervisor/student-reports' },
   { icon: FileText, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
   { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/supervisor/documents' },

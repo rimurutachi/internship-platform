@@ -2,11 +2,10 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import * as adminController from '../controllers/adminController';
 import documentRoutes from './admin/documents';
-import systemRoutes from './admin/system';
-import securityRoutes from './admin/security.routes';
+import dashboardRoutes from './admin/dashboard';
 import reportsRoutes from './admin/reports.routes';
+import weeklyReportsRoutes from './admin/weeklyReports';
 import settingsRoutes from './admin/settings.routes';
-import dashboardRoutes from './admin/dashboard.routes';
 import internshipsRoutes from './admin/internships';
 import evaluationsRoutes from './admin/evaluations.routes';
 import companiesRoutes from './admin/companies';
@@ -52,20 +51,15 @@ router.delete('/users/:id', adminController.deleteUser);
 // Document management routes
 router.use('/documents', documentRoutes);
 
-// System management routes
-router.use('/system', systemRoutes);
-
-// Security management routes
-router.use('/security', securityRoutes);
+// Dashboard routes
+router.use('/dashboard', dashboardRoutes);
 
 // Reports and analytics routes
 router.use('/reports', reportsRoutes);
+router.use('/weekly-reports', weeklyReportsRoutes);
 
-// Settings and configuration routes
+// Settings routes (lightweight, no security tables)
 router.use('/settings', settingsRoutes);
-
-// Dashboard analytics routes
-router.use('/dashboard', dashboardRoutes);
 
 // Internships management routes
 router.use('/internships', internshipsRoutes);

@@ -31,6 +31,14 @@ export async function createWeeklyReport(
   try {
     const { internship_id, week_number, accomplishments, hours_rendered, challenges, learnings } = reportData;
 
+    console.log('🔵 [WeeklyReportsService] Creating report:', {
+      studentId,
+      internship_id,
+      week_number,
+      accomplishmentsLength: accomplishments?.length || 0,
+      hours_rendered
+    });
+
     // Validate internship belongs to student
     const { data: internship, error: internshipError } = await supabase
       .from('internships')
@@ -40,10 +48,24 @@ export async function createWeeklyReport(
       .single();
 
     if (internshipError || !internship) {
+      console.error('❌ [WeeklyReportsService] Internship validation failed:', {
+        internship_id,
+        studentId,
+        error: internshipError?.message
+      });
       throw new Error('Internship not found or does not belong to student');
     }
 
+    console.log('✅ [WeeklyReportsService] Internship validated:', {
+      internshipId: internship.id,
+      status: internship.status
+    });
+
     if (internship.status !== 'active' && internship.status !== 'ongoing') {
+      console.error('❌ [WeeklyReportsService] Internship not active:', {
+        internshipId: internship.id,
+        status: internship.status
+      });
       throw new Error('Cannot submit reports for inactive internships');
     }
 
@@ -52,7 +74,18 @@ export async function createWeeklyReport(
     const endDate = new Date(internship.end_date);
     const totalWeeks = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
+    console.log('🔵 [WeeklyReportsService] Week validation:', {
+      totalWeeks,
+      requestedWeek: week_number,
+      startDate: internship.start_date,
+      endDate: internship.end_date
+    });
+
     if (week_number < 1 || week_number > totalWeeks) {
+      console.error('❌ [WeeklyReportsService] Invalid week number:', {
+        week_number,
+        totalWeeks
+      });
       throw new Error(`Week number must be between 1 and ${totalWeeks}`);
     }
 
@@ -65,48 +98,53 @@ export async function createWeeklyReport(
       .single();
 
     if (existingReport) {
+      console.error('❌ [WeeklyReportsService] Report already exists for week:', week_number);
       throw new Error('A report for this week already exists');
     }
 
     // Validate accomplishments
     if (!accomplishments || accomplishments.trim().length < 50) {
+      console.error('❌ [WeeklyReportsService] Accomplishments too short:', accomplishments?.length || 0);
       throw new Error('Accomplishments must be at least 50 characters');
     }
 
     // Validate hours
     if (hours_rendered < 0 || hours_rendered > 168) { // Max 24*7 hours per week
+      console.error('❌ [WeeklyReportsService] Invalid hours:', hours_rendered);
       throw new Error('Hours rendered must be between 0 and 168');
     }
 
-    // Calculate week start and end dates
-    const weekStartDate = new Date(startDate);
-    weekStartDate.setDate(weekStartDate.getDate() + (week_number - 1) * 7);
-    
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    // Combine optional fields into accomplishments to match DB schema
+    const accomplishmentsBody = buildAccomplishmentBody(
+      accomplishments,
+      challenges,
+      learnings
+    );
 
-    // Create the report
+    console.log('✅ [WeeklyReportsService] Validations passed, creating report...');
+
+    console.log('🔵 [WeeklyReportsService] Inserting report into database...');
+
+    // Create the report (use only existing columns in schema)
     const { data: report, error: createError } = await supabase
       .from('student_weekly_accomplishments')
       .insert({
         student_id: studentId,
         internship_id,
         week_number,
-        week_start_date: weekStartDate.toISOString(),
-        week_end_date: weekEndDate.toISOString(),
-        accomplishments: accomplishments.trim(),
+        accomplishments: accomplishmentsBody,
         hours_rendered,
-        challenges: challenges?.trim() || null,
-        learnings: learnings?.trim() || null,
         status: 'pending_approval',
-        submitted_at: new Date().toISOString(),
       })
       .select()
       .single();
 
     if (createError) {
+      console.error('❌ [WeeklyReportsService] Database error:', createError);
       throw new Error(`Failed to create report: ${createError.message}`);
     }
+
+    console.log('✅ [WeeklyReportsService] Report created:', report.id);
 
     // Get supervisor for notification
     const { data: supervisor } = await supabase
@@ -116,6 +154,8 @@ export async function createWeeklyReport(
       .single();
 
     if (supervisor?.supervisor_id) {
+      console.log('📢 [WeeklyReportsService] Sending notification to supervisor:', supervisor.supervisor_id);
+      
       // Notify supervisor
       await supabase.from('notifications').insert({
         user_id: supervisor.supervisor_id,
@@ -128,6 +168,8 @@ export async function createWeeklyReport(
           week_number,
         },
       });
+      
+      console.log('✅ [WeeklyReportsService] Notification sent');
     }
 
     return {
@@ -135,6 +177,7 @@ export async function createWeeklyReport(
       data: report,
     };
   } catch (error: any) {
+    console.error('❌ [WeeklyReportsService] Error in createWeeklyReport:', error.message);
     return {
       success: false,
       error: error.message,
@@ -217,11 +260,22 @@ export async function updateWeeklyReport(
       updated_at: new Date().toISOString(),
     };
 
-    if (updates.accomplishments) {
-      if (updates.accomplishments.trim().length < 50) {
+    const shouldUpdateAccomplishments =
+      updates.accomplishments !== undefined ||
+      updates.challenges !== undefined ||
+      updates.learnings !== undefined;
+
+    if (shouldUpdateAccomplishments) {
+      const baseAccomplishments = updates.accomplishments ?? report.accomplishments ?? '';
+      if (baseAccomplishments.trim().length < 50) {
         throw new Error('Accomplishments must be at least 50 characters');
       }
-      updateData.accomplishments = updates.accomplishments.trim();
+
+      updateData.accomplishments = buildAccomplishmentBody(
+        baseAccomplishments,
+        updates.challenges,
+        updates.learnings
+      );
     }
 
     if (updates.hours_rendered !== undefined) {
@@ -229,14 +283,6 @@ export async function updateWeeklyReport(
         throw new Error('Hours rendered must be between 0 and 168');
       }
       updateData.hours_rendered = updates.hours_rendered;
-    }
-
-    if (updates.challenges !== undefined) {
-      updateData.challenges = updates.challenges?.trim() || null;
-    }
-
-    if (updates.learnings !== undefined) {
-      updateData.learnings = updates.learnings?.trim() || null;
     }
 
     // If report was rejected, reset to pending on update
@@ -473,4 +519,22 @@ export async function deleteWeeklyReport(
       error: error.message,
     };
   }
+}
+
+function buildAccomplishmentBody(
+  accomplishments: string,
+  challenges?: string,
+  learnings?: string
+): string {
+  const lines: string[] = [accomplishments.trim()];
+
+  if (challenges && challenges.trim().length > 0) {
+    lines.push(`\n\nChallenges: ${challenges.trim()}`);
+  }
+
+  if (learnings && learnings.trim().length > 0) {
+    lines.push(`\n\nLearnings: ${learnings.trim()}`);
+  }
+
+  return lines.join('');
 }

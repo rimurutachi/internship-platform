@@ -23,6 +23,7 @@ const menuItems = [
   { icon: Building2, label: 'Companies', path: '/dashboard/admin/companies' },
   { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships' },
   { icon: FileCheck, label: 'Evaluations', path: '/dashboard/admin/evaluations' },
+  { icon: ClipboardList, label: 'Weekly Reports', path: '/dashboard/admin/weekly-reports' },
   { icon: ClipboardList, label: 'Rubrics', path: '/dashboard/admin/rubrics' },
   { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents' },
   { icon: BarChart3, label: 'Reports', path: '/dashboard/admin/reports' },
