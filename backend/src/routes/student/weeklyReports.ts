@@ -52,7 +52,16 @@ router.post('/weekly-reports', async (req: AuthRequest, res) => {
     const studentId = req.user?.id;
     const reportData = req.body;
 
+    console.log('🔵 [Weekly Report] Create request received:', {
+      studentId,
+      internshipId: reportData.internship_id,
+      weekNumber: reportData.week_number,
+      accomplishmentsLength: reportData.accomplishments?.length || 0,
+      hoursRendered: reportData.hours_rendered
+    });
+
     if (!studentId) {
+      console.error('❌ [Weekly Report] Unauthorized: No student ID in request');
       return res.status(401).json({
         success: false,
         error: 'Unauthorized',
@@ -62,11 +71,18 @@ router.post('/weekly-reports', async (req: AuthRequest, res) => {
     const result = await weeklyReportsService.createWeeklyReport(studentId, reportData);
 
     if (!result.success) {
+      console.error('❌ [Weekly Report] Creation failed:', result.error);
       return res.status(400).json(result);
     }
 
+    console.log('✅ [Weekly Report] Created successfully:', {
+      reportId: result.data?.id,
+      weekNumber: result.data?.week_number
+    });
+
     return res.status(201).json(result);
   } catch (error: any) {
+    console.error('❌ [Weekly Report] Server error:', error.message, error.stack);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

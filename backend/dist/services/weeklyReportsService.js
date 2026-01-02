@@ -15,6 +15,13 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
 async function createWeeklyReport(studentId, reportData) {
     try {
         const { internship_id, week_number, accomplishments, hours_rendered, challenges, learnings } = reportData;
+        console.log('🔵 [WeeklyReportsService] Creating report:', {
+            studentId,
+            internship_id,
+            week_number,
+            accomplishmentsLength: accomplishments?.length || 0,
+            hours_rendered
+        });
         // Validate internship belongs to student
         const { data: internship, error: internshipError } = await supabase
             .from('internships')
@@ -23,16 +30,39 @@ async function createWeeklyReport(studentId, reportData) {
             .eq('student_id', studentId)
             .single();
         if (internshipError || !internship) {
+            console.error('❌ [WeeklyReportsService] Internship validation failed:', {
+                internship_id,
+                studentId,
+                error: internshipError?.message
+            });
             throw new Error('Internship not found or does not belong to student');
         }
+        console.log('✅ [WeeklyReportsService] Internship validated:', {
+            internshipId: internship.id,
+            status: internship.status
+        });
         if (internship.status !== 'active' && internship.status !== 'ongoing') {
+            console.error('❌ [WeeklyReportsService] Internship not active:', {
+                internshipId: internship.id,
+                status: internship.status
+            });
             throw new Error('Cannot submit reports for inactive internships');
         }
         // Validate week number based on internship dates
         const startDate = new Date(internship.start_date);
         const endDate = new Date(internship.end_date);
         const totalWeeks = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        console.log('🔵 [WeeklyReportsService] Week validation:', {
+            totalWeeks,
+            requestedWeek: week_number,
+            startDate: internship.start_date,
+            endDate: internship.end_date
+        });
         if (week_number < 1 || week_number > totalWeeks) {
+            console.error('❌ [WeeklyReportsService] Invalid week number:', {
+                week_number,
+                totalWeeks
+            });
             throw new Error(`Week number must be between 1 and ${totalWeeks}`);
         }
         // Check if report already exists for this week
@@ -43,21 +73,26 @@ async function createWeeklyReport(studentId, reportData) {
             .eq('week_number', week_number)
             .single();
         if (existingReport) {
+            console.error('❌ [WeeklyReportsService] Report already exists for week:', week_number);
             throw new Error('A report for this week already exists');
         }
         // Validate accomplishments
         if (!accomplishments || accomplishments.trim().length < 50) {
+            console.error('❌ [WeeklyReportsService] Accomplishments too short:', accomplishments?.length || 0);
             throw new Error('Accomplishments must be at least 50 characters');
         }
         // Validate hours
         if (hours_rendered < 0 || hours_rendered > 168) { // Max 24*7 hours per week
+            console.error('❌ [WeeklyReportsService] Invalid hours:', hours_rendered);
             throw new Error('Hours rendered must be between 0 and 168');
         }
+        console.log('✅ [WeeklyReportsService] Validations passed, creating report...');
         // Calculate week start and end dates
         const weekStartDate = new Date(startDate);
         weekStartDate.setDate(weekStartDate.getDate() + (week_number - 1) * 7);
         const weekEndDate = new Date(weekStartDate);
         weekEndDate.setDate(weekEndDate.getDate() + 6);
+        console.log('🔵 [WeeklyReportsService] Inserting report into database...');
         // Create the report
         const { data: report, error: createError } = await supabase
             .from('student_weekly_accomplishments')
@@ -77,8 +112,10 @@ async function createWeeklyReport(studentId, reportData) {
             .select()
             .single();
         if (createError) {
+            console.error('❌ [WeeklyReportsService] Database error:', createError);
             throw new Error(`Failed to create report: ${createError.message}`);
         }
+        console.log('✅ [WeeklyReportsService] Report created:', report.id);
         // Get supervisor for notification
         const { data: supervisor } = await supabase
             .from('internships')
@@ -86,6 +123,7 @@ async function createWeeklyReport(studentId, reportData) {
             .eq('id', internship_id)
             .single();
         if (supervisor?.supervisor_id) {
+            console.log('📢 [WeeklyReportsService] Sending notification to supervisor:', supervisor.supervisor_id);
             // Notify supervisor
             await supabase.from('notifications').insert({
                 user_id: supervisor.supervisor_id,
@@ -98,6 +136,7 @@ async function createWeeklyReport(studentId, reportData) {
                     week_number,
                 },
             });
+            console.log('✅ [WeeklyReportsService] Notification sent');
         }
         return {
             success: true,
@@ -105,6 +144,7 @@ async function createWeeklyReport(studentId, reportData) {
         };
     }
     catch (error) {
+        console.error('❌ [WeeklyReportsService] Error in createWeeklyReport:', error.message);
         return {
             success: false,
             error: error.message,

@@ -1,42 +1,16 @@
-// Dashboard KPI Metrics
-export interface DashboardKPI {
-  total_users: number;
-  system_uptime: number;
-  response_time: number;
-  cpu_usage: number;
+// OJT Dashboard Metrics (currently used)
+export interface OJTDashboardMetrics {
+  students_enrolled: number;
+  students_pending_deployment: number;
   active_internships: number;
-  security_alerts_24h: number;
-}
-
-// Platform Usage & Engagement Data
-export interface UsageEngagementData {
-  month: string;
-  students: number;
-  advisors: number;
-  supervisors: number;
-  admins: number;
-}
-
-// System Performance Metrics
-export interface PerformanceMetric {
-  time: string;
-  response_time: number;
-  cpu_usage: number;
-  ai_processing: number;
-}
-
-// Feature Usage Analytics
-export interface FeatureUsage {
-  feature: string;
-  usage_percent: number;
-}
-
-// Complete Dashboard Data
-export interface DashboardData {
-  kpis: DashboardKPI;
-  usage_engagement: UsageEngagementData[];
-  performance_metrics: PerformanceMetric[];
-  feature_usage: FeatureUsage[];
+  completed_internships: number;
+  total_companies: number;
+  companies_with_capacity: number;
+  pending_weekly_reports: number;
+  pending_supervisor_evaluations: number;
+  pending_advisor_evaluations: number;
+  completed_evaluations_this_month: number;
+  timestamp: string;
 }
 
 // API Response Types

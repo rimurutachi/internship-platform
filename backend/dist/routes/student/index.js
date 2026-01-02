@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const studentController_1 = __importDefault(require("../../controllers/student/studentController"));
+const weeklyReports_1 = __importDefault(require("./weeklyReports"));
 const router = (0, express_1.Router)();
 // Apply authentication middleware to all routes
 router.use(auth_1.authenticateToken);
@@ -47,6 +48,8 @@ router.post('/mentors/:id/message', studentController_1.default.messageMentor);
 // Task routes
 router.get('/tasks', studentController_1.default.getTasks);
 router.patch('/tasks/:id', studentController_1.default.updateTask);
+// Weekly reports routes
+router.use('/', weeklyReports_1.default);
 // Dashboard route
 router.get('/dashboard', studentController_1.default.getDashboardOverview);
 exports.default = router;

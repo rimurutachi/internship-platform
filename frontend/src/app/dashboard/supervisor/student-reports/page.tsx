@@ -33,8 +33,8 @@ interface WeeklyReport {
   student_id: string;
   internship_id: string;
   week_number: number;
-  week_start_date: string;
-  week_end_date: string;
+  week_start_date?: string;
+  week_end_date?: string;
   accomplishments: string;
   hours_rendered: number;
   challenges?: string;
@@ -42,7 +42,7 @@ interface WeeklyReport {
   status: 'pending_approval' | 'approved' | 'rejected';
   rejection_reason?: string;
   supervisor_comments?: string;
-  submitted_at: string;
+  submitted_at?: string;
   approved_at?: string;
   rejected_at?: string;
   student_name?: string;
@@ -57,6 +57,34 @@ interface ReportStatistics {
   rejected: number;
   total_hours: number;
 }
+
+const computeWeekDates = (startDate?: string, weekNumber?: number) => {
+  if (!startDate || !weekNumber) {
+    return { week_start_date: '', week_end_date: '' };
+  }
+
+  const start = new Date(startDate);
+  const weekStart = new Date(start);
+  weekStart.setDate(weekStart.getDate() + (weekNumber - 1) * 7);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  return {
+    week_start_date: weekStart.toISOString(),
+    week_end_date: weekEnd.toISOString(),
+  };
+};
+
+const extractSections = (text: string) => {
+  const match = text.match(/^(.*?)(?:\n\nChallenges:\s*([\s\S]*?))?(?:\n\nLearnings:\s*([\s\S]*?))?$/i);
+
+  return {
+    accomplishments: match?.[1]?.trim() || text.trim(),
+    challenges: match?.[2]?.trim() || '',
+    learnings: match?.[3]?.trim() || '',
+  };
+};
 
 export default function StudentReportsPage() {
   const { toast } = useToast();
@@ -75,7 +103,7 @@ export default function StudentReportsPage() {
   });
   
   // Filter state
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending_approval' | 'approved' | 'rejected'>('pending_approval');
   const [studentFilter, setStudentFilter] = useState<string>('all');
   const [students, setStudents] = useState<Array<{ id: string; name: string }>>([]);
   
@@ -101,69 +129,81 @@ export default function StudentReportsPage() {
     try {
       setLoading(true);
       const supabase = createSupabaseClient();
-      
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // Get all weekly reports for supervised internships
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('student_weekly_accomplishments')
-        .select(`
-          *,
-          users!student_weekly_accomplishments_student_id_fkey(
-            id,
-            email,
-            first_name,
-            last_name
-          ),
-          internships!student_weekly_accomplishments_internship_id_fkey(
-            position,
-            supervisor_id
-          )
-        `)
-        .eq('internships.supervisor_id', user.id)
-        .order('submitted_at', { ascending: false });
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
 
-      if (reportsError) throw reportsError;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
 
-      const formattedReports: WeeklyReport[] = (reportsData || []).map((report: any) => ({
-        id: report.id,
-        student_id: report.student_id,
-        internship_id: report.internship_id,
-        week_number: report.week_number,
-        week_start_date: report.week_start_date,
-        week_end_date: report.week_end_date,
-        accomplishments: report.accomplishments,
-        hours_rendered: report.hours_rendered,
-        challenges: report.challenges,
-        learnings: report.learnings,
-        status: report.status,
-        rejection_reason: report.rejection_reason,
-        supervisor_comments: report.supervisor_comments,
-        submitted_at: report.submitted_at,
-        approved_at: report.approved_at,
-        rejected_at: report.rejected_at,
-        student_name: report.users 
-          ? `${report.users.first_name} ${report.users.last_name}` 
-          : 'Unknown Student',
-        student_email: report.users?.email,
-        internship_position: report.internships?.position,
-      }));
+      const response = await fetch(`${apiBase}/supervisor/weekly-reports`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('🔵 [Supervisor Reports] API response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [Supervisor Reports] API error:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to fetch reports');
+      }
+
+      const result = await response.json();
+
+      console.log('🔍 [Supervisor Reports] Raw API data:', JSON.stringify(result.data, null, 2));
+
+      const formattedReports: WeeklyReport[] = (result.data || []).map((report: any) => {
+        const parsed = extractSections(report.accomplishments || '');
+        const dates = computeWeekDates(report.internship?.start_date, report.week_number);
+        const student = report.student || report.users; // fallback if backend changes shape
+
+        console.log('🔍 [Supervisor Reports] Report status:', report.status, 'ID:', report.id);
+
+        return {
+          id: report.id,
+          student_id: report.student_id,
+          internship_id: report.internship_id,
+          week_number: report.week_number,
+          week_start_date: report.week_start_date || dates.week_start_date,
+          week_end_date: report.week_end_date || dates.week_end_date,
+          accomplishments: parsed.accomplishments,
+          hours_rendered: report.hours_rendered,
+          challenges: parsed.challenges,
+          learnings: parsed.learnings,
+          status: report.status,
+          rejection_reason: report.status === 'rejected' ? (report.supervisor_comments || report.rejection_reason) : undefined,
+          supervisor_comments: report.supervisor_comments,
+          submitted_at: report.submitted_at || report.created_at,
+          approved_at: report.approved_at,
+          rejected_at: report.rejected_at,
+          student_name: student ? `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown Student' : 'Unknown Student',
+          student_email: student?.email,
+          internship_position: report.internship?.position,
+        };
+      });
 
       setReports(formattedReports);
 
-      // Calculate statistics
+      console.log('🔍 [Supervisor Reports] Total reports:', formattedReports.length);
+      console.log('🔍 [Supervisor Reports] Report statuses:', formattedReports.map(r => ({ id: r.id.slice(0, 8), status: r.status })));
+
       const stats: ReportStatistics = {
         total: formattedReports.length,
         pending: formattedReports.filter(r => r.status === 'pending_approval').length,
         approved: formattedReports.filter(r => r.status === 'approved').length,
         rejected: formattedReports.filter(r => r.status === 'rejected').length,
-        total_hours: formattedReports.reduce((sum, r) => sum + r.hours_rendered, 0),
+        total_hours: formattedReports.reduce((sum, r) => sum + (r.hours_rendered || 0), 0),
       };
+
+      console.log('🔍 [Supervisor Reports] Statistics:', stats);
+
       setStatistics(stats);
 
-      // Extract unique students
       const uniqueStudents = Array.from(
         new Map(
           formattedReports.map(r => [r.student_id, { id: r.student_id, name: r.student_name || 'Unknown' }])
@@ -171,6 +211,7 @@ export default function StudentReportsPage() {
       );
       setStudents(uniqueStudents);
     } catch (error: any) {
+      console.error('❌ [Supervisor Reports] Error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to fetch reports',
@@ -182,11 +223,19 @@ export default function StudentReportsPage() {
   };
 
   const filterReports = () => {
+    console.log('🔍 [Supervisor Reports] Filtering - Active tab:', activeTab, 'Student filter:', studentFilter);
+    console.log('🔍 [Supervisor Reports] Total reports to filter:', reports.length);
+    
     let filtered = reports.filter(r => r.status === activeTab);
+    
+    console.log('🔍 [Supervisor Reports] After status filter:', filtered.length, 'reports');
     
     if (studentFilter !== 'all') {
       filtered = filtered.filter(r => r.student_id === studentFilter);
+      console.log('🔍 [Supervisor Reports] After student filter:', filtered.length, 'reports');
     }
+    
+    console.log('🔍 [Supervisor Reports] Final filtered reports:', filtered.map(r => ({ id: r.id.slice(0, 8), status: r.status, student: r.student_name })));
     
     setFilteredReports(filtered);
   };
@@ -214,17 +263,31 @@ export default function StudentReportsPage() {
     try {
       setSubmitting(true);
       const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { error } = await supabase
-        .from('student_weekly_accomplishments')
-        .update({
-          status: 'approved',
-          supervisor_comments: approvalComments || null,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', selectedReport.id);
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
 
-      if (error) throw error;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+
+      const response = await fetch(`${apiBase}/supervisor/weekly-reports/${selectedReport.id}/approve`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ comments: approvalComments || null }),
+      });
+
+      console.log('🔵 [Supervisor Reports] Approve response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [Supervisor Reports] Approve failed:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to approve report');
+      }
 
       toast({
         title: 'Report Approved',
@@ -235,6 +298,7 @@ export default function StudentReportsPage() {
       setSelectedReport(null);
       fetchData();
     } catch (error: any) {
+      console.error('❌ [Supervisor Reports] Approve error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to approve report',
@@ -260,17 +324,31 @@ export default function StudentReportsPage() {
     try {
       setSubmitting(true);
       const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { error } = await supabase
-        .from('student_weekly_accomplishments')
-        .update({
-          status: 'rejected',
-          rejection_reason: rejectionReason.trim(),
-          rejected_at: new Date().toISOString(),
-        })
-        .eq('id', selectedReport.id);
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
 
-      if (error) throw error;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+
+      const response = await fetch(`${apiBase}/supervisor/weekly-reports/${selectedReport.id}/reject`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rejection_reason: rejectionReason.trim() }),
+      });
+
+      console.log('🔵 [Supervisor Reports] Reject response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [Supervisor Reports] Reject failed:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to reject report');
+      }
 
       toast({
         title: 'Report Rejected',
@@ -281,6 +359,7 @@ export default function StudentReportsPage() {
       setSelectedReport(null);
       fetchData();
     } catch (error: any) {
+      console.error('❌ [Supervisor Reports] Reject error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to reject report',
@@ -309,16 +388,24 @@ export default function StudentReportsPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -426,7 +513,7 @@ export default function StudentReportsPage() {
                 <CardContent>
                   <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
                     <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="pending">
+                      <TabsTrigger value="pending_approval">
                         Pending ({statistics.pending})
                       </TabsTrigger>
                       <TabsTrigger value="approved">

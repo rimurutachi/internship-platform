@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../../middleware/auth';
 import studentController from '../../controllers/student/studentController';
+import weeklyReportsRoutes from './weeklyReports';
 
 const router = Router();
 
@@ -52,6 +53,9 @@ router.post('/mentors/:id/message', studentController.messageMentor);
 // Task routes
 router.get('/tasks', studentController.getTasks);
 router.patch('/tasks/:id', studentController.updateTask);
+
+// Weekly reports routes
+router.use('/', weeklyReportsRoutes);
 
 // Dashboard route
 router.get('/dashboard', studentController.getDashboardOverview);

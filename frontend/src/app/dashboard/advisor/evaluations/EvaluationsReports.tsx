@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   FileText, 
@@ -32,6 +32,36 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { createSupabaseClient } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
+
+const computeWeekDates = (startDate?: string, weekNumber?: number) => {
+  if (!startDate || !weekNumber) {
+    return { week_start_date: '', week_end_date: '' };
+  }
+
+  const start = new Date(startDate);
+  const weekStart = new Date(start);
+  weekStart.setDate(weekStart.getDate() + (weekNumber - 1) * 7);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  return {
+    week_start_date: weekStart.toISOString(),
+    week_end_date: weekEnd.toISOString(),
+  };
+};
+
+const extractSections = (text: string) => {
+  const match = text.match(/^(.*?)(?:\n\nChallenges:\s*([\s\S]*?))?(?:\n\nLearnings:\s*([\s\S]*?))?$/i);
+
+  return {
+    accomplishments: match?.[1]?.trim() || text.trim(),
+    challenges: match?.[2]?.trim() || '',
+    learnings: match?.[3]?.trim() || '',
+  };
+};
 
 interface WeeklyReport {
   id: string;
@@ -65,52 +95,6 @@ interface Evaluation {
   supervisorComment: string;
   advisorComment?: string;
 }
-
-const mockWeeklyReports: WeeklyReport[] = [
-  {
-    id: '1',
-    studentName: 'Alice Johnson',
-    weekNumber: 1,
-    accomplishments: 'Set up development environment, attended orientation, completed onboarding documentation',
-    hoursRendered: 40,
-    challenges: 'Learning new framework and tools',
-    learnings: 'Gained understanding of company processes and team structure',
-    weekStartDate: '2025-09-01',
-    weekEndDate: '2025-09-05',
-    status: 'approved',
-    submittedAt: '2025-09-06T10:00:00',
-    supervisorComment: 'Good start! Keep up the enthusiasm.',
-    supervisorReviewedAt: '2025-09-07T14:30:00'
-  },
-  {
-    id: '2',
-    studentName: 'Alice Johnson',
-    weekNumber: 2,
-    accomplishments: 'Completed first feature implementation, fixed 3 bugs, participated in code reviews',
-    hoursRendered: 42,
-    challenges: 'Understanding legacy code structure',
-    learnings: 'Learned about design patterns used in the codebase',
-    weekStartDate: '2025-09-08',
-    weekEndDate: '2025-09-12',
-    status: 'pending',
-    submittedAt: '2025-09-13T09:30:00'
-  },
-  {
-    id: '3',
-    studentName: 'Bob Martinez',
-    weekNumber: 1,
-    accomplishments: 'Set up data pipeline, completed security training, met with team leads',
-    hoursRendered: 38,
-    challenges: 'Understanding complex data architecture',
-    learnings: 'Learned about ETL processes and data warehousing',
-    weekStartDate: '2025-09-15',
-    weekEndDate: '2025-09-19',
-    status: 'approved',
-    submittedAt: '2025-09-20T11:00:00',
-    supervisorComment: 'Excellent initiative in asking questions!',
-    supervisorReviewedAt: '2025-09-21T10:00:00'
-  }
-];
 
 const mockEvaluations: Evaluation[] = [
   {
@@ -148,6 +132,7 @@ const mockEvaluations: Evaluation[] = [
 
 export default function EvaluationsReports() {
   const router = useRouter();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'weekly-reports' | 'evaluations'>('weekly-reports');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -156,12 +141,128 @@ export default function EvaluationsReports() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
   const [advisorComment, setAdvisorComment] = useState('');
+  const [reports, setReports] = useState<WeeklyReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
 
-  const filteredReports = mockWeeklyReports.filter(report => {
-    const matchesSearch = report.studentName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || report.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    fetchWeeklyReports();
+  }, []);
+
+  const fetchWeeklyReports = async () => {
+    try {
+      setLoadingReports(true);
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+
+      // Fetch advisor students to get internship context
+      const studentsRes = await fetch(`${apiBase}/advisor/students`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!studentsRes.ok) {
+        const err = await studentsRes.json().catch(() => ({}));
+        throw new Error(err.message || err.error || 'Failed to fetch advisor students');
+      }
+
+      const studentsData = await studentsRes.json();
+      const internships: Array<{
+        internshipId: string;
+        studentName: string;
+        studentEmail?: string;
+        company?: string;
+        position?: string;
+        startDate?: string;
+        endDate?: string;
+      }> = (studentsData.data || []).map((item: any) => ({
+        internshipId: item.internship?.id || item.internship?.internshipId || item.internship?.internship_id || item.id,
+        studentName: item.name,
+        studentEmail: item.email,
+        company: item.internship?.company,
+        position: item.internship?.position,
+        startDate: item.internship?.startDate,
+        endDate: item.internship?.endDate,
+      })).filter((i: { internshipId: any; }) => Boolean(i.internshipId));
+
+      const reportsByInternship: WeeklyReport[][] = await Promise.all(
+        internships.map(async (intern) => {
+          try {
+            const res = await fetch(`${apiBase}/advisor/weekly-reports/internship/${intern.internshipId}`, {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.message || err.error || 'Failed to fetch weekly reports');
+            }
+
+            const result = await res.json();
+            return (result.data || []).map((report: any) => {
+              const parsed = extractSections(report.accomplishments || '');
+              const dates = computeWeekDates(intern.startDate, report.week_number);
+
+              const mapStatus = (status: string) => {
+                if (status === 'pending_approval') return 'pending';
+                return status as WeeklyReport['status'];
+              };
+
+              return {
+                id: report.id,
+                studentName: intern.studentName || report.student?.first_name || 'Unknown',
+                weekNumber: report.week_number,
+                accomplishments: parsed.accomplishments,
+                hoursRendered: report.hours_rendered,
+                challenges: parsed.challenges,
+                learnings: parsed.learnings,
+                weekStartDate: report.week_start_date || dates.week_start_date,
+                weekEndDate: report.week_end_date || dates.week_end_date,
+                status: mapStatus(report.status),
+                submittedAt: report.created_at,
+                supervisorComment: report.supervisor_comments,
+                supervisorReviewedAt: report.approved_at || report.rejected_at,
+              } satisfies WeeklyReport;
+            });
+          } catch (error) {
+            console.error('❌ [Advisor Weekly Reports] Failed for internship:', intern.internshipId, error);
+            return [];
+          }
+        })
+      );
+
+      const flattened: WeeklyReport[] = reportsByInternship.flat();
+      setReports(flattened);
+    } catch (error: any) {
+      console.error('❌ [Advisor Weekly Reports] Error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load weekly reports',
+        variant: 'destructive',
+      });
+      setReports([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const filteredReports = useMemo(() => {
+    return reports.filter(report => {
+      const matchesSearch = report.studentName?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || report.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [reports, searchQuery, filterStatus]);
 
   const filteredEvaluations = mockEvaluations.filter(evaluation => {
     const matchesSearch = evaluation.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -170,12 +271,12 @@ export default function EvaluationsReports() {
     return matchesSearch && matchesStatus;
   });
 
-  const reportStats = {
-    total: mockWeeklyReports.length,
-    pending: mockWeeklyReports.filter(r => r.status === 'pending').length,
-    approved: mockWeeklyReports.filter(r => r.status === 'approved').length,
-    rejected: mockWeeklyReports.filter(r => r.status === 'rejected').length
-  };
+  const reportStats = useMemo(() => ({
+    total: reports.length,
+    pending: reports.filter(r => r.status === 'pending').length,
+    approved: reports.filter(r => r.status === 'approved').length,
+    rejected: reports.filter(r => r.status === 'rejected').length,
+  }), [reports]);
 
   const evaluationStats = {
     total: mockEvaluations.length,
@@ -308,7 +409,13 @@ export default function EvaluationsReports() {
 
                   {/* Reports List */}
                   <div className="space-y-4">
-                    {filteredReports.length === 0 ? (
+                    {loadingReports ? (
+                      <Card className="bg-white border border-gray-200">
+                        <CardContent className="py-16 text-center">
+                          <p className="text-gray-600 text-lg">Loading reports...</p>
+                        </CardContent>
+                      </Card>
+                    ) : filteredReports.length === 0 ? (
                       <Card className="bg-white border border-gray-200">
                         <CardContent className="py-16 text-center">
                           <p className="text-gray-600 text-lg">No reports found</p>
@@ -331,7 +438,7 @@ export default function EvaluationsReports() {
                                 <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-500">
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-4 h-4" />
-                                    {new Date(report.weekStartDate).toLocaleDateString()} - {new Date(report.weekEndDate).toLocaleDateString()}
+                                    {report.weekStartDate ? new Date(report.weekStartDate).toLocaleDateString() : 'N/A'} - {report.weekEndDate ? new Date(report.weekEndDate).toLocaleDateString() : 'N/A'}
                                   </span>
                                   <span className="flex items-center gap-1">
                                     <Clock className="w-4 h-4" />
