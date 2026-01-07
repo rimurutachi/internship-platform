@@ -86,28 +86,20 @@ async function createWeeklyReport(studentId, reportData) {
             console.error('❌ [WeeklyReportsService] Invalid hours:', hours_rendered);
             throw new Error('Hours rendered must be between 0 and 168');
         }
+        // Combine optional fields into accomplishments to match DB schema
+        const accomplishmentsBody = buildAccomplishmentBody(accomplishments, challenges, learnings);
         console.log('✅ [WeeklyReportsService] Validations passed, creating report...');
-        // Calculate week start and end dates
-        const weekStartDate = new Date(startDate);
-        weekStartDate.setDate(weekStartDate.getDate() + (week_number - 1) * 7);
-        const weekEndDate = new Date(weekStartDate);
-        weekEndDate.setDate(weekEndDate.getDate() + 6);
         console.log('🔵 [WeeklyReportsService] Inserting report into database...');
-        // Create the report
+        // Create the report (use only existing columns in schema)
         const { data: report, error: createError } = await supabase
             .from('student_weekly_accomplishments')
             .insert({
             student_id: studentId,
             internship_id,
             week_number,
-            week_start_date: weekStartDate.toISOString(),
-            week_end_date: weekEndDate.toISOString(),
-            accomplishments: accomplishments.trim(),
+            accomplishments: accomplishmentsBody,
             hours_rendered,
-            challenges: challenges?.trim() || null,
-            learnings: learnings?.trim() || null,
             status: 'pending_approval',
-            submitted_at: new Date().toISOString(),
         })
             .select()
             .single();
@@ -211,23 +203,21 @@ async function updateWeeklyReport(reportId, studentId, updates) {
         const updateData = {
             updated_at: new Date().toISOString(),
         };
-        if (updates.accomplishments) {
-            if (updates.accomplishments.trim().length < 50) {
+        const shouldUpdateAccomplishments = updates.accomplishments !== undefined ||
+            updates.challenges !== undefined ||
+            updates.learnings !== undefined;
+        if (shouldUpdateAccomplishments) {
+            const baseAccomplishments = updates.accomplishments ?? report.accomplishments ?? '';
+            if (baseAccomplishments.trim().length < 50) {
                 throw new Error('Accomplishments must be at least 50 characters');
             }
-            updateData.accomplishments = updates.accomplishments.trim();
+            updateData.accomplishments = buildAccomplishmentBody(baseAccomplishments, updates.challenges, updates.learnings);
         }
         if (updates.hours_rendered !== undefined) {
             if (updates.hours_rendered < 0 || updates.hours_rendered > 168) {
                 throw new Error('Hours rendered must be between 0 and 168');
             }
             updateData.hours_rendered = updates.hours_rendered;
-        }
-        if (updates.challenges !== undefined) {
-            updateData.challenges = updates.challenges?.trim() || null;
-        }
-        if (updates.learnings !== undefined) {
-            updateData.learnings = updates.learnings?.trim() || null;
         }
         // If report was rejected, reset to pending on update
         if (report.status === 'rejected') {
@@ -432,5 +422,15 @@ async function deleteWeeklyReport(reportId, studentId) {
             error: error.message,
         };
     }
+}
+function buildAccomplishmentBody(accomplishments, challenges, learnings) {
+    const lines = [accomplishments.trim()];
+    if (challenges && challenges.trim().length > 0) {
+        lines.push(`\n\nChallenges: ${challenges.trim()}`);
+    }
+    if (learnings && learnings.trim().length > 0) {
+        lines.push(`\n\nLearnings: ${learnings.trim()}`);
+    }
+    return lines.join('');
 }
 //# sourceMappingURL=weeklyReportsService.js.map

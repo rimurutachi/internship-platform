@@ -21,6 +21,7 @@ class EvaluationsController {
                     .from('evaluations')
                     .select(`
           *,
+          criterion_scores:evaluation_criterion_scores(*),
           internship:internships(
             *,
             student:users!internships_student_id_fkey(id, name, email),
@@ -60,18 +61,13 @@ class EvaluationsController {
                     console.error('Error fetching evaluations:', error);
                     return res.status(500).json({ error: error.message });
                 }
-                // Calculate average ratings for each evaluation
-                const evaluationsWithAvg = (data || []).map((evaluation) => ({
-                    ...evaluation,
-                    avg_rating: this.evaluationService.calculateAverageRating(evaluation),
-                }));
                 // Get metrics
                 const metrics = await this.evaluationService.getQualityMetrics();
                 console.log('[AdminEvaluations] getEvaluations success', { count: count || 0, page: pageNum });
                 res.json({
                     success: true,
                     data: {
-                        evaluations: evaluationsWithAvg,
+                        evaluations: data || [],
                         pagination: {
                             page: pageNum,
                             limit: limitNum,
@@ -98,6 +94,7 @@ class EvaluationsController {
                     .from('evaluations')
                     .select(`
           *,
+          criterion_scores:evaluation_criterion_scores(*),
           internship:internships(
             *,
             student:users!internships_student_id_fkey(id, name, email),
@@ -118,15 +115,11 @@ class EvaluationsController {
                     .eq('entity_id', id)
                     .eq('entity_type', 'evaluation')
                     .order('created_at', { ascending: false });
-                // Add average rating
-                const evaluationWithAvg = {
-                    ...evaluation,
-                    avg_rating: this.evaluationService.calculateAverageRating(evaluation),
-                };
+                console.log('[AdminEvaluations] getEvaluation success', { evaluationId: id, hasCriterionScores: !!evaluation.criterion_scores });
                 res.json({
                     success: true,
                     data: {
-                        evaluation: evaluationWithAvg,
+                        evaluation,
                         activity_log: logs || [],
                     },
                 });

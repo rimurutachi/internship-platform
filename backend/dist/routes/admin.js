@@ -40,14 +40,14 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const adminController = __importStar(require("../controllers/adminController"));
 const documents_1 = __importDefault(require("./admin/documents"));
-const system_1 = __importDefault(require("./admin/system"));
-const security_routes_1 = __importDefault(require("./admin/security.routes"));
+const dashboard_1 = __importDefault(require("./admin/dashboard"));
 const reports_routes_1 = __importDefault(require("./admin/reports.routes"));
+const weeklyReports_1 = __importDefault(require("./admin/weeklyReports"));
 const settings_routes_1 = __importDefault(require("./admin/settings.routes"));
-const dashboard_routes_1 = __importDefault(require("./admin/dashboard.routes"));
 const internships_1 = __importDefault(require("./admin/internships"));
 const evaluations_routes_1 = __importDefault(require("./admin/evaluations.routes"));
 const companies_1 = __importDefault(require("./admin/companies"));
+const rubrics_1 = __importDefault(require("./admin/rubrics"));
 const router = (0, express_1.Router)();
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
@@ -76,16 +76,15 @@ router.post('/users/:id/unarchive', adminController.unarchiveUser);
 router.delete('/users/:id', adminController.deleteUser);
 // Document management routes
 router.use('/documents', documents_1.default);
-// System management routes
-router.use('/system', system_1.default);
-// Security management routes
-router.use('/security', security_routes_1.default);
+// Dashboard routes
+router.use('/dashboard', dashboard_1.default);
 // Reports and analytics routes
 router.use('/reports', reports_routes_1.default);
-// Settings and configuration routes
+router.use('/weekly-reports', weeklyReports_1.default);
+// Settings routes (lightweight, no security tables)
 router.use('/settings', settings_routes_1.default);
-// Dashboard analytics routes
-router.use('/dashboard', dashboard_routes_1.default);
+// Rubrics management routes
+router.use('/rubrics', rubrics_1.default);
 // Internships management routes
 router.use('/internships', internships_1.default);
 // Evaluations management routes

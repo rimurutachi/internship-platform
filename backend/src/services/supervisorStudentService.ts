@@ -125,7 +125,7 @@ export class SupervisorStudentService {
     const internshipIds = list.map((i: any) => i.id);
     const { data: evaluations, error: evaluationsError } = await supabase
       .from('evaluations')
-      .select('id, internship_id, rating_overall, rating_technical, rating_communication, rating_work_ethic, created_at, status')
+      .select('id, internship_id, total_score, final_grade, attendance, punctuality, rubric_id, created_at, status')
       .in('internship_id', internshipIds)
       .eq('supervisor_id', supervisorId)
       .order('created_at', { ascending: false });
@@ -167,10 +167,11 @@ export class SupervisorStudentService {
           ? {
               id: latestEval.id,
               created_at: latestEval.created_at,
-              rating_overall: latestEval.rating_overall,
-              rating_technical: latestEval.rating_technical,
-              rating_communication: latestEval.rating_communication,
-              rating_work_ethic: latestEval.rating_work_ethic,
+              total_score: latestEval.total_score,
+              final_grade: latestEval.final_grade,
+              attendance: latestEval.attendance,
+              punctuality: latestEval.punctuality,
+              rubric_id: latestEval.rubric_id,
               status: latestEval.status,
             }
           : null,
@@ -226,12 +227,11 @@ export class SupervisorStudentService {
         .select(`
           id,
           internship_id,
-          rating_overall,
-          rating_technical,
-          rating_communication,
-          rating_work_ethic,
-          strengths,
-          areas_for_improvement,
+          total_score,
+          final_grade,
+          attendance,
+          punctuality,
+          rubric_id,
           status,
           created_at
         `)

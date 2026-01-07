@@ -174,6 +174,7 @@ class StudentService {
      * Get all evaluations for student's current internship
      */
     async getEvaluations(internshipId, limit = 10, offset = 0) {
+        console.log('[StudentService] getEvaluations start', { internshipId, limit, offset });
         const { data: evaluations, count, error } = await supabase
             .from('evaluations')
             .select(`
@@ -181,6 +182,7 @@ class StudentService {
         supervisor:users!evaluations_supervisor_id_fkey(id, first_name, last_name, email)
       `, { count: 'exact' })
             .eq('internship_id', internshipId)
+            .eq('status', 'approved')
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
         if (error) {

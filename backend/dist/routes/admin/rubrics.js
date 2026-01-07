@@ -44,7 +44,7 @@ router.use((0, auth_1.requireRole)(['admin']));
  * GET /api/admin/rubrics
  * Get all rubrics for university
  */
-router.get('/rubrics', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const { university_id, include_inactive } = req.query;
         if (!university_id) {
@@ -72,7 +72,7 @@ router.get('/rubrics', async (req, res) => {
  * GET /api/admin/rubrics/active
  * Get active rubric for university
  */
-router.get('/rubrics/active', async (req, res) => {
+router.get('/active', async (req, res) => {
     try {
         const { university_id } = req.query;
         if (!university_id) {
@@ -100,7 +100,7 @@ router.get('/rubrics/active', async (req, res) => {
  * GET /api/admin/rubrics/:id
  * Get rubric by ID
  */
-router.get('/rubrics/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await rubricService.getRubricById(id);
@@ -121,7 +121,7 @@ router.get('/rubrics/:id', async (req, res) => {
  * GET /api/admin/rubrics/:id/history
  * Get rubric version history
  */
-router.get('/rubrics/:id/history', async (req, res) => {
+router.get('/:id/history', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await rubricService.getRubricHistory(id);
@@ -142,7 +142,7 @@ router.get('/rubrics/:id/history', async (req, res) => {
  * POST /api/admin/rubrics
  * Create new rubric
  */
-router.post('/rubrics', async (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const adminId = req.user?.id;
         const rubricData = req.body;
@@ -170,7 +170,7 @@ router.post('/rubrics', async (req, res) => {
  * PUT /api/admin/rubrics/:id
  * Update rubric (creates new version)
  */
-router.put('/rubrics/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
         const adminId = req.user?.id;
         const { id } = req.params;
@@ -206,7 +206,7 @@ router.put('/rubrics/:id', async (req, res) => {
  * POST /api/admin/rubrics/:id/activate
  * Activate a rubric
  */
-router.post('/rubrics/:id/activate', async (req, res) => {
+router.post('/:id/activate', async (req, res) => {
     try {
         const adminId = req.user?.id;
         const { id } = req.params;
@@ -234,7 +234,7 @@ router.post('/rubrics/:id/activate', async (req, res) => {
  * POST /api/admin/rubrics/:id/deactivate
  * Deactivate a rubric
  */
-router.post('/rubrics/:id/deactivate', async (req, res) => {
+router.post('/:id/deactivate', async (req, res) => {
     try {
         const adminId = req.user?.id;
         const { id } = req.params;

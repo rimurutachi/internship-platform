@@ -86,7 +86,7 @@ export declare function getReportsSummaryByStudent(supervisorId: string, interns
             id: any;
             first_name: any;
             last_name: any;
-            student_number: any;
+            email: any;
         } | null;
         internship_id: any;
         total_reports: number;

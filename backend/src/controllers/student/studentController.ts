@@ -348,6 +348,13 @@ class StudentController {
         return res.status(404).json({ success: false, error: 'Evaluation not found' });
       }
 
+      if (evaluation.status !== 'approved') {
+        return res.status(403).json({
+          success: false,
+          error: 'Evaluation not yet released',
+        });
+      }
+
       // Format supervisor name
       if (evaluation.supervisor) {
         evaluation.supervisor.name = `${evaluation.supervisor.first_name} ${evaluation.supervisor.last_name}`;

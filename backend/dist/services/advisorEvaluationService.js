@@ -45,6 +45,7 @@ async function getPendingEvaluations(advisorId) {
       `)
             .in('internship_id', internshipIds)
             .eq('status', 'submitted')
+            .eq('evaluation_type', 'final')
             .order('submitted_at', { ascending: true });
         if (evalsError) {
             throw new Error(`Failed to fetch evaluations: ${evalsError.message}`);
@@ -95,6 +96,7 @@ async function getEvaluationsByStatus(advisorId, status) {
       `)
             .in('internship_id', internshipIds)
             .eq('status', status)
+            .eq('evaluation_type', 'final')
             .order('submitted_at', { ascending: false });
         if (evalsError) {
             throw new Error(`Failed to fetch evaluations: ${evalsError.message}`);
@@ -118,10 +120,7 @@ async function getEvaluationsByStatus(advisorId, status) {
  */
 async function approveEvaluation(evaluationId, advisorId, approvalData) {
     try {
-        const { final_grade_override, grade_override_reason, approval_comments } = approvalData;
-        if (!approval_comments || approval_comments.trim().length < 10) {
-            throw new Error('Approval comments must be at least 10 characters');
-        }
+        const { approval_comments } = approvalData;
         // Get evaluation
         const { data: evaluation, error: fetchError } = await supabase
             .from('evaluations')
@@ -138,30 +137,20 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
         if (evaluation.internship.advisor_id !== advisorId) {
             throw new Error('You are not authorized to approve this evaluation');
         }
-        if (evaluation.status !== 'submitted' && evaluation.status !== 'revision_requested') {
-            throw new Error('Evaluation is not in a state that can be approved');
+        if (evaluation.evaluation_type !== 'final') {
+            throw new Error('Only final evaluations can be released to students');
         }
-        // Validate grade override
-        if (final_grade_override !== undefined) {
-            if (!grade_override_reason || grade_override_reason.trim().length < 20) {
-                throw new Error('Grade override requires detailed justification (min 20 characters)');
-            }
-            if (final_grade_override < 1.0 || final_grade_override > 5.0) {
-                throw new Error('Grade must be between 1.0 and 5.0');
-            }
+        if (evaluation.status !== 'submitted' && evaluation.status !== 'revision_requested') {
+            throw new Error('Evaluation is not in a state that can be released');
         }
         // Prepare update data
         const updates = {
             status: 'approved',
             advisor_approved_at: new Date().toISOString(),
             advisor_approved_by: advisorId,
-            advisor_comments: approval_comments.trim(),
+            advisor_comments: approval_comments?.trim() || null,
             updated_at: new Date().toISOString(),
         };
-        if (final_grade_override !== undefined) {
-            updates.final_grade = final_grade_override;
-            updates.grade_override_reason = grade_override_reason?.trim();
-        }
         // Update evaluation
         const { data: approvedEval, error: updateError } = await supabase
             .from('evaluations')
@@ -181,8 +170,8 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
             details: {
                 internship_id: evaluation.internship_id,
                 student_id: evaluation.student_id,
-                final_grade: updates.final_grade || evaluation.final_grade,
-                grade_overridden: final_grade_override !== undefined,
+                final_grade: evaluation.final_grade,
+                released_by_advisor: true,
             },
         });
         // Notify supervisor
@@ -193,7 +182,7 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
             message: 'Your evaluation has been approved by the advisor',
             data: {
                 evaluation_id: evaluationId,
-                comments: approval_comments.trim(),
+                comments: approval_comments?.trim() || null,
             },
         });
         // Notify student
@@ -201,10 +190,10 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
             user_id: evaluation.internship.student_id,
             type: 'evaluation_approved',
             title: 'Final Evaluation Approved',
-            message: `Your final evaluation has been approved. Grade: ${updates.final_grade || evaluation.final_grade}`,
+            message: `Your final evaluation has been released by your advisor. Grade: ${evaluation.final_grade}`,
             data: {
                 evaluation_id: evaluationId,
-                final_grade: updates.final_grade || evaluation.final_grade,
+                final_grade: evaluation.final_grade,
             },
         });
         // Trigger AI analytics generation (post-approval)

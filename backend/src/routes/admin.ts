@@ -9,6 +9,7 @@ import settingsRoutes from './admin/settings.routes';
 import internshipsRoutes from './admin/internships';
 import evaluationsRoutes from './admin/evaluations.routes';
 import companiesRoutes from './admin/companies';
+import rubricsRoutes from './admin/rubrics';
 
 const router = Router();
 
@@ -60,6 +61,9 @@ router.use('/weekly-reports', weeklyReportsRoutes);
 
 // Settings routes (lightweight, no security tables)
 router.use('/settings', settingsRoutes);
+
+// Rubrics management routes
+router.use('/rubrics', rubricsRoutes);
 
 // Internships management routes
 router.use('/internships', internshipsRoutes);

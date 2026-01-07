@@ -40,16 +40,12 @@ declare class ReportsService {
     static generatePerformanceMetrics(): Promise<{
         api_response_time: {
             avg: number;
-            p95: any;
-            p99: any;
+            p95: number;
+            p99: number;
         };
         error_rate: number;
         active_sessions: number;
-        slow_queries: {
-            endpoint: any;
-            response_time_ms: any;
-            status_code: any;
-        }[];
+        slow_queries: never[];
     }>;
     static generateActivityTimeline(timeframe?: string, page?: number, limit?: number): Promise<{
         activities: {

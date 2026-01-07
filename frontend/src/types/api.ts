@@ -141,6 +141,17 @@ export interface Evaluation {
   processed_at: string | null;
   created_at: string;
   updated_at: string;
+  // Rubric-based fields
+  rubric_id?: string | null;
+  criterion_scores?: Array<{
+    criterion_code: string;
+    criterion_name: string;
+    score: number;
+  }> | null;
+  total_score?: number | null;
+  attendance?: number | null;
+  punctuality?: number | null;
+  supervisor_comments?: string | null;
 }
 
 /**
@@ -202,15 +213,10 @@ export interface EvaluationFilters {
  * Quality metrics for evaluations
  */
 export interface QualityMetrics {
-  total_this_month: number;
-  total_processed: number;
-  avg_confidence: number;
-  bias_pass_rate: number;
-  sentiment_distribution: {
-    positive: number;
-    neutral: number;
-    negative: number;
-  };
+  total: number;
+  on_draft: number;
+  submitted: number;
+  approved: number;
 }
 
 /**
