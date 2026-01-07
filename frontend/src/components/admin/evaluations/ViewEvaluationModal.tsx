@@ -1,7 +1,7 @@
 /**
  * View Evaluation Modal
  * 
- * Dialog for viewing evaluation details, AI analysis, and history
+ * Dialog for viewing evaluation details with rubric-based criteria scores
  */
 
 import React from 'react';
@@ -26,7 +26,7 @@ interface ViewEvaluationModalProps {
 export function ViewEvaluationModal({ evaluation, open, onClose }: ViewEvaluationModalProps) {
   if (!evaluation) return null;
 
-  const aiResults = evaluation.sentiment_scores as any;
+  const criterionScores = evaluation.criterion_scores as any[] || [];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -60,54 +60,71 @@ export function ViewEvaluationModal({ evaluation, open, onClose }: ViewEvaluatio
                     <p className="text-sm">{new Date(evaluation.created_at).toLocaleDateString()}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Final Grade</p>
-                    <p className="text-sm font-medium">
-                      {evaluation.final_grade ? `${evaluation.final_grade.toFixed(1)}%` : 'Not graded'}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Total Score</p>
+                    <p className="text-sm font-medium">{evaluation.total_score || 'N/A'}/70</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">AI Suggested</p>
-                    <p className="text-sm">
-                      {evaluation.recommended_grade ? `${evaluation.recommended_grade.toFixed(1)}%` : 'N/A'}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Final Grade</p>
+                    <p className="text-sm font-medium">{evaluation.final_grade ? evaluation.final_grade.toFixed(2) : 'N/A'}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Attendance & Punctuality */}
             <Card>
               <CardHeader>
-                <CardTitle>Ratings</CardTitle>
+                <CardTitle>Attendance & Punctuality</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Technical Skills</p>
-                    <p className="text-sm font-medium">{evaluation.rating_technical || 'N/A'}/5</p>
+                    <p className="text-sm text-muted-foreground">Attendance</p>
+                    <Badge variant="outline" className="capitalize">
+                      {evaluation.attendance || 'N/A'}
+                    </Badge>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Work Ethic</p>
-                    <p className="text-sm font-medium">{evaluation.rating_work_ethic || 'N/A'}/5</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Communication</p>
-                    <p className="text-sm font-medium">{evaluation.rating_communication || 'N/A'}/5</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Overall</p>
-                    <p className="text-sm font-medium">{evaluation.rating_overall || 'N/A'}/5</p>
+                    <p className="text-sm text-muted-foreground">Punctuality</p>
+                    <Badge variant="outline" className="capitalize">
+                      {evaluation.punctuality || 'N/A'}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {evaluation.feedback_text && (
+            {/* Rubric Criteria Scores */}
+            {criterionScores && criterionScores.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Evaluation Criteria (CvSU A-G)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {criterionScores.map((score: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                        <div>
+                          <p className="font-medium">{score.criterion_code}. {score.criterion_name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-primary">{score.score}/10</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Supervisor Comments */}
+            {evaluation.supervisor_comments && (
               <Card>
                 <CardHeader>
                   <CardTitle>Supervisor Comments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{evaluation.feedback_text}</p>
+                  <p className="text-sm whitespace-pre-wrap">{evaluation.supervisor_comments}</p>
                 </CardContent>
               </Card>
             )}

@@ -170,13 +170,6 @@ router.post('/evaluations/:id/approve', async (req, res) => {
                 error: 'Unauthorized',
             });
         }
-        if (!approvalData.approval_comments) {
-            return res.status(400).json({
-                success: false,
-                error: 'Validation error',
-                message: 'Approval comments are required',
-            });
-        }
         const result = await advisorEvaluationService.approveEvaluation(id, advisorId, approvalData);
         if (!result.success) {
             return res.status(400).json(result);

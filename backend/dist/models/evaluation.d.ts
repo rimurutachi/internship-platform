@@ -9,6 +9,10 @@ export interface Evaluation {
     rating_technical?: number;
     rating_communication?: number;
     rating_work_ethic?: number;
+    total_score?: number;
+    attendance?: 'regular' | 'irregular';
+    punctuality?: 'regular' | 'irregular';
+    supervisor_comments?: string;
     evaluation_type: EvaluationType;
     week_number?: number;
     evaluation_period?: string;

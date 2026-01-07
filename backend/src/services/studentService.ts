@@ -218,6 +218,8 @@ class StudentService {
     limit: number = 10,
     offset: number = 0
   ): Promise<{ evaluations: StudentEvaluation[]; count: number; summary: any }> {
+    console.log('[StudentService] getEvaluations start', { internshipId, limit, offset });
+
     const { data: evaluations, count, error } = await supabase
       .from('evaluations')
       .select(
@@ -228,6 +230,7 @@ class StudentService {
         { count: 'exact' }
       )
       .eq('internship_id', internshipId)
+      .eq('status', 'approved')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

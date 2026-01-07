@@ -31,6 +31,7 @@ async function getStudentReports(supervisorId, filters) {
         }
         const internshipIds = internships.map(i => i.id);
         // Build query for reports
+        console.log('🔵 [SupervisorReportsService] Fetching reports for supervisor:', supervisorId);
         let query = supabase
             .from('student_weekly_accomplishments')
             .select(`
@@ -39,19 +40,21 @@ async function getStudentReports(supervisorId, filters) {
           id,
           first_name,
           last_name,
-          email,
-          student_number
+          email
         ),
         internship:internships(
           id,
           position,
           department,
           company_id,
+          start_date,
+          end_date,
           companies(name)
         )
       `)
             .in('internship_id', internshipIds)
-            .order('submitted_at', { ascending: false });
+            .order('created_at', { ascending: false });
+        console.log('🔵 [SupervisorReportsService] Querying reports for', internshipIds.length, 'internships');
         // Apply filters
         if (filters?.internship_id) {
             query = query.eq('internship_id', filters.internship_id);
@@ -67,8 +70,10 @@ async function getStudentReports(supervisorId, filters) {
         }
         const { data: reports, error: reportsError } = await query;
         if (reportsError) {
+            console.error('❌ [SupervisorReportsService] Query error:', reportsError);
             throw new Error(`Failed to fetch reports: ${reportsError.message}`);
         }
+        console.log('✅ [SupervisorReportsService] Fetched', reports?.length || 0, 'reports');
         return {
             success: true,
             data: reports,
@@ -155,7 +160,6 @@ async function approveWeeklyReport(reportId, supervisorId, comments) {
             .update({
             status: 'approved',
             approved_at: new Date().toISOString(),
-            approved_by: supervisorId,
             supervisor_comments: comments?.trim() || null,
             updated_at: new Date().toISOString(),
         })
@@ -165,19 +169,6 @@ async function approveWeeklyReport(reportId, supervisorId, comments) {
         if (updateError) {
             throw new Error(`Failed to approve report: ${updateError.message}`);
         }
-        // Log activity
-        await supabase.from('activity_logs').insert({
-            user_id: supervisorId,
-            action: 'weekly_report_approved',
-            entity_type: 'weekly_report',
-            entity_id: reportId,
-            details: {
-                internship_id: report.internship_id,
-                week_number: report.week_number,
-                student_id: report.student_id,
-                comments: comments || null,
-            },
-        });
         // Notify student
         await supabase.from('notifications').insert({
             user_id: report.student_id,
@@ -256,7 +247,6 @@ async function rejectWeeklyReport(reportId, supervisorId, rejectionReason) {
             .update({
             status: 'rejected',
             rejected_at: new Date().toISOString(),
-            rejected_by: supervisorId,
             supervisor_comments: rejectionReason.trim(),
             updated_at: new Date().toISOString(),
         })
@@ -266,19 +256,6 @@ async function rejectWeeklyReport(reportId, supervisorId, rejectionReason) {
         if (updateError) {
             throw new Error(`Failed to reject report: ${updateError.message}`);
         }
-        // Log activity
-        await supabase.from('activity_logs').insert({
-            user_id: supervisorId,
-            action: 'weekly_report_rejected',
-            entity_type: 'weekly_report',
-            entity_id: reportId,
-            details: {
-                internship_id: report.internship_id,
-                week_number: report.week_number,
-                student_id: report.student_id,
-                rejection_reason: rejectionReason,
-            },
-        });
         // Notify student with rejection reason
         await supabase.from('notifications').insert({
             user_id: report.student_id,
@@ -392,7 +369,7 @@ async function getReportsSummaryByStudent(supervisorId, internshipId) {
                 .eq('internship_id', internship.id);
             const { data: student } = await supabase
                 .from('users')
-                .select('id, first_name, last_name, student_number')
+                .select('id, first_name, last_name, email')
                 .eq('id', internship.student_id)
                 .single();
             return {

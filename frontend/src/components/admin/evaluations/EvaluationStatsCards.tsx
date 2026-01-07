@@ -36,28 +36,29 @@ export function EvaluationStatsCards({ metrics, loading }: EvaluationStatsCardsP
     return null;
   }
 
+  // Backend returns proper evaluation count metrics
   const stats = [
     {
       title: 'Total Evaluations',
-      value: (metrics.total_this_month || 0) + (metrics.total_processed || 0),
+      value: metrics.total || 0,
       icon: FileText,
       color: 'text-blue-600',
     },
     {
       title: 'On Draft',
-      value: metrics.total_this_month || 0,
+      value: metrics.on_draft || 0,
       icon: Clock,
       color: 'text-yellow-600',
     },
     {
       title: 'Submitted',
-      value: metrics.total_processed || 0,
+      value: metrics.submitted || 0,
       icon: CheckCircle,
       color: 'text-blue-500',
     },
     {
       title: 'Approved',
-      value: Math.round((metrics.total_processed || 0) * (metrics.bias_pass_rate || 0)),
+      value: metrics.approved || 0,
       icon: TrendingUp,
       color: 'text-green-600',
     },

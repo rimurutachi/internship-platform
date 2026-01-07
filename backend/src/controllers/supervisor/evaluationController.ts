@@ -29,7 +29,7 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       comments,
     } = req.body;
 
-    console.log('Creating final evaluation:', { supervisorId, internship_id, criterion_scores });
+    console.log('🔵 Creating final evaluation:', { supervisorId, internship_id, criterion_scores, attendance, punctuality });
 
     if (!supervisorId) {
       return res.status(401).json({
@@ -42,11 +42,11 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
     // Validate internship
     const { data: internship, error: internshipError } = await supabase
       .from('internships')
-      .select('id, supervisor_id, student_id, advisor_id, university_id')
+      .select('id, supervisor_id, student_id, advisor_id')
       .eq('id', internship_id)
       .single();
 
-    console.log('Internship lookup result:', { internship, internshipError });
+    console.log('✅ Internship lookup result:', { internship, internshipError });
 
     if (internshipError || !internship) {
       return res.status(404).json({
@@ -64,12 +64,38 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       });
     }
 
+    // Get supervisor's university_id from users table
+    const { data: supervisor, error: supervisorError } = await supabase
+      .from('users')
+      .select('university_id')
+      .eq('id', supervisorId)
+      .single();
+
+    console.log('✅ Supervisor lookup result:', { supervisor, supervisorError });
+
+    if (supervisorError || !supervisor) {
+      return res.status(404).json({
+        success: false,
+        error: 'Supervisor not found',
+        message: 'Could not find supervisor record',
+      });
+    }
+
     // Validate criterion scores
     if (!criterion_scores || !Array.isArray(criterion_scores) || criterion_scores.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
         message: 'Must provide criterion scores',
+      });
+    }
+
+    if (!attendance || !punctuality) {
+      console.warn('⚠️ Missing attendance or punctuality:', { attendance, punctuality });
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'Attendance and punctuality are required',
       });
     }
 
@@ -98,24 +124,32 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
     const { data: rubric } = await supabase
       .from('evaluation_rubrics')
       .select('id')
-      .eq('university_id', internship.university_id)
+      .eq('university_id', supervisor.university_id)
       .eq('is_active', true)
       .single();
+
+    console.log('✅ Active rubric lookup result:', { rubric });
 
     let gradeEquivalent = null;
     if (rubric) {
       gradeEquivalent = await calculateGrade(rubric.id, totalScore);
     }
 
-    // Check if a draft already exists for this internship
-    const { data: existingDraft } = await supabase
+    console.log('✅ Grade calculated:', { totalScore, gradeEquivalent, rubricId: rubric?.id });
+
+    // Check if a draft already exists for this internship (most recent draft)
+    const { data: existingDraft, error: existingDraftError } = await supabase
       .from('evaluations')
-      .select('id')
+      .select('id, status, created_at')
       .eq('internship_id', internship_id)
       .eq('supervisor_id', supervisorId)
       .eq('evaluation_type', 'final')
       .eq('status', 'draft')
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    console.log('🔎 Existing draft lookup:', { existingDraft, existingDraftError });
 
     let evaluation;
 
@@ -158,7 +192,6 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
           internship_id,
           student_id: internship.student_id,
           supervisor_id: supervisorId,
-          evaluator_id: supervisorId,
           rubric_id: rubric?.id || null,
           total_score: totalScore,
           final_grade: gradeEquivalent,
@@ -171,7 +204,10 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
         .select()
         .single();
 
+      console.log('🔵 Insert evaluation result:', { createError });
+
       if (createError) {
+        console.error('❌ Failed to create evaluation:', createError);
         return res.status(500).json({
           success: false,
           error: 'Failed to create evaluation',
@@ -179,6 +215,7 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
         });
       }
 
+      console.log('✅ Evaluation created:', created);
       evaluation = created;
     }
 
@@ -190,11 +227,14 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       score: s.score,
     }));
 
+    console.log('🔵 Inserting criterion scores:', scoreInserts);
+
     const { error: scoresError } = await supabase
       .from('evaluation_criterion_scores')
       .insert(scoreInserts);
 
     if (scoresError) {
+      console.error('❌ Failed to insert criterion scores:', scoresError);
       // Rollback evaluation if scores insert fails
       await supabase.from('evaluations').delete().eq('id', evaluation.id);
       return res.status(500).json({
@@ -203,6 +243,8 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
         message: scoresError.message,
       });
     }
+
+    console.log('✅ Criterion scores inserted successfully');
 
     return res.status(201).json({
       success: true,
@@ -213,7 +255,7 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
       message: 'Evaluation draft created successfully',
     });
   } catch (error: any) {
-    console.error('Create final evaluation error:', error);
+    console.error('❌ Create final evaluation error:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -240,7 +282,7 @@ export async function saveFinalEvaluationDraft(req: AuthRequest, res: Response) 
     // Get evaluation
     const { data: evaluation, error: fetchError } = await supabase
       .from('evaluations')
-      .select('*, internship:internships(university_id)')
+      .select('*')
       .eq('id', id)
       .eq('supervisor_id', supervisorId)
       .single();
@@ -257,6 +299,21 @@ export async function saveFinalEvaluationDraft(req: AuthRequest, res: Response) 
         success: false,
         error: 'Cannot edit submitted evaluation',
         message: 'Only draft evaluations can be edited',
+      });
+    }
+
+    // Get supervisor's university_id from users table
+    const { data: supervisor, error: supervisorError } = await supabase
+      .from('users')
+      .select('university_id')
+      .eq('id', supervisorId)
+      .single();
+
+    if (supervisorError || !supervisor) {
+      return res.status(404).json({
+        success: false,
+        error: 'Supervisor not found',
+        message: 'Could not find supervisor record',
       });
     }
 

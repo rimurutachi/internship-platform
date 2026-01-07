@@ -1,19 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  FileText, 
-  CheckCircle, 
-  XCircle, 
+import {
+  FileText,
   Clock,
   Eye,
-  User,
   Building2,
   Calendar,
-  Download,
-  MessageSquare,
-  Search
+  Search,
 } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
@@ -31,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { createSupabaseClient } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -81,57 +74,32 @@ interface WeeklyReport {
 
 interface Evaluation {
   id: string;
+  internship_id: string;
+  student_id: string;
+  supervisor_id: string;
   studentName: string;
   studentEmail: string;
+  supervisorName: string;
   company: string;
   position: string;
-  evaluationType: 'midterm' | 'final';
-  overallGrade: number;
-  technicalScore: number;
-  communicationScore: number;
-  workEthicScore: number;
-  status: 'pending_review' | 'approved' | 'revision_requested';
+  evaluationType: 'final';
+  rubric_id?: string | null;
+  criterion_scores: Array<{
+    criterion_code: string;
+    criterion_name: string;
+    score: number;
+  }>;
+  total_score: number | null;
+  final_grade: number | null;
+  attendance?: string | null;
+  punctuality?: string | null;
+  supervisorComment?: string | null;
+  status: 'submitted' | 'revision_requested' | 'approved';
   submittedAt: string;
-  supervisorComment: string;
-  advisorComment?: string;
+  approvedAt?: string;
 }
 
-const mockEvaluations: Evaluation[] = [
-  {
-    id: '1',
-    studentName: 'Alice Johnson',
-    studentEmail: 'alice.j@university.edu',
-    company: 'Tech Corp',
-    position: 'Software Engineering Intern',
-    evaluationType: 'midterm',
-    overallGrade: 4.5,
-    technicalScore: 4.7,
-    communicationScore: 4.3,
-    workEthicScore: 4.6,
-    status: 'pending_review',
-    submittedAt: '2025-11-08T15:30:00',
-    supervisorComment: 'Alice has shown excellent technical skills and adapts quickly to new challenges. She communicates well with the team and consistently meets deadlines.'
-  },
-  {
-    id: '2',
-    studentName: 'Bob Martinez',
-    studentEmail: 'bob.m@university.edu',
-    company: 'DataWorks Inc',
-    position: 'Data Analyst Intern',
-    evaluationType: 'midterm',
-    overallGrade: 4.2,
-    technicalScore: 4.0,
-    communicationScore: 4.4,
-    workEthicScore: 4.3,
-    status: 'approved',
-    submittedAt: '2025-11-05T14:00:00',
-    supervisorComment: 'Bob demonstrates strong analytical skills and attention to detail. His communication with stakeholders has improved significantly.',
-    advisorComment: 'Approved. Bob is making good progress.'
-  }
-];
-
 export default function EvaluationsReports() {
-  const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'weekly-reports' | 'evaluations'>('weekly-reports');
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,23 +108,28 @@ export default function EvaluationsReports() {
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
-  const [advisorComment, setAdvisorComment] = useState('');
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
 
   useEffect(() => {
     fetchWeeklyReports();
+    fetchEvaluations();
   }, []);
 
   const fetchWeeklyReports = async () => {
     try {
+      console.log('📊 [Advisor Weekly Reports] Starting fetch...');
       setLoadingReports(true);
       const supabase = createSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
+        console.error('❌ [Advisor Weekly Reports] No session token available');
         throw new Error('No session token available');
       }
+      console.log('✅ [Advisor Weekly Reports] Session token obtained');
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
       const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
@@ -175,6 +148,7 @@ export default function EvaluationsReports() {
       }
 
       const studentsData = await studentsRes.json();
+      console.log('📝 [Advisor Weekly Reports] Fetched', studentsData.data?.length || 0, 'advisor students');
       const internships: Array<{
         internshipId: string;
         studentName: string;
@@ -242,6 +216,7 @@ export default function EvaluationsReports() {
       );
 
       const flattened: WeeklyReport[] = reportsByInternship.flat();
+      console.log('✅ [Advisor Weekly Reports] Successfully fetched', flattened.length, 'total reports');
       setReports(flattened);
     } catch (error: any) {
       console.error('❌ [Advisor Weekly Reports] Error:', error);
@@ -256,6 +231,170 @@ export default function EvaluationsReports() {
     }
   };
 
+  const fetchEvaluations = async () => {
+    try {
+      console.log('📊 [Advisor Evaluations] Starting fetch...');
+      setLoadingEvaluations(true);
+      const supabase = createSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('❌ [Advisor Evaluations] No user found');
+        return;
+      }
+      console.log('✅ [Advisor Evaluations] User authenticated:', user.id);
+
+      console.log('🔍 [Advisor Evaluations] Querying evaluations table with advisor_id:', user.id);
+      const { data: evaluationsData, error } = await supabase
+        .from('evaluations')
+        .select(`
+          id,
+          internship_id,
+          student_id,
+          supervisor_id,
+          advisor_id,
+          evaluation_type,
+          rubric_id,
+          total_score,
+          final_grade,
+          attendance,
+          punctuality,
+          supervisor_comments,
+          status,
+          submitted_at,
+          approved_at,
+          internships:internships!evaluations_internship_id_fkey(
+            id,
+            position,
+            student_id,
+            supervisor_id,
+            advisor_id,
+            companies(name)
+          ),
+          users:users!evaluations_student_id_fkey(
+            id,
+            email,
+            first_name,
+            last_name
+          ),
+          supervisor:users!evaluations_supervisor_id_fkey(
+            id,
+            first_name,
+            last_name
+          ),
+          evaluation_criterion_scores: evaluation_criterion_scores(criterion_code, criterion_name, score)
+        `)
+        .eq('evaluation_type', 'final')
+        .eq('status', 'approved')
+        .eq('advisor_id', user.id)
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ [Advisor Evaluations] Supabase query error:', error);
+        throw error;
+      }
+      console.log('✅ [Advisor Evaluations] Query successful, received', evaluationsData?.length || 0, 'evaluations');
+
+      console.log('🔍 [Advisor Evaluations] Fetching advised students...');
+      const { data: advisedStudents } = await supabase
+        .from('internships')
+        .select('student_id')
+        .eq('advisor_id', user.id);
+
+      const advisedStudentIds = (advisedStudents || []).map((s) => s.student_id);
+      console.log('✅ [Advisor Evaluations] Found', advisedStudentIds.length, 'advised students');
+      console.log('📋 [Advisor Evaluations] Advised student IDs:', advisedStudentIds);
+
+      console.log('📊 [Advisor Evaluations] Raw evaluations from query:', evaluationsData?.length || 0);
+      console.log('🔍 [Advisor Evaluations] Full query result:', JSON.stringify(evaluationsData, null, 2));
+      
+      if (evaluationsData && evaluationsData.length > 0) {
+        console.log('📋 [Advisor Evaluations] First evaluation:', {
+          id: evaluationsData[0].id,
+          student_id: evaluationsData[0].student_id,
+          status: evaluationsData[0].status,
+          approved_at: evaluationsData[0].approved_at,
+          final_grade: evaluationsData[0].final_grade,
+        });
+        console.log('📋 [Advisor Evaluations] All evaluation student_ids:', evaluationsData.map((e: any) => e.student_id));
+        console.log('📋 [Advisor Evaluations] Status breakdown:', evaluationsData.reduce((acc: any, e: any) => {
+          acc[e.status] = (acc[e.status] || 0) + 1;
+          return acc;
+        }, {}));
+      } else {
+        console.warn('⚠️ [Advisor Evaluations] No evaluations returned from query!');
+        console.log('🔍 [Advisor Evaluations] Checking ALL evaluations (no status filter)...');
+        const { data: allEvals } = await supabase
+          .from('evaluations')
+          .select('id, student_id, status, approved_at, final_grade')
+          .eq('evaluation_type', 'final')
+          .order('submitted_at', { ascending: false })
+          .limit(10);
+        console.log('📋 [Advisor Evaluations] ALL recent evaluations (first 10):', allEvals);
+      }
+
+      const formatted: Evaluation[] = (evaluationsData || [])
+        .filter((evaluation: any) => {
+          const matches = advisedStudentIds.includes(evaluation.student_id);
+          if (!matches && evaluationsData && evaluationsData.length > 0) {
+            console.warn('⚠️ [Advisor Evaluations] Student', evaluation.student_id, 'not in advised list');
+          }
+          return matches;
+        })
+        .filter((evaluation: any) => advisedStudentIds.includes(evaluation.student_id))
+        .map((evaluation: any) => ({
+          id: evaluation.id,
+          internship_id: evaluation.internship_id,
+          student_id: evaluation.student_id,
+          supervisor_id: evaluation.supervisor_id,
+          studentName: evaluation.users ? `${evaluation.users.first_name} ${evaluation.users.last_name}` : 'Unknown',
+          studentEmail: evaluation.users?.email || 'Unknown',
+          supervisorName: evaluation.supervisor ? `${evaluation.supervisor.first_name} ${evaluation.supervisor.last_name}` : 'Unknown',
+          company: (evaluation.internships?.companies as any)?.name || 'Unknown',
+          position: evaluation.internships?.position || 'Intern',
+          evaluationType: 'final',
+          rubric_id: evaluation.rubric_id,
+          criterion_scores: evaluation.evaluation_criterion_scores || [],
+          total_score: evaluation.total_score,
+          final_grade: evaluation.final_grade,
+          attendance: evaluation.attendance,
+          punctuality: evaluation.punctuality,
+          supervisorComment: evaluation.supervisor_comments,
+          status: evaluation.status,
+          submittedAt: evaluation.submitted_at,
+          approvedAt: evaluation.approved_at,
+        }));
+      
+      console.log('✅ [Advisor Evaluations] Formatted', formatted.length, 'evaluations for advisor students');
+
+      setEvaluations(formatted);
+      console.log('✅ [Advisor Evaluations] Successfully set', formatted.length, 'evaluations in state');
+    } catch (error: any) {
+      console.error('❌ [Advisor Evaluations] Error:', error);
+      console.error('❌ [Advisor Evaluations] Error details:', JSON.stringify(error, null, 2));
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load evaluations',
+        variant: 'destructive',
+      });
+      setEvaluations([]);
+    } finally {
+      setLoadingEvaluations(false);
+    }
+  };
+
+  const getMaxScore = (evaluation?: Evaluation | null) => {
+    if (!evaluation) return 0;
+    const count = evaluation.criterion_scores?.length || 0;
+    return count > 0 ? count * 10 : 70;
+  };
+
+  const getPercentageScore = (evaluation?: Evaluation | null) => {
+    if (!evaluation || evaluation.total_score === null || evaluation.total_score === undefined) return null;
+    const maxScore = getMaxScore(evaluation);
+    if (!maxScore) return null;
+    return ((evaluation.total_score / maxScore) * 100).toFixed(1);
+  };
+
   const filteredReports = useMemo(() => {
     return reports.filter(report => {
       const matchesSearch = report.studentName?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -264,12 +403,14 @@ export default function EvaluationsReports() {
     });
   }, [reports, searchQuery, filterStatus]);
 
-  const filteredEvaluations = mockEvaluations.filter(evaluation => {
-    const matchesSearch = evaluation.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         evaluation.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || evaluation.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredEvaluations = useMemo(() => {
+    return evaluations.filter((evaluation) => {
+      const matchesSearch = evaluation.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        evaluation.studentEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || evaluation.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [evaluations, searchQuery, filterStatus]);
 
   const reportStats = useMemo(() => ({
     total: reports.length,
@@ -279,17 +420,22 @@ export default function EvaluationsReports() {
   }), [reports]);
 
   const evaluationStats = {
-    total: mockEvaluations.length,
-    pendingReview: mockEvaluations.filter(e => e.status === 'pending_review').length,
-    approved: mockEvaluations.filter(e => e.status === 'approved').length,
-    revisionRequested: mockEvaluations.filter(e => e.status === 'revision_requested').length
+    total: evaluations.length,
+    pendingReview: evaluations.filter(e => e.status === 'submitted').length,
+    approved: evaluations.filter(e => e.status === 'approved').length,
+    revisionRequested: evaluations.filter(e => e.status === 'revision_requested').length,
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'bg-[#4CAF50]/10 text-[#4CAF50] border-[#4CAF50]/20';
-      case 'pending': case 'pending_review': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'rejected': case 'revision_requested': return 'bg-red-100 text-red-700 border-red-200';
+      case 'pending':
+      case 'pending_review':
+      case 'submitted':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'rejected':
+      case 'revision_requested':
+        return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
@@ -301,20 +447,7 @@ export default function EvaluationsReports() {
 
   const handleViewEvaluation = (evaluation: Evaluation) => {
     setSelectedEvaluation(evaluation);
-    setAdvisorComment(evaluation.advisorComment || '');
     setIsEvaluationModalOpen(true);
-  };
-
-  const handleApproveEvaluation = () => {
-    // Backend integration will be added here
-    console.log('Approve evaluation:', selectedEvaluation?.id, advisorComment);
-    setIsEvaluationModalOpen(false);
-  };
-
-  const handleRequestRevision = () => {
-    // Backend integration will be added here
-    console.log('Request revision:', selectedEvaluation?.id, advisorComment);
-    setIsEvaluationModalOpen(false);
   };
 
   return (
@@ -467,17 +600,11 @@ export default function EvaluationsReports() {
                 {/* Evaluations Tab */}
                 <TabsContent value="evaluations" className="space-y-6">
                   {/* Stats Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Card className="bg-white border border-gray-200">
                       <CardContent className="p-6">
                         <div className="text-3xl font-bold text-gray-900">{evaluationStats.total}</div>
-                        <div className="text-base text-gray-600 mt-1">Total Evaluations</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-white border border-gray-200">
-                      <CardContent className="p-6">
-                        <div className="text-3xl font-bold text-yellow-600">{evaluationStats.pendingReview}</div>
-                        <div className="text-base text-gray-600 mt-1">Awaiting Review</div>
+                        <div className="text-base text-gray-600 mt-1">Total Final Evaluations</div>
                       </CardContent>
                     </Card>
                     <Card className="bg-white border border-gray-200">
@@ -488,8 +615,8 @@ export default function EvaluationsReports() {
                     </Card>
                     <Card className="bg-white border border-gray-200">
                       <CardContent className="p-6">
-                        <div className="text-3xl font-bold text-red-600">{evaluationStats.revisionRequested}</div>
-                        <div className="text-base text-gray-600 mt-1">Revision Requested</div>
+                        <div className="text-3xl font-bold text-yellow-600">{evaluationStats.pendingReview}</div>
+                        <div className="text-base text-gray-600 mt-1">Submitted</div>
                       </CardContent>
                     </Card>
                   </div>
@@ -513,7 +640,7 @@ export default function EvaluationsReports() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="pending_review">Pending Review</SelectItem>
+                            <SelectItem value="submitted">Submitted</SelectItem>
                             <SelectItem value="approved">Approved</SelectItem>
                             <SelectItem value="revision_requested">Revision Requested</SelectItem>
                           </SelectContent>
@@ -524,7 +651,13 @@ export default function EvaluationsReports() {
 
                   {/* Evaluations List */}
                   <div className="space-y-4">
-                    {filteredEvaluations.length === 0 ? (
+                    {loadingEvaluations ? (
+                      <Card className="bg-white border border-gray-200">
+                        <CardContent className="py-16 text-center">
+                          <p className="text-gray-600 text-lg">Loading evaluations...</p>
+                        </CardContent>
+                      </Card>
+                    ) : filteredEvaluations.length === 0 ? (
                       <Card className="bg-white border border-gray-200">
                         <CardContent className="py-16 text-center">
                           <p className="text-gray-600 text-lg">No evaluations found</p>
@@ -541,7 +674,7 @@ export default function EvaluationsReports() {
                                     {evaluation.status.replace('_', ' ')}
                                   </Badge>
                                   <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-base px-3 py-1">
-                                    {evaluation.evaluationType}
+                                    Final Evaluation
                                   </Badge>
                                 </div>
                                 <h3 className="text-xl font-semibold text-gray-900 mb-1">{evaluation.studentName}</h3>
@@ -559,16 +692,31 @@ export default function EvaluationsReports() {
                               </div>
                               <div className="flex items-center gap-6">
                                 <div className="text-center">
-                                  <div className="text-3xl font-bold text-[#4CAF50]">{evaluation.overallGrade}</div>
-                                  <div className="text-sm text-gray-600 mt-1">Overall Grade</div>
+                                  <div className="text-2xl font-bold text-[#4CAF50]">
+                                    {evaluation.total_score ?? 'N/A'}/{getMaxScore(evaluation) || '—'}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">Total Score</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-gray-900">
+                                    {getPercentageScore(evaluation) ? `${getPercentageScore(evaluation)}%` : 'N/A'}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">Percentage</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-[#4CAF50]">
+                                    {evaluation.final_grade?.toFixed(2) ?? 'N/A'}
+                                  </div>
+                                  <div className="text-sm text-gray-600 mt-1">Final Grade</div>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                   <Button 
-                                    className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-base py-5 px-6"
+                                    variant="outline"
+                                    className="border-gray-300 hover:bg-gray-50 text-base py-5 px-6"
                                     onClick={() => handleViewEvaluation(evaluation)}
                                   >
                                     <Eye className="w-5 h-5 mr-2" />
-                                    Review & Approve
+                                    View Details
                                   </Button>
                                 </div>
                               </div>
@@ -649,7 +797,7 @@ export default function EvaluationsReports() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="text-2xl font-bold text-yellow-600">{evaluationStats.pendingReview}</div>
-                    <div className="text-xs text-gray-600">Pending</div>
+                    <div className="text-xs text-gray-600">Submitted</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -672,15 +820,24 @@ export default function EvaluationsReports() {
                       <p className="text-xs text-gray-600 mb-2">{evaluation.company}</p>
                       <div className="flex items-center justify-between">
                         <div className="text-center">
-                          <div className="text-xl font-bold text-[#4CAF50]">{evaluation.overallGrade}</div>
+                          <div className="text-lg font-bold text-[#4CAF50]">{evaluation.total_score ?? 'N/A'}/{getMaxScore(evaluation) || '—'}</div>
+                          <div className="text-xs text-gray-600">Total</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-bold text-gray-900">{getPercentageScore(evaluation) ? `${getPercentageScore(evaluation)}%` : 'N/A'}</div>
+                          <div className="text-xs text-gray-600">Percent</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-bold text-[#4CAF50]">{evaluation.final_grade?.toFixed(2) ?? 'N/A'}</div>
                           <div className="text-xs text-gray-600">Grade</div>
                         </div>
                         <Button 
                           size="sm"
-                          className="bg-[#4CAF50] hover:bg-[#45a049] text-xs"
+                          variant="outline"
+                          className="text-xs"
                           onClick={() => handleViewEvaluation(evaluation)}
                         >
-                          Review
+                          View
                         </Button>
                       </div>
                     </CardContent>
@@ -792,33 +949,64 @@ export default function EvaluationsReports() {
               </div>
 
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Performance Scores</h4>
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Score Summary</h4>
                 <Card className="bg-gray-50 border border-gray-200">
                   <CardContent className="p-6">
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-[#4CAF50] mb-1">{selectedEvaluation.overallGrade}</div>
-                        <div className="text-base text-gray-600">Overall Grade</div>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-3xl font-bold text-[#4CAF50]">
+                          {selectedEvaluation.total_score ?? 'N/A'}/{getMaxScore(selectedEvaluation) || '—'}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Total Score</div>
                       </div>
-                      <div className="text-center">
-                        <Badge className="bg-purple-100 text-purple-700 text-base px-3 py-1">
-                          {selectedEvaluation.evaluationType} Evaluation
-                        </Badge>
+                      <div>
+                        <div className="text-3xl font-bold text-gray-900">
+                          {getPercentageScore(selectedEvaluation) ? `${getPercentageScore(selectedEvaluation)}%` : 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Percentage</div>
+                      </div>
+                      <div>
+                        <div className="text-3xl font-bold text-[#4CAF50]">
+                          {selectedEvaluation.final_grade?.toFixed(2) ?? 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Final Grade</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900 mb-1">{selectedEvaluation.technicalScore}/5</div>
-                        <div className="text-sm text-gray-600">Technical</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900 mb-1">{selectedEvaluation.communicationScore}/5</div>
-                        <div className="text-sm text-gray-600">Communication</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900 mb-1">{selectedEvaluation.workEthicScore}/5</div>
-                        <div className="text-sm text-gray-600">Work Ethic</div>
-                      </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">Rubric Criteria Scores</h4>
+                <Card className="bg-white border border-gray-200">
+                  <CardContent className="p-4 space-y-3">
+                    {selectedEvaluation.criterion_scores && selectedEvaluation.criterion_scores.length > 0 ? (
+                      selectedEvaluation.criterion_scores.map((score, idx) => (
+                        <div key={`${score.criterion_code}-${idx}`} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{score.criterion_code}. {score.criterion_name}</p>
+                          </div>
+                          <p className="text-lg font-bold text-[#4CAF50]">{score.score}/10</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-600">No rubric scores available.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">Attendance & Punctuality</h4>
+                <Card className="bg-white border border-gray-200">
+                  <CardContent className="p-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Attendance</p>
+                      <Badge variant="outline" className="mt-1 capitalize">{selectedEvaluation.attendance || 'N/A'}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Punctuality</p>
+                      <Badge variant="outline" className="mt-1 capitalize">{selectedEvaluation.punctuality || 'N/A'}</Badge>
                     </div>
                   </CardContent>
                 </Card>
@@ -827,36 +1015,8 @@ export default function EvaluationsReports() {
               <div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-2">Supervisor's Comment</h4>
                 <p className="text-base text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  {selectedEvaluation.supervisorComment}
+                  {selectedEvaluation.supervisorComment || 'No comments provided.'}
                 </p>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">Advisor's Comment / Decision</h4>
-                <Textarea
-                  value={advisorComment}
-                  onChange={(e) => setAdvisorComment(e.target.value)}
-                  placeholder="Add your comments or feedback here..."
-                  className="min-h-32 text-base border-gray-300"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t">
-                <Button
-                  className="flex-1 bg-[#4CAF50] hover:bg-[#45a049] text-white text-base py-6"
-                  onClick={handleApproveEvaluation}
-                >
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  Approve Evaluation
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-red-300 text-red-700 hover:bg-red-50 text-base py-6"
-                  onClick={handleRequestRevision}
-                >
-                  <XCircle className="w-5 h-5 mr-2" />
-                  Request Revision
-                </Button>
               </div>
             </div>
           )}

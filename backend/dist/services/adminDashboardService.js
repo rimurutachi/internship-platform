@@ -15,47 +15,76 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
 async function calculateDashboardMetrics(universityId) {
     try {
         // Students enrolled (active students in this university)
-        const { count: studentsEnrolled } = await supabase
+        const { count: studentsEnrolled, error: studentsEnrolledError } = await supabase
             .from('users')
             .select('id', { count: 'exact', head: true })
             .eq('role', 'student')
             .eq('university_id', universityId)
             .eq('status', 'active')
             .or('is_archived.is.null,is_archived.eq.false');
+        if (studentsEnrolledError) {
+            console.error('[adminDashboard] studentsEnrolled query error', studentsEnrolledError);
+        }
+        console.log('[adminDashboard] studentsEnrolled count', studentsEnrolled || 0);
         // Students pending deployment (no active internship)
-        const { data: studentsWithInternships } = await supabase
+        const { data: studentsWithInternships, error: internshipsForStudentsError } = await supabase
             .from('internships')
             .select('student_id')
             .eq('status', 'active')
             .or('status.eq.ongoing');
+        if (internshipsForStudentsError) {
+            console.error('[adminDashboard] studentsWithInternships query error', internshipsForStudentsError);
+        }
+        console.log('[adminDashboard] studentsWithInternships rows', studentsWithInternships?.length || 0);
         const studentIdsWithInternships = new Set(studentsWithInternships?.map(i => i.student_id) || []);
-        const { data: allActiveStudents } = await supabase
+        const { data: allActiveStudents, error: allActiveStudentsError } = await supabase
             .from('users')
             .select('id')
             .eq('role', 'student')
             .eq('university_id', universityId)
             .eq('status', 'active')
             .or('is_archived.is.null,is_archived.eq.false');
+        if (allActiveStudentsError) {
+            console.error('[adminDashboard] allActiveStudents query error', allActiveStudentsError);
+        }
+        console.log('[adminDashboard] allActiveStudents rows', allActiveStudents?.length || 0);
         const studentsPendingDeployment = (allActiveStudents || [])
             .filter(s => !studentIdsWithInternships.has(s.id)).length;
+        console.log('[adminDashboard] studentsPendingDeployment derived', studentsPendingDeployment);
         // Active internships
-        const { count: activeInternships } = await supabase
+        const { count: activeInternships, error: activeInternshipsError } = await supabase
             .from('internships')
             .select('id', { count: 'exact', head: true })
             .in('status', ['active', 'ongoing']);
+        if (activeInternshipsError) {
+            console.error('[adminDashboard] activeInternships query error', activeInternshipsError);
+        }
+        console.log('[adminDashboard] activeInternships count', activeInternships || 0);
         // Completed internships
-        const { count: completedInternships } = await supabase
+        const { count: completedInternships, error: completedInternshipsError } = await supabase
             .from('internships')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'completed');
+        if (completedInternshipsError) {
+            console.error('[adminDashboard] completedInternships query error', completedInternshipsError);
+        }
+        console.log('[adminDashboard] completedInternships count', completedInternships || 0);
         // Total companies
-        const { count: totalCompanies } = await supabase
+        const { count: totalCompanies, error: totalCompaniesError } = await supabase
             .from('companies')
             .select('id', { count: 'exact', head: true });
+        if (totalCompaniesError) {
+            console.error('[adminDashboard] totalCompanies query error', totalCompaniesError);
+        }
+        console.log('[adminDashboard] totalCompanies count', totalCompanies || 0);
         // Companies with available capacity
-        const { data: companies } = await supabase
+        const { data: companies, error: companiesError } = await supabase
             .from('companies')
             .select('id, capacity_limit, current_students');
+        if (companiesError) {
+            console.error('[adminDashboard] companies query error', companiesError);
+        }
+        console.log('[adminDashboard] companies rows', companies?.length || 0);
         let companiesWithCapacity = 0;
         if (companies) {
             for (const company of companies) {
@@ -68,36 +97,56 @@ async function calculateDashboardMetrics(universityId) {
             }
         }
         // Pending weekly report approvals
-        const { data: supervisorInternships } = await supabase
+        const { data: supervisorInternships, error: supervisorInternshipsError } = await supabase
             .from('internships')
             .select('id')
             .in('status', ['active', 'ongoing']);
+        if (supervisorInternshipsError) {
+            console.error('[adminDashboard] supervisorInternships query error', supervisorInternshipsError);
+        }
+        console.log('[adminDashboard] supervisorInternships rows', supervisorInternships?.length || 0);
         const internshipIds = supervisorInternships?.map(i => i.id) || [];
-        const { count: pendingWeeklyReports } = await supabase
+        const { count: pendingWeeklyReports, error: pendingWeeklyReportsError } = await supabase
             .from('student_weekly_accomplishments')
             .select('id', { count: 'exact', head: true })
             .in('internship_id', internshipIds)
             .eq('status', 'pending_approval');
+        if (pendingWeeklyReportsError) {
+            console.error('[adminDashboard] pendingWeeklyReports query error', pendingWeeklyReportsError);
+        }
+        console.log('[adminDashboard] pendingWeeklyReports count', pendingWeeklyReports || 0, { internshipIdsCount: internshipIds.length });
         // Pending supervisor evaluations (drafts not submitted)
-        const { count: pendingSupervisorEvaluations } = await supabase
+        const { count: pendingSupervisorEvaluations, error: pendingSupervisorEvaluationsError } = await supabase
             .from('evaluations')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'draft');
+        if (pendingSupervisorEvaluationsError) {
+            console.error('[adminDashboard] pendingSupervisorEvaluations query error', pendingSupervisorEvaluationsError);
+        }
+        console.log('[adminDashboard] pendingSupervisorEvaluations count', pendingSupervisorEvaluations || 0);
         // Pending advisor evaluations (submitted but not approved)
-        const { count: pendingAdvisorEvaluations } = await supabase
+        const { count: pendingAdvisorEvaluations, error: pendingAdvisorEvaluationsError } = await supabase
             .from('evaluations')
             .select('id', { count: 'exact', head: true })
             .in('status', ['submitted', 'revision_requested']);
+        if (pendingAdvisorEvaluationsError) {
+            console.error('[adminDashboard] pendingAdvisorEvaluations query error', pendingAdvisorEvaluationsError);
+        }
+        console.log('[adminDashboard] pendingAdvisorEvaluations count', pendingAdvisorEvaluations || 0);
         // Completed evaluations this month
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
-        const { count: completedEvaluationsThisMonth } = await supabase
+        const { count: completedEvaluationsThisMonth, error: completedEvaluationsError } = await supabase
             .from('evaluations')
             .select('id', { count: 'exact', head: true })
             .eq('status', 'approved')
             .gte('advisor_approved_at', startOfMonth.toISOString());
-        return {
+        if (completedEvaluationsError) {
+            console.error('[adminDashboard] completedEvaluationsThisMonth query error', completedEvaluationsError);
+        }
+        console.log('[adminDashboard] completedEvaluationsThisMonth count', completedEvaluationsThisMonth || 0);
+        const result = {
             students_enrolled: studentsEnrolled || 0,
             students_pending_deployment: studentsPendingDeployment,
             active_internships: activeInternships || 0,
@@ -110,6 +159,8 @@ async function calculateDashboardMetrics(universityId) {
             completed_evaluations_this_month: completedEvaluationsThisMonth || 0,
             timestamp: new Date().toISOString(),
         };
+        console.log('[adminDashboard] metrics result', result);
+        return result;
     }
     catch (error) {
         console.error('Error calculating dashboard metrics:', error);
