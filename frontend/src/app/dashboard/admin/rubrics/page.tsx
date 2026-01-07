@@ -29,38 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { createSupabaseClient } from '@/lib/supabase';
-
-interface RubricCriterion {
-  id: string;
-  name: string;
-  description: string;
-  max_score: number;
-  scale_descriptors: {
-    range: string;
-    label: string;
-    description: string;
-  }[];
-}
-
-interface Rubric {
-  id: string;
-  rubric_name: string;
-  description?: string;
-  university_id: string;
-  academic_year: string;
-  version: number;
-  is_active: boolean;
-  criteria: RubricCriterion[];
-  grading_scale: {
-    min_score: number;
-    max_score: number;
-    grade: number;
-  }[];
-  created_at: string;
-  created_by: string;
-  deactivated_at?: string;
-  deactivation_reason?: string;
-}
+import { adminRubricsAPI, type EvaluationRubric, type RubricCriterion, type GradingScale } from '@/lib/api/admin-rubrics';
 
 interface RubricHistory {
   id: string;
@@ -75,99 +44,99 @@ interface RubricHistory {
 
 const DEFAULT_CRITERIA: RubricCriterion[] = [
   {
-    id: 'quality_of_work',
+    code: 'A',
     name: 'A. Quality of Work',
     description: 'Thoroughness, accuracy, and care in completing tasks',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Work is incomplete, inaccurate, or careless' },
-      { range: '3-4', label: 'Below Average', description: 'Work meets minimum standards but lacks attention to detail' },
-      { range: '5-6', label: 'Satisfactory', description: 'Work is adequate and meets basic expectations' },
-      { range: '7-8', label: 'Good', description: 'Work is thorough, accurate, and well-executed' },
-      { range: '9-10', label: 'Excellent', description: 'Work exceeds expectations with exceptional quality' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Work is incomplete, inaccurate, or careless',
+      '3-4': 'Work meets minimum standards but lacks attention to detail',
+      '5-6': 'Work is adequate and meets basic expectations',
+      '7-8': 'Work is thorough, accurate, and well-executed',
+      '9-10': 'Work exceeds expectations with exceptional quality',
+    },
   },
   {
-    id: 'attitude',
+    code: 'B',
     name: 'B. Attitude',
     description: 'Enthusiasm, interest, and positive approach to work',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Shows disinterest or negative attitude' },
-      { range: '3-4', label: 'Below Average', description: 'Attitude is occasionally negative or unmotivated' },
-      { range: '5-6', label: 'Satisfactory', description: 'Maintains professional attitude most of the time' },
-      { range: '7-8', label: 'Good', description: 'Consistently positive and enthusiastic' },
-      { range: '9-10', label: 'Excellent', description: 'Highly motivated with exceptional enthusiasm' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Shows disinterest or negative attitude',
+      '3-4': 'Attitude is occasionally negative or unmotivated',
+      '5-6': 'Maintains professional attitude most of the time',
+      '7-8': 'Consistently positive and enthusiastic',
+      '9-10': 'Highly motivated with exceptional enthusiasm',
+    },
   },
   {
-    id: 'judgment',
+    code: 'C',
     name: 'C. Judgment',
     description: 'Decision-making and problem-solving abilities',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Makes poor decisions without considering consequences' },
-      { range: '3-4', label: 'Below Average', description: 'Judgment is sometimes questionable' },
-      { range: '5-6', label: 'Satisfactory', description: 'Makes reasonable decisions in most situations' },
-      { range: '7-8', label: 'Good', description: 'Demonstrates sound judgment consistently' },
-      { range: '9-10', label: 'Excellent', description: 'Exceptional problem-solving and decision-making skills' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Makes poor decisions without considering consequences',
+      '3-4': 'Judgment is sometimes questionable',
+      '5-6': 'Makes reasonable decisions in most situations',
+      '7-8': 'Demonstrates sound judgment consistently',
+      '9-10': 'Exceptional problem-solving and decision-making skills',
+    },
   },
   {
-    id: 'cooperation',
+    code: 'D',
     name: 'D. Cooperation',
     description: 'Teamwork and collaboration with others',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Difficult to work with, uncooperative' },
-      { range: '3-4', label: 'Below Average', description: 'Sometimes struggles with teamwork' },
-      { range: '5-6', label: 'Satisfactory', description: 'Works adequately with others' },
-      { range: '7-8', label: 'Good', description: 'Collaborates well with team members' },
-      { range: '9-10', label: 'Excellent', description: 'Outstanding team player, facilitates collaboration' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Difficult to work with, uncooperative',
+      '3-4': 'Sometimes struggles with teamwork',
+      '5-6': 'Works adequately with others',
+      '7-8': 'Collaborates well with team members',
+      '9-10': 'Outstanding team player, facilitates collaboration',
+    },
   },
   {
-    id: 'dependability',
+    code: 'E',
     name: 'E. Dependability',
     description: 'Reliability and punctuality',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Unreliable, frequently absent or late' },
-      { range: '3-4', label: 'Below Average', description: 'Occasionally unreliable or late' },
-      { range: '5-6', label: 'Satisfactory', description: 'Generally reliable and punctual' },
-      { range: '7-8', label: 'Good', description: 'Consistently reliable and on time' },
-      { range: '9-10', label: 'Excellent', description: 'Exceptionally dependable in all situations' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Unreliable, frequently absent or late',
+      '3-4': 'Occasionally unreliable or late',
+      '5-6': 'Generally reliable and punctual',
+      '7-8': 'Consistently reliable and on time',
+      '9-10': 'Exceptionally dependable in all situations',
+    },
   },
   {
-    id: 'comprehension',
+    code: 'F',
     name: 'F. Comprehension',
     description: 'Understanding and learning ability',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Struggles to understand instructions or concepts' },
-      { range: '3-4', label: 'Below Average', description: 'Requires repeated explanations' },
-      { range: '5-6', label: 'Satisfactory', description: 'Understands with minimal guidance' },
-      { range: '7-8', label: 'Good', description: 'Quickly grasps new concepts and instructions' },
-      { range: '9-10', label: 'Excellent', description: 'Outstanding learning ability and comprehension' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Struggles to understand instructions or concepts',
+      '3-4': 'Requires repeated explanations',
+      '5-6': 'Understands with minimal guidance',
+      '7-8': 'Quickly grasps new concepts and instructions',
+      '9-10': 'Outstanding learning ability and comprehension',
+    },
   },
   {
-    id: 'safety',
+    code: 'G',
     name: 'G. Safety',
     description: 'Safety awareness and adherence to protocols',
     max_score: 10,
-    scale_descriptors: [
-      { range: '1-2', label: 'Poor', description: 'Disregards safety protocols' },
-      { range: '3-4', label: 'Below Average', description: 'Sometimes neglects safety procedures' },
-      { range: '5-6', label: 'Satisfactory', description: 'Follows basic safety guidelines' },
-      { range: '7-8', label: 'Good', description: 'Consistently adheres to safety protocols' },
-      { range: '9-10', label: 'Excellent', description: 'Exemplary safety awareness and practices' },
-    ],
+    scale_descriptions: {
+      '1-2': 'Disregards safety protocols',
+      '3-4': 'Sometimes neglects safety procedures',
+      '5-6': 'Follows basic safety guidelines',
+      '7-8': 'Consistently adheres to safety protocols',
+      '9-10': 'Exemplary safety awareness and practices',
+    },
   },
 ];
 
-const DEFAULT_GRADING_SCALE = [
+const DEFAULT_GRADING_SCALE: GradingScale[] = [
   { min_score: 97, max_score: 100, grade: 1.0 },
   { min_score: 94, max_score: 96, grade: 1.25 },
   { min_score: 91, max_score: 93, grade: 1.5 },
@@ -187,8 +156,8 @@ export default function AdminRubricsPage() {
   const [submitting, setSubmitting] = useState(false);
   
   // Data state
-  const [rubrics, setRubrics] = useState<Rubric[]>([]);
-  const [selectedRubric, setSelectedRubric] = useState<Rubric | null>(null);
+  const [rubrics, setRubrics] = useState<EvaluationRubric[]>([]);
+  const [selectedRubric, setSelectedRubric] = useState<EvaluationRubric | null>(null);
   const [rubricHistory, setRubricHistory] = useState<RubricHistory[]>([]);
   const [universityId, setUniversityId] = useState<string>('');
   
@@ -202,7 +171,7 @@ export default function AdminRubricsPage() {
   const [rubricName, setRubricName] = useState('');
   const [rubricDescription, setRubricDescription] = useState('');
   const [criteria, setCriteria] = useState<RubricCriterion[]>(DEFAULT_CRITERIA);
-  const [gradingScale, setGradingScale] = useState(DEFAULT_GRADING_SCALE);
+  const [gradingScale, setGradingScale] = useState<GradingScale[]>(DEFAULT_GRADING_SCALE);
   const [changeReason, setChangeReason] = useState('');
   const [deactivationReason, setDeactivationReason] = useState('');
 
@@ -231,9 +200,10 @@ export default function AdminRubricsPage() {
       const univId = userData.university_id;
       setUniversityId(univId);
 
-      // Fetch rubrics
+      // Fetch rubrics from backend
       await fetchRubrics(univId);
     } catch (error: any) {
+      console.error('[AdminRubrics] Error loading data:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to load data',
@@ -246,57 +216,36 @@ export default function AdminRubricsPage() {
 
   const fetchRubrics = async (univId: string) => {
     try {
-      const supabase = createSupabaseClient();
-      
-      const { data, error } = await supabase
-        .from('evaluation_rubrics')
-        .select('*')
-        .eq('university_id', univId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRubrics(data || []);
+      console.log('[AdminRubrics] Fetching rubrics for university:', univId);
+      const response = await adminRubricsAPI.getAllRubrics(univId, true);
+      if (response.success) {
+        setRubrics(response.data);
+        console.log('[AdminRubrics] Fetched rubrics:', response.data.length);
+      }
     } catch (error: any) {
-      console.error('Failed to fetch rubrics:', error);
+      console.error('[AdminRubrics] Failed to fetch rubrics:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load rubrics',
+        variant: 'destructive',
+      });
     }
   };
 
   const fetchRubricHistory = async (rubricId: string) => {
     try {
-      const supabase = createSupabaseClient();
-      
-      const { data, error } = await supabase
-        .from('evaluation_rubric_history')
-        .select(`
-          *,
-          changer:users!evaluation_rubric_history_changed_by_fkey(first_name, last_name)
-        `)
-        .eq('rubric_id', rubricId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedHistory: RubricHistory[] = (data || []).map((item: any) => ({
-        id: item.id,
-        rubric_id: item.rubric_id,
-        version: item.version,
-        changes: item.changes,
-        change_reason: item.change_reason,
-        changed_by: item.changed_by,
-        changed_by_name: item.changer 
-          ? `${item.changer.first_name} ${item.changer.last_name}`
-          : 'Unknown',
-        changed_at: item.changed_at,
-      }));
-
-      setRubricHistory(formattedHistory);
+      const response = await adminRubricsAPI.getRubricHistory(rubricId);
+      if (response.success) {
+        setRubricHistory(response.data);
+      }
     } catch (error: any) {
-      console.error('Failed to fetch history:', error);
+      console.error('[AdminRubrics] Failed to fetch history:', error);
       setRubricHistory([]);
     }
   };
 
   const openCreateDialog = () => {
+    const currentYear = new Date().getFullYear();
     setRubricName('CvSU Final Evaluation Rubric');
     setRubricDescription('Standard rubric for final internship evaluation');
     setCriteria(DEFAULT_CRITERIA);
@@ -304,7 +253,7 @@ export default function AdminRubricsPage() {
     setCreateDialogOpen(true);
   };
 
-  const openEditDialog = (rubric: Rubric) => {
+  const openEditDialog = (rubric: EvaluationRubric) => {
     setSelectedRubric(rubric);
     setRubricName(rubric.rubric_name || '');
     setRubricDescription(rubric.description || '');
@@ -314,13 +263,13 @@ export default function AdminRubricsPage() {
     setEditDialogOpen(true);
   };
 
-  const openHistoryDialog = async (rubric: Rubric) => {
+  const openHistoryDialog = async (rubric: EvaluationRubric) => {
     setSelectedRubric(rubric);
     await fetchRubricHistory(rubric.id);
     setHistoryDialogOpen(true);
   };
 
-  const openDeactivateDialog = (rubric: Rubric) => {
+  const openDeactivateDialog = (rubric: EvaluationRubric) => {
     setSelectedRubric(rubric);
     setDeactivationReason('');
     setDeactivateDialogOpen(true);
@@ -345,52 +294,41 @@ export default function AdminRubricsPage() {
       return;
     }
 
+    if (!criteria || criteria.length !== 7) {
+      toast({
+        title: 'Validation Error',
+        description: 'Rubric must have exactly 7 criteria (A-G)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
-      const supabase = createSupabaseClient();
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      if (!universityId) {
-        throw new Error('University ID is required');
-      }
-
-      // Get current academic year (e.g., "2024-2025")
       const currentYear = new Date().getFullYear();
       const academicYear = `${currentYear}-${currentYear + 1}`;
 
-      const newRubric = {
-        rubric_name: rubricName,
-        description: rubricDescription || null,
+      console.log('[AdminRubrics] Creating rubric:', { rubricName, universityId });
+
+      const response = await adminRubricsAPI.createRubric({
         university_id: universityId,
         academic_year: academicYear,
-        version: 1,
-        is_active: false,
-        criteria: criteria,
+        rubric_name: rubricName,
+        description: rubricDescription || undefined,
+        criteria,
         grading_scale: gradingScale,
-        created_by: user.id,
-      };
-
-      console.log('Creating rubric with data:', newRubric);
-
-      const { error } = await supabase
-        .from('evaluation_rubrics')
-        .insert([newRubric]);
-
-      if (error) {
-        console.error('Supabase insert error:', error);
-        throw new Error(error.message || 'Failed to create rubric');
-      }
-
-      toast({
-        title: 'Rubric Created',
-        description: 'New rubric has been created successfully',
       });
 
-      setCreateDialogOpen(false);
-      fetchRubrics(universityId);
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: 'Rubric created successfully',
+        });
+        setCreateDialogOpen(false);
+        await fetchRubrics(universityId);
+      }
     } catch (error: any) {
+      console.error('[AdminRubrics] Create error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to create rubric',
@@ -404,6 +342,15 @@ export default function AdminRubricsPage() {
   const handleUpdateRubric = async () => {
     if (!selectedRubric) return;
 
+    if (!rubricName || rubricName.length < 5) {
+      toast({
+        title: 'Validation Error',
+        description: 'Rubric name must be at least 5 characters',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!changeReason || changeReason.length < 10) {
       toast({
         title: 'Validation Error',
@@ -415,60 +362,29 @@ export default function AdminRubricsPage() {
 
     try {
       setSubmitting(true);
-      const supabase = createSupabaseClient();
+      console.log('[AdminRubrics] Updating rubric:', selectedRubric.id);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Create history record
-      const { error: historyError } = await supabase
-        .from('evaluation_rubric_history')
-        .insert([{
-          rubric_id: selectedRubric.id,
-          version: selectedRubric.version,
-          changes: JSON.stringify({
-            previous: {
-              name: selectedRubric.rubric_name,
-              description: selectedRubric.description,
-              criteria: selectedRubric.criteria,
-              grading_scale: selectedRubric.grading_scale,
-            },
-            new: {
-              name: rubricName,
-              description: rubricDescription,
-              criteria: criteria,
-              grading_scale: gradingScale,
-            },
-          }),
-          change_reason: changeReason,
-          changed_by: user.id,
-        }]);
-
-      if (historyError) throw historyError;
-
-      // Update rubric with incremented version
-      const { error: updateError } = await supabase
-        .from('evaluation_rubrics')
-        .update({
-          name: rubricName,
-          description: rubricDescription,
-          criteria: criteria,
+      const response = await adminRubricsAPI.updateRubric(
+        selectedRubric.id,
+        {
+          rubric_name: rubricName,
+          description: rubricDescription || undefined,
+          criteria,
           grading_scale: gradingScale,
-          version: selectedRubric.version + 1,
-        })
-        .eq('id', selectedRubric.id);
+        },
+        changeReason
+      );
 
-      if (updateError) throw updateError;
-
-      toast({
-        title: 'Rubric Updated',
-        description: `Version ${selectedRubric.version + 1} saved`,
-      });
-
-      setEditDialogOpen(false);
-      setSelectedRubric(null);
-      fetchRubrics(universityId);
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: response.message || 'Rubric updated successfully',
+        });
+        setEditDialogOpen(false);
+        await fetchRubrics(universityId);
+      }
     } catch (error: any) {
+      console.error('[AdminRubrics] Update error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update rubric',
@@ -479,37 +395,30 @@ export default function AdminRubricsPage() {
     }
   };
 
-  const handleActivateRubric = async (rubric: Rubric) => {
+  const handleActivateRubric = async (rubric: EvaluationRubric) => {
+    if (rubric.is_active) {
+      toast({
+        title: 'Info',
+        description: 'This rubric is already active',
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
-      const supabase = createSupabaseClient();
+      console.log('[AdminRubrics] Activating rubric:', rubric.id);
 
-      // Deactivate all other rubrics for this university
-      const { error: deactivateError } = await supabase
-        .from('evaluation_rubrics')
-        .update({ is_active: false })
-        .eq('university_id', universityId)
-        .eq('is_active', true);
+      const response = await adminRubricsAPI.activateRubric(rubric.id);
 
-      if (deactivateError) throw deactivateError;
-
-      // Activate selected rubric
-      const { error: activateError } = await supabase
-        .from('evaluation_rubrics')
-        .update({ 
-          is_active: true,
-        })
-        .eq('id', rubric.id);
-
-      if (activateError) throw activateError;
-
-      toast({
-        title: 'Rubric Activated',
-        description: `${rubric.rubric_name} is now the active rubric`,
-      });
-
-      fetchRubrics(universityId);
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: 'Rubric activated successfully',
+        });
+        await fetchRubrics(universityId);
+      }
     } catch (error: any) {
+      console.error('[AdminRubrics] Activate error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to activate rubric',
@@ -523,39 +432,25 @@ export default function AdminRubricsPage() {
   const handleDeactivateRubric = async () => {
     if (!selectedRubric) return;
 
-    if (!deactivationReason || deactivationReason.length < 10) {
-      toast({
-        title: 'Validation Error',
-        description: 'Deactivation reason must be at least 10 characters',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     try {
       setSubmitting(true);
-      const supabase = createSupabaseClient();
+      console.log('[AdminRubrics] Deactivating rubric:', selectedRubric.id);
 
-      const { error } = await supabase
-        .from('evaluation_rubrics')
-        .update({ 
-          is_active: false,
-          deactivated_at: new Date().toISOString(),
-          deactivation_reason: deactivationReason,
-        })
-        .eq('id', selectedRubric.id);
+      const response = await adminRubricsAPI.deactivateRubric(
+        selectedRubric.id,
+        deactivationReason || undefined
+      );
 
-      if (error) throw error;
-
-      toast({
-        title: 'Rubric Deactivated',
-        description: `${selectedRubric.rubric_name} has been deactivated`,
-      });
-
-      setDeactivateDialogOpen(false);
-      setSelectedRubric(null);
-      fetchRubrics(universityId);
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: 'Rubric deactivated successfully',
+        });
+        setDeactivateDialogOpen(false);
+        await fetchRubrics(universityId);
+      }
     } catch (error: any) {
+      console.error('[AdminRubrics] Deactivate error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to deactivate rubric',
@@ -565,6 +460,7 @@ export default function AdminRubricsPage() {
       setSubmitting(false);
     }
   };
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

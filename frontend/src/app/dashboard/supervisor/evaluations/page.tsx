@@ -65,12 +65,25 @@ import { post, put } from '@/lib/api/client';
     const [criterionScores, setCriterionScores] = useState<Record<string, CriterionScore>>({});
     const [comments, setComments] = useState('');
     const [status, setStatus] = useState<'draft' | 'submitted'>('draft');
+    const [attendance, setAttendance] = useState<'regular' | 'irregular'>('regular');
+    const [punctuality, setPunctuality] = useState<'regular' | 'irregular'>('regular');
 
     // Fetch rubric and internships
     useEffect(() => {
       Promise.all([fetchRubric(), fetchInternships()])
         .finally(() => setLoading(false));
     }, []);
+
+    // When an internship is selected and rubric is loaded, pull the latest draft
+    useEffect(() => {
+      if (!selectedInternshipId || !rubric) return;
+
+      createSupabaseClient().auth.getUser().then(async ({ data }) => {
+        const userId = data.user?.id;
+        if (!userId) return;
+        await fetchExistingDraft(selectedInternshipId, userId);
+      });
+    }, [selectedInternshipId, rubric]);
 
     const fetchRubric = async () => {
       try {
@@ -80,7 +93,7 @@ import { post, put } from '@/lib/api/client';
         // Initialize criterion scores from rubric
         const initialScores: Record<string, CriterionScore> = {};
         activeRubric.criteria.forEach((criterion: RubricCriterion, index: number) => {
-          const criterionKey = criterion.id || criterion.code || `criterion-${index}`;
+          const criterionKey = criterion.code || criterion.id || `criterion-${index}`;
           initialScores[criterionKey] = {
             criterion_code: criterionKey,
             criterion_name: criterion.name,
@@ -102,6 +115,7 @@ import { post, put } from '@/lib/api/client';
         const supabase = createSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+        const currentUserId = user.id;
 
         // Try PostgREST join first
         const { data: internshipsData, error } = await supabase
@@ -173,6 +187,7 @@ import { post, put } from '@/lib/api/client';
         if (formattedInternships.length > 0) {
           setSelectedInternshipId(formattedInternships[0].id);
           setInternship(formattedInternships[0]);
+          await fetchExistingDraft(formattedInternships[0].id, currentUserId);
         }
       } catch (error: any) {
         toast({
@@ -188,6 +203,55 @@ import { post, put } from '@/lib/api/client';
       const selected = internships.find(i => i.id === internshipId);
       if (selected) {
         setInternship(selected);
+        // Load latest draft for this internship so supervisor resumes where they left off
+        createSupabaseClient().auth.getUser().then(async ({ data }) => {
+          const userId = data.user?.id;
+          if (!userId) return;
+          await fetchExistingDraft(internshipId, userId);
+        });
+      }
+    };
+
+    const fetchExistingDraft = async (internshipId: string, supervisorId: string) => {
+      try {
+        const supabase = createSupabaseClient();
+        const { data: draft, error } = await supabase
+          .from('evaluations')
+          .select(`id, attendance, punctuality, supervisor_comments, total_score, final_grade, rubric_id,
+            evaluation_criterion_scores (criterion_code, criterion_name, score)`)
+          .eq('internship_id', internshipId)
+          .eq('supervisor_id', supervisorId)
+          .eq('evaluation_type', 'final')
+          .eq('status', 'draft')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error || !draft) {
+          return;
+        }
+
+        // Restore form state from draft
+        const draftScores: Record<string, CriterionScore> = {};
+        (draft.evaluation_criterion_scores || []).forEach((s: any, index: number) => {
+          const key = s.criterion_code || `criterion-${index}`;
+          draftScores[key] = {
+            criterion_code: s.criterion_code,
+            criterion_name: s.criterion_name,
+            score: s.score,
+          };
+        });
+
+        if (Object.keys(draftScores).length > 0) {
+          setCriterionScores(draftScores);
+        }
+
+        setAttendance((draft.attendance as any) || 'regular');
+        setPunctuality((draft.punctuality as any) || 'regular');
+        setComments(draft.supervisor_comments || '');
+        setStatus('draft');
+      } catch (err: any) {
+        console.warn('⚠️ Failed to load existing draft:', err.message || err);
       }
     };
 
@@ -266,6 +330,15 @@ import { post, put } from '@/lib/api/client';
         return;
       }
 
+      if (!attendance || !punctuality) {
+        toast({
+          title: 'Validation Error',
+          description: 'Attendance and punctuality are required',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Validation
       if (comments.trim().length < 50) {
         toast({
@@ -291,6 +364,8 @@ import { post, put } from '@/lib/api/client';
           internship_id: internship.id,
           criterion_scores: criterionScoreRecords,
           comments: comments.trim(),
+          attendance,
+          punctuality,
         });
 
         // Submit the evaluation
@@ -344,6 +419,8 @@ import { post, put } from '@/lib/api/client';
           internship_id: internship.id,
           criterion_scores: criterionScoreRecords,
           comments: comments.trim() || null,
+          attendance,
+          punctuality,
         });
 
         toast({
@@ -516,7 +593,7 @@ import { post, put } from '@/lib/api/client';
                   <CardContent className="space-y-6">
                     <>
                       {rubric.criteria?.map((criterion: RubricCriterion, index: number) => {
-                        const criterionKey = criterion.id || criterion.code || `criterion-${index}`;
+                        const criterionKey = criterion.code || criterion.id || `criterion-${index}`;
                         const currentScore = criterionScores[criterionKey]?.score ?? Math.ceil(criterion.max_score / 2);
                         return (
                           <div key={`${criterionKey}-${index}`} className="space-y-3 pb-6 border-b last:border-b-0">
@@ -550,6 +627,59 @@ import { post, put } from '@/lib/api/client';
                     </>
                   </CardContent>
                 </Card>
+
+                  {/* Attendance & Punctuality */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Attendance & Punctuality</CardTitle>
+                      <CardDescription>Select the trainee's attendance and punctuality status</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Attendance</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={attendance === 'regular' ? 'default' : 'outline'}
+                            onClick={() => setAttendance('regular')}
+                            disabled={status === 'submitted'}
+                          >
+                            Regular
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={attendance === 'irregular' ? 'default' : 'outline'}
+                            onClick={() => setAttendance('irregular')}
+                            disabled={status === 'submitted'}
+                          >
+                            Irregular
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Punctuality</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={punctuality === 'regular' ? 'default' : 'outline'}
+                            onClick={() => setPunctuality('regular')}
+                            disabled={status === 'submitted'}
+                          >
+                            Regular
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={punctuality === 'irregular' ? 'default' : 'outline'}
+                            onClick={() => setPunctuality('irregular')}
+                            disabled={status === 'submitted'}
+                          >
+                            Irregular
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                 {/* Comments */}
                 <Card>

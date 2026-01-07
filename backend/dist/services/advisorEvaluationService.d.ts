@@ -28,9 +28,7 @@ export declare function getEvaluationsByStatus(advisorId: string, status: 'submi
  * AI analytics will be triggered AFTER approval
  */
 export declare function approveEvaluation(evaluationId: string, advisorId: string, approvalData: {
-    final_grade_override?: number;
-    grade_override_reason?: string;
-    approval_comments: string;
+    approval_comments?: string;
 }): Promise<{
     success: boolean;
     data: any;

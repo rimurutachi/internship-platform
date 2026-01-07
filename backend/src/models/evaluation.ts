@@ -10,6 +10,10 @@ export interface Evaluation {
     rating_technical?: number;
     rating_communication?: number;
     rating_work_ethic?: number;
+    total_score?: number;
+    attendance?: 'regular' | 'irregular';
+    punctuality?: 'regular' | 'irregular';
+    supervisor_comments?: string;
     
     // New fields for evaluation types
     evaluation_type: EvaluationType;

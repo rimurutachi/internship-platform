@@ -36,6 +36,7 @@ export class EvaluationsController {
         .select(
           `
           *,
+          criterion_scores:evaluation_criterion_scores(*),
           internship:internships(
             *,
             student:users!internships_student_id_fkey(id, name, email),
@@ -78,12 +79,6 @@ export class EvaluationsController {
         return res.status(500).json({ error: error.message });
       }
 
-      // Calculate average ratings for each evaluation
-      const evaluationsWithAvg = (data || []).map((evaluation) => ({
-        ...evaluation,
-        avg_rating: this.evaluationService.calculateAverageRating(evaluation),
-      }));
-
       // Get metrics
       const metrics = await this.evaluationService.getQualityMetrics();
 
@@ -91,7 +86,7 @@ export class EvaluationsController {
       res.json({
         success: true,
         data: {
-          evaluations: evaluationsWithAvg,
+          evaluations: data || [],
           pagination: {
             page: pageNum,
             limit: limitNum,
@@ -120,6 +115,7 @@ export class EvaluationsController {
         .select(
           `
           *,
+          criterion_scores:evaluation_criterion_scores(*),
           internship:internships(
             *,
             student:users!internships_student_id_fkey(id, name, email),
@@ -144,16 +140,12 @@ export class EvaluationsController {
         .eq('entity_type', 'evaluation')
         .order('created_at', { ascending: false });
 
-      // Add average rating
-      const evaluationWithAvg = {
-        ...evaluation,
-        avg_rating: this.evaluationService.calculateAverageRating(evaluation),
-      };
+      console.log('[AdminEvaluations] getEvaluation success', { evaluationId: id, hasCriterionScores: !!evaluation.criterion_scores });
 
       res.json({
         success: true,
         data: {
-          evaluation: evaluationWithAvg,
+          evaluation,
           activity_log: logs || [],
         },
       });
@@ -317,16 +309,26 @@ export class EvaluationsController {
       const { id } = req.params;
       const { final_grade, notes, use_ai_grade } = req.body;
 
-      // Get evaluation
+      // Get evaluation with internship to fetch advisor_id
       const { data: evaluation, error: fetchError } = await supabase
         .from('evaluations')
-        .select('*')
+        .select(`
+          *,
+          internship:internships(
+            id,
+            advisor_id
+          )
+        `)
         .eq('id', id)
         .single();
 
       if (fetchError || !evaluation) {
+        console.error('[AdminEvaluations] Evaluation not found:', fetchError);
         return res.status(404).json({ error: 'Evaluation not found' });
       }
+
+      // Get advisor_id from internship
+      const advisorId = evaluation.internship?.advisor_id || null;
 
       // Determine final grade
       let gradeToSet: number | null = null;
@@ -340,22 +342,27 @@ export class EvaluationsController {
         return res.status(400).json({ error: 'Final grade required' });
       }
 
-      // Validate grade range
-      if (gradeToSet < 0 || gradeToSet > 100) {
+      // Validate grade range (CvSU scale: 1.0 to 5.0)
+      if (gradeToSet < 1.0 || gradeToSet > 5.0) {
         return res
           .status(400)
-          .json({ error: 'Grade must be between 0 and 100' });
+          .json({ error: 'Grade must be between 1.0 and 5.0 (CvSU scale)' });
       }
 
-      // Update evaluation
+      // Update evaluation with advisor_id and approved_at
+      const now = new Date().toISOString();
       const { error: updateError } = await supabase
         .from('evaluations')
         .update({
           status: 'approved',
           final_grade: gradeToSet,
-          processed_at: new Date().toISOString(),
+          advisor_id: advisorId,
+          approved_at: now,
+          processed_at: now,
         })
         .eq('id', id);
+
+      console.log('[AdminEvaluations] Updated evaluation with advisor_id:', advisorId, 'approved_at:', now);
 
       if (updateError) {
         console.error('Error approving evaluation:', updateError);

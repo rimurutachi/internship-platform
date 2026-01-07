@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EvaluationWithRelations } from '@/types/api';
 import { Eye, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { convertScoreToGrade } from './gradeUtils';
 
 interface EvaluationTableProps {
   evaluations: EvaluationWithRelations[];
@@ -124,7 +125,6 @@ export function EvaluationTable({
             <TableHead>Type</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Grade</TableHead>
-            <TableHead>Confidence</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -148,15 +148,10 @@ export function EvaluationTable({
               </TableCell>
               <TableCell>
                 {evaluation.final_grade 
-                  ? `${evaluation.final_grade.toFixed(1)}%`
-                  : evaluation.recommended_grade
-                    ? `${evaluation.recommended_grade.toFixed(1)}%*`
+                  ? `${evaluation.final_grade.toFixed(1)}`
+                  : evaluation.total_score
+                    ? `${convertScoreToGrade(evaluation.total_score).toFixed(2)}*`
                     : 'N/A'}
-              </TableCell>
-              <TableCell>
-                {evaluation.confidence_score
-                  ? `${Math.round(evaluation.confidence_score * 100)}%`
-                  : 'N/A'}
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex gap-2 justify-end">
