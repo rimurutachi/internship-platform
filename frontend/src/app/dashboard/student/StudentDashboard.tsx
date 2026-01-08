@@ -7,9 +7,8 @@ import { StudentHeader } from '@/components/student/StudentHeader';
 import { CurrentInternshipCard } from '@/components/student/CurrentInternshipCard';
 import { WeeklyLogsCard } from '@/components/student/WeeklyLogsCard';
 import { QuickActionsNewCard } from '@/components/student/QuickActionsNewCard';
-import { ProgressAnalyticsCard } from '@/components/student/ProgressAnalyticsCard';
-import { DocumentTrackerCard } from '@/components/student/DocumentTrackerCard';
-import { ActivityFeedCard } from '@/components/student/ActivityFeedCard';
+import { FinalEvaluationCard } from '@/components/student/FinalEvaluationCard';
+import { TasksCard } from '@/components/student/TasksCard';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,6 +31,8 @@ const StudentDashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [logsCount, setLogsCount] = useState<number>(0);
+  const [finalAvailable, setFinalAvailable] = useState<{ available: boolean; reason?: string }>({ available: false });
   
   // Load dashboard data on mount
   useEffect(() => {
@@ -50,6 +51,45 @@ const StudentDashboard = () => {
       if (response.success && response.data) {
         console.log('✅ Dashboard data loaded:', response.data);
         setDashboardData(response.data);
+
+        // Fetch weekly logs count for current internship
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+          const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+          const supabase = (await import('@/lib/supabase')).createSupabaseClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const internshipId = response.data.internship?.id;
+          if (session?.access_token && internshipId) {
+            console.log('🔵 Fetching weekly logs count...', { internshipId });
+            const r = await fetch(`${apiBase}/student/weekly-reports?internship_id=${internshipId}`, {
+              headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            });
+            if (r.ok) {
+              const j = await r.json();
+              const count = Array.isArray(j.data) ? j.data.length : 0;
+              console.log('🟢 Weekly logs count:', count);
+              setLogsCount(count);
+            } else {
+              console.warn('⚠️ Weekly logs count request failed', r.status);
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Weekly logs count fetch error:', e);
+        }
+
+        // Determine final evaluation availability
+        try {
+          const evalsResp = await studentAPI.getEvaluations(5, 0);
+          const internshipEnd = response.data.internship?.end_date;
+          const hasFinalApproved = evalsResp.success && evalsResp.data?.evaluations?.some((e: any) => (e.evaluation_type || 'final') === 'final');
+          const internshipEnded = internshipEnd ? new Date() >= new Date(internshipEnd) : false;
+          const available = Boolean(hasFinalApproved && internshipEnded);
+          const reason = available ? undefined : (!hasFinalApproved ? 'No approved final evaluation yet' : 'Final evaluation will unlock after internship end');
+          console.log('ℹ️ Final evaluation availability:', { available, internshipEnd, hasFinalApproved, internshipEnded });
+          setFinalAvailable({ available, reason });
+        } catch (e) {
+          console.warn('⚠️ Final evaluation availability check failed:', e);
+        }
       } else {
         console.error('❌ Dashboard API error:', response.error);
         setError(response.error || 'Failed to load dashboard data');
@@ -172,21 +212,23 @@ const StudentDashboard = () => {
                 
                 {/* Weekly Logs and Quick Actions - Side by Side */}
                 <div className="grid md:grid-cols-2 gap-8">
-                  <WeeklyLogsCard logsCount={4} />
+                  <WeeklyLogsCard logsCount={logsCount} />
                   <QuickActionsNewCard />
                 </div>
                 
-                {/* Progress & Analytics and Document Tracker - Side by Side */}
+                {/* Final Evaluation and Tasks - Side by Side */}
                 <div className="grid md:grid-cols-2 gap-8">
-                  <ProgressAnalyticsCard />
-                  <DocumentTrackerCard />
+                  <FinalEvaluationCard 
+                    isAvailable={finalAvailable.available}
+                    releaseDate={dashboardData.internship?.end_date}
+                    disabledReason={finalAvailable.reason}
+                  />
+                  <TasksCard />
                 </div>
               </div>
               
-              {/* Right Column - Activity Feed */}
-              <div className="space-y-8">
-                <ActivityFeedCard />
-              </div>
+              {/* Right Column - Intentionally left empty for now */}
+              <div className="space-y-8" />
             </div>
             </div>
           </div>
@@ -229,16 +271,18 @@ const StudentDashboard = () => {
           />
 
           {/* Weekly Logs - Mobile */}
-          <WeeklyLogsCard logsCount={4} />
+          <WeeklyLogsCard logsCount={logsCount} />
 
           {/* Quick Actions - Mobile */}
           <QuickActionsNewCard />
 
-          {/* Document Tracker - Mobile */}
-          <DocumentTrackerCard />
-
-          {/* Activity Feed - Mobile */}
-          <ActivityFeedCard />
+          {/* Final Evaluation & Tasks - Mobile */}
+          <FinalEvaluationCard 
+            isAvailable={finalAvailable.available}
+            releaseDate={dashboardData.internship?.end_date}
+            disabledReason={finalAvailable.reason}
+          />
+          <TasksCard />
         </div>
 
         {/* Bottom Navigation */}
