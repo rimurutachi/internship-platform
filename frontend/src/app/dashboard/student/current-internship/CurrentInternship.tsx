@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// Tabs removed; milestones only for now
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -68,72 +68,70 @@ export default function CurrentInternship() {
         return;
       }
 
-      // Get active internship with company, supervisor, and advisor details
-      const { data: internshipData, error: internshipError } = await supabase
-        .from('internships')
-        .select(`
-          id,
-          position,
-          department,
-          start_date,
-          end_date,
-          status,
-          companies (
-            id,
-            name,
-            address
-          ),
-          supervisor:supervisor_id (
-            id,
-            first_name,
-            last_name,
-            email
-          ),
-          advisor:advisor_id (
-            id,
-            first_name,
-            last_name,
-            email
-          )
-        `)
-        .eq('student_id', user.id)
-        .in('status', ['active', 'pending'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      console.log('🔵 [Current Internship] Loading for user:', user.id);
 
-      if (internshipError) {
-        if (internshipError.code === 'PGRST116') {
+      // Use backend API for consistency with dashboard
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No session token available');
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+      const response = await fetch(`${apiBase}/student/internship`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('🔵 [Current Internship] API response status:', response.status);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn('⚠️ [Current Internship] No active internship found for user:', user.id);
           setError('No active internship found');
-        } else {
-          throw internshipError;
+          setLoading(false);
+          return;
         }
+        const errorData = await response.json();
+        console.error('❌ [Current Internship] API error:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch internship');
+      }
+
+      const result = await response.json();
+      const internshipData = result.data?.internship;
+
+      if (!internshipData) {
+        console.warn('⚠️ [Current Internship] No internship data in response');
+        setError('No active internship found');
         setLoading(false);
         return;
       }
 
-      // Calculate progress based on dates
-      const startDate = new Date(internshipData.start_date);
-      const endDate = new Date(internshipData.end_date);
-      const today = new Date();
-      const totalDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-      const daysCompleted = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      const progress = Math.min(100, Math.max(0, Math.round((daysCompleted / totalDays) * 100)));
+      console.log('✅ [Current Internship] Data loaded:', {
+        id: internshipData.id,
+        position: internshipData.position,
+        progress: internshipData.progress_percentage,
+      });
+
+      // Use progress from backend (already calculated)
+      const progress = internshipData.progress_percentage || 0;
 
       const formattedInternship: InternshipData = {
         id: internshipData.id,
         position: internshipData.position,
-        company: (internshipData.companies as any)?.name || 'Unknown Company',
-        location: (internshipData.companies as any)?.address || 'Location not specified',
+        company: internshipData.company?.name || 'Unknown Company',
+        location: internshipData.company?.address || 'Location not specified',
         startDate: internshipData.start_date,
         endDate: internshipData.end_date,
         supervisor: internshipData.supervisor ? {
-          name: `${(internshipData.supervisor as any).first_name} ${(internshipData.supervisor as any).last_name}`,
-          email: (internshipData.supervisor as any).email
+          name: internshipData.supervisor.name || `${internshipData.supervisor.first_name} ${internshipData.supervisor.last_name}`,
+          email: internshipData.supervisor.email
         } : null,
         advisor: internshipData.advisor ? {
-          name: `${(internshipData.advisor as any).first_name} ${(internshipData.advisor as any).last_name}`,
-          email: (internshipData.advisor as any).email
+          name: internshipData.advisor.name || `${internshipData.advisor.first_name} ${internshipData.advisor.last_name}`,
+          email: internshipData.advisor.email
         } : null,
         progress,
         status: internshipData.status,
@@ -142,23 +140,11 @@ export default function CurrentInternship() {
 
       setInternship(formattedInternship);
 
-      // Load tasks from weekly accomplishments
-      const { data: weeklyReports } = await supabase
-        .from('student_weekly_accomplishments')
-        .select('id, week_number, accomplishments, status, created_at')
-        .eq('internship_id', internshipData.id)
-        .order('week_number', { ascending: false })
-        .limit(4);
+      // Define today for milestone checks
+      const today = new Date();
 
-      if (weeklyReports) {
-        const formattedTasks: Task[] = weeklyReports.map((report, index) => ({
-          id: index + 1,
-          title: `Week ${report.week_number} Report: ${report.accomplishments.substring(0, 50)}...`,
-          status: report.status === 'approved' ? 'completed' : report.status === 'pending_approval' ? 'pending' : 'upcoming',
-          dueDate: report.created_at
-        }));
-        setTasks(formattedTasks);
-      }
+      // Tasks are moved to a dedicated page; skip loading here (placeholder kept minimal)
+      setTasks([]);
 
       // Create milestones based on internship dates and evaluations
       const { data: evaluations } = await supabase
@@ -350,45 +336,8 @@ export default function CurrentInternship() {
         </Card>
       </div>
 
-      {/* Tabs for Tasks and Milestones */}
-      <Tabs defaultValue="tasks" className="space-y-6">
-        <TabsList className="bg-gray-100 p-1">
-          <TabsTrigger value="tasks" className="data-[state=active]:bg-white text-base px-6 py-2">Tasks</TabsTrigger>
-          <TabsTrigger value="milestones" className="data-[state=active]:bg-white text-base px-6 py-2">Milestones</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="tasks" className="space-y-4">
-          {tasks.map((task) => (
-            <Card key={task.id} className="bg-white border border-gray-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {task.status === 'completed' ? (
-                      <CheckCircle2 className="w-6 h-6 text-[#4CAF50]" />
-                    ) : task.status === 'pending' ? (
-                      <Clock className="w-6 h-6 text-yellow-500" />
-                    ) : (
-                      <AlertCircle className="w-6 h-6 text-blue-500" />
-                    )}
-                    <div>
-                      <div className="font-semibold text-gray-900 text-lg">{task.title}</div>
-                      <div className="text-base text-gray-600 mt-1">Due: {new Date(task.dueDate).toLocaleDateString()}</div>
-                    </div>
-                  </div>
-                  <Badge className={
-                    task.status === 'completed' ? 'bg-[#4CAF50]/10 text-[#4CAF50] border-[#4CAF50]/20' :
-                    task.status === 'pending' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                    'bg-blue-100 text-blue-700 border-blue-200'
-                  }>
-                    {task.status}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-
-        <TabsContent value="milestones" className="space-y-4">
+      {/* Milestones */}
+      <div className="space-y-4">
           <div className="relative">
             <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
             {milestones.map((milestone, index) => (
@@ -411,8 +360,7 @@ export default function CurrentInternship() {
               </div>
             ))}
           </div>
-        </TabsContent>
-      </Tabs>
+      </div>
             </div>
           </div>
         </div>
@@ -494,34 +442,7 @@ export default function CurrentInternship() {
             </Card>
           </div>
 
-          {/* Tasks */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Recent Tasks</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {tasks.slice(0, 3).map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-2 rounded-lg bg-muted">
-                  <div className="flex items-center gap-2">
-                    {task.status === 'completed' ? (
-                      <CheckCircle2 className="w-4 h-4 text-success" />
-                    ) : task.status === 'pending' ? (
-                      <Clock className="w-4 h-4 text-warning" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-primary" />
-                    )}
-                    <div>
-                      <div className="font-medium text-foreground text-sm">{task.title}</div>
-                      <div className="text-xs text-muted-foreground">Due: {new Date(task.dueDate).toLocaleDateString()}</div>
-                    </div>
-                  </div>
-                  <Badge className={task.status === 'completed' ? 'bg-success/10 text-success' : task.status === 'pending' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'}>
-                    {task.status}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {/* Tasks removed in favor of dedicated Task Lists page */}
         </div>
         <BottomNavigation type="student" />
       </div>

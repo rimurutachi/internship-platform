@@ -143,49 +143,53 @@ export default function WeeklyReportsPage() {
 
       console.log('🔵 [Weekly Reports] Fetching data for user:', user.id);
 
-      // Get active internship
-      const { data: internshipData, error: internshipError } = await supabase
-        .from('internships')
-        .select(`
-          id,
-          position,
-          start_date,
-          end_date,
-          status,
-          companies(name)
-        `)
-        .eq('student_id', user.id)
-        .in('status', ['active', 'ongoing'])
-        .single();
+      // Build API base
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
 
-      if (internshipError) {
-        console.error('❌ [Weekly Reports] Internship fetch error:', internshipError);
-        throw internshipError;
+      // Use backend to fetch student's active internship (avoids RLS issues)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No session token available');
       }
-      
-      if (internshipData) {
+
+      const internshipsRes = await fetch(
+        `${apiBase}/internships?student_id=${encodeURIComponent(user.id)}&status=active`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!internshipsRes.ok) {
+        const err = await internshipsRes.json().catch(() => ({}));
+        console.error('❌ [Weekly Reports] Backend internships fetch failed:', err);
+        throw new Error(err.error || 'Failed to fetch internships');
+      }
+
+      const internshipsJson = await internshipsRes.json();
+      const internshipsList = Array.isArray(internshipsJson?.data) ? internshipsJson.data : [];
+
+      // Find the first non-archived active internship (company joined by backend)
+      const active = internshipsList.find((i: any) => i?.status === 'active' && i?.is_archived !== true);
+
+      if (active) {
         const internshipInfo = {
-          id: internshipData.id,
-          position: internshipData.position,
-          company_name: (internshipData.companies as any)?.name || 'Unknown Company',
-          start_date: internshipData.start_date,
-          end_date: internshipData.end_date,
-          status: internshipData.status,
+          id: active.id,
+          position: active.position,
+          company_name: active.company?.name || 'Unknown Company',
+          start_date: active.start_date,
+          end_date: active.end_date,
+          status: active.status,
         };
         setInternship(internshipInfo);
 
         console.log('✅ [Weekly Reports] Internship found:', internshipInfo.id);
 
         // Fetch weekly reports from backend API
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          throw new Error('No session token available');
-        }
-
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-        // Handle both cases: with and without /api in the base URL
-        const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
-        const response = await fetch(`${apiBase}/student/weekly-reports?internship_id=${internshipData.id}`, {
+        const response = await fetch(`${apiBase}/student/weekly-reports?internship_id=${active.id}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
@@ -218,6 +222,10 @@ export default function WeeklyReportsPage() {
         });
 
         setReports(normalizedReports);
+      } else {
+        console.warn('⚠️ [Weekly Reports] No active internship found for user:', user.id);
+        setInternship(null);
+        setReports([]);
       }
     } catch (error: any) {
       console.error('❌ [Weekly Reports] Error:', error);
@@ -604,8 +612,8 @@ export default function WeeklyReportsPage() {
                 </Button>
               </div>
 
-              {/* Progress & Analytics Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Progress Section */}
+              <div className="grid grid-cols-1 gap-8">
                 {/* Internship Progress */}
                 <Card className="bg-white border border-gray-200">
                   <CardHeader className="border-b border-gray-200 pb-4">
@@ -642,28 +650,6 @@ export default function WeeklyReportsPage() {
                         </div>
                         <div className="text-sm text-gray-500 mt-1">hours logged</div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Analytics Overview */}
-                <Card className="bg-white border border-gray-200">
-                  <CardHeader className="border-b border-gray-200 pb-4">
-                    <CardTitle className="text-2xl text-gray-900">Performance Analytics</CardTitle>
-                    <CardDescription className="text-base text-gray-600">View your internship analytics</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-6 flex items-center justify-center">
-                    <div className="text-center">
-                      <Button 
-                        variant="outline" 
-                        className="border-gray-300 text-base px-6 py-5"
-                        onClick={() => router.push('/dashboard/student/analytics')}
-                      >
-                        View Full Analytics
-                      </Button>
-                      <p className="text-sm text-gray-500 mt-4">
-                        Detailed performance insights, sentiment analysis, and skill tracking
-                      </p>
                     </div>
                   </CardContent>
                 </Card>

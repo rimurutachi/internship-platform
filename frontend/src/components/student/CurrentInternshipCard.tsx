@@ -58,8 +58,8 @@ export const CurrentInternshipCard = ({ internship, progress }: CurrentInternshi
           {progress && (
             <div className="text-right border-2 border-gray-300 rounded-xl p-4 min-w-[140px]">
               <div className="text-sm text-gray-600 mb-1">Overall Progress</div>
-              <div className="text-3xl font-bold text-[#4CAF50]">{progress.percentage}%</div>
-              <Progress value={progress.percentage} className="mt-2 h-2" />
+              <div className="text-3xl font-bold text-[#4CAF50]">{progress.overall_progress}%</div>
+              <Progress value={progress.overall_progress} className="mt-2 h-2" />
             </div>
           )}
         </div>

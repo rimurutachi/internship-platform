@@ -89,6 +89,32 @@ export async function createWeeklyReport(
       throw new Error(`Week number must be between 1 and ${totalWeeks}`);
     }
 
+    // Validate that the week has ended before allowing submission
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+    const weekEndDate = new Date(startDate);
+    weekEndDate.setDate(weekEndDate.getDate() + (week_number * 7));
+    weekEndDate.setHours(23, 59, 59, 999); // End of the week
+
+    console.log('🔵 [WeeklyReportsService] Week-end validation:', {
+      week_number,
+      weekEndDate: weekEndDate.toISOString(),
+      today: today.toISOString(),
+      canSubmit: today >= weekEndDate
+    });
+
+    if (today < weekEndDate) {
+      const daysRemaining = Math.ceil((weekEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      console.error('❌ [WeeklyReportsService] Week has not ended yet:', {
+        week_number,
+        weekEndDate: weekEndDate.toLocaleDateString(),
+        daysRemaining
+      });
+      throw new Error(`Cannot submit report for week ${week_number} until ${weekEndDate.toLocaleDateString()}. ${daysRemaining} day(s) remaining.`);
+    }
+
+    console.log('✅ [WeeklyReportsService] Week has ended, submission allowed');
+
     // Check if report already exists for this week
     const { data: existingReport } = await supabase
       .from('student_weekly_accomplishments')

@@ -26,6 +26,24 @@ class StudentService {
   }
 
   /**
+   * Calculate remaining days until internship end
+   */
+  calculateRemainingDays(endDate: string): number {
+    const today = new Date();
+    const end = new Date(endDate);
+    const remainingDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, remainingDays);
+  }
+
+  /**
+   * Calculate remaining weeks until internship end
+   */
+  calculateRemainingWeeks(endDate: string): number {
+    const remainingDays = this.calculateRemainingDays(endDate);
+    return Math.ceil(remainingDays / 7);
+  }
+
+  /**
    * Calculate detailed progress metrics including phase completion
    */
   calculateProgressMetrics(startDate: string, endDate: string): ProgressMetrics {
@@ -193,8 +211,16 @@ class StudentService {
       return null;
     }
 
-    // Calculate progress
-    const progress = this.calculateProgress(internship.start_date, internship.end_date);
+    // Use progress from database (based on weekly reports + days)
+    // This matches what advisor and supervisor see
+    const progress = internship.progress || 0;
+
+    console.log('ℹ️ [StudentService] Using database progress:', {
+      internshipId: internship.id,
+      databaseProgress: progress,
+      startDate: internship.start_date,
+      endDate: internship.end_date
+    });
 
     // Format advisor and supervisor names
     if (internship.advisor) {
@@ -285,8 +311,25 @@ class StudentService {
       } as any;
     }
 
-    // Get progress metrics
-    const progress = this.calculateProgressMetrics(internship.start_date, internship.end_date);
+    // Get progress metrics using database value (not date calculation)
+    // This ensures dashboard and current internship show identical progress
+    const databaseProgress = internship.progress || 0;
+    const progress = {
+      overall_progress: databaseProgress,
+      completion_by_phase: {
+        onboarding: databaseProgress >= 30 ? 100 : Math.round((databaseProgress / 30) * 100),
+        development: databaseProgress >= 70 ? 100 : Math.max(0, Math.round(((databaseProgress - 30) / 40) * 100)),
+        evaluation: databaseProgress >= 90 ? Math.round(((databaseProgress - 90) / 10) * 100) : 0,
+      },
+      time_remaining_days: this.calculateRemainingDays(internship.end_date),
+      weeks_remaining: this.calculateRemainingWeeks(internship.end_date),
+    };
+
+    console.log('ℹ️ [StudentService] Dashboard progress from database:', {
+      internshipId: internship.id,
+      databaseProgress,
+      phases: progress.completion_by_phase
+    });
 
     // Get recent evaluations
     const { evaluations } = await this.getEvaluations(internship.id, 2, 0);

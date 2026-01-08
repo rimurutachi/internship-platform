@@ -29,7 +29,8 @@ export interface StudentInternship {
   start_date: string;
   end_date: string;
   status: 'active' | 'completed' | 'cancelled';
-  progress_percentage?: number;
+  progress?: number; // Database field (0-100)
+  progress_percentage?: number; // Calculated field for API response
   company?: {
     id: string;
     name: string;
