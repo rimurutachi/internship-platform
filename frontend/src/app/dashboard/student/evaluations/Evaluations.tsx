@@ -1,119 +1,129 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
-import { EvaluationTimeline } from '@/components/student/EvaluationTimeline';
-import { EvaluationProgressSummary } from '@/components/student/EvaluationProgressSummary';
-import { getStudentEvaluationTimeline, getStudentEvaluationProgress } from '@/lib/api/student-evaluations';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, ShieldCheck } from 'lucide-react';
+import { studentAPI } from '@/lib/api/student';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Evaluations() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [evaluations, setEvaluations] = useState<any[]>([]);
-  const [progress, setProgress] = useState<any>(null);
-  const [internshipId, setInternshipId] = useState<string | null>(null);
+  const [finalEval, setFinalEval] = useState<any | null>(null);
+  const [internshipEnd, setInternshipEnd] = useState<string | null>(null);
 
-  // Fetch student's current internship
   useEffect(() => {
-    const fetchInternship = async () => {
+    const load = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/student/current-internship`, {
-          headers: {
-            'Authorization': `Bearer ${(await (await import('@/lib/supabase')).createSupabaseClient().auth.getSession()).data.session?.access_token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.data?.id) {
-            setInternshipId(data.data.id);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching internship:', error);
-      }
-    };
-
-    fetchInternship();
-  }, []);
-
-  // Fetch evaluations and progress when internship is loaded
-  useEffect(() => {
-    if (!internshipId) return;
-
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [timelineData, progressData] = await Promise.all([
-          getStudentEvaluationTimeline(internshipId),
-          getStudentEvaluationProgress(internshipId)
+        setLoading(true);
+        console.log('🔵 [Evaluations] Loading final evaluation...');
+        const [internshipRes, evalsRes] = await Promise.all([
+          studentAPI.getCurrentInternship(),
+          studentAPI.getEvaluations(10, 0),
         ]);
 
-        setEvaluations(timelineData);
-        setProgress(progressData);
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to load evaluations',
-          variant: 'destructive',
-        });
+        if (internshipRes.success) {
+          setInternshipEnd(internshipRes.data?.internship?.end_date || null);
+        }
+
+        if (evalsRes.success) {
+          const finalOnly = (evalsRes.data?.evaluations || []).find((e: any) => (e.evaluation_type || 'final') === 'final');
+          setFinalEval(finalOnly || null);
+        } else {
+          console.warn('⚠️ [Evaluations] Failed to fetch evaluations:', evalsRes.error);
+        }
+      } catch (e: any) {
+        console.error('❌ [Evaluations] Load error:', e);
+        toast({ title: 'Error', description: e.message || 'Failed to load evaluation', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
     };
+    load();
+  }, [toast]);
 
-    fetchData();
-  }, [internshipId, toast]);
+  const available = Boolean(finalEval && internshipEnd && new Date() >= new Date(internshipEnd));
+
+  const FinalView = () => (
+    <Card className="bg-white border border-gray-200">
+      <CardHeader className="border-b border-gray-200 pb-4 flex items-center justify-between">
+        <CardTitle className="text-2xl text-gray-900">Final Evaluation</CardTitle>
+        <ShieldCheck className="w-6 h-6 text-[#4CAF50]" />
+      </CardHeader>
+      <CardContent className="pt-6">
+        <div className="space-y-3 text-gray-800">
+          <div><span className="font-semibold">Overall Rating:</span> {finalEval?.rating_overall ?? 'N/A'}</div>
+          <div><span className="font-semibold">Technical:</span> {finalEval?.rating_technical ?? 'N/A'}</div>
+          <div><span className="font-semibold">Communication:</span> {finalEval?.rating_communication ?? 'N/A'}</div>
+          <div><span className="font-semibold">Work Ethic:</span> {finalEval?.rating_work_ethic ?? 'N/A'}</div>
+          {finalEval?.supervisor && (
+            <div><span className="font-semibold">Supervisor:</span> {finalEval.supervisor.name} ({finalEval.supervisor.email})</div>
+          )}
+          {finalEval?.supervisor_comments && (
+            <div className="mt-4">
+              <div className="font-semibold">Supervisor Comments</div>
+              <p className="text-gray-700 whitespace-pre-wrap">{finalEval.supervisor_comments}</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const UnavailableView = () => (
+    <Card className="bg-white border border-gray-200">
+      <CardHeader className="border-b border-gray-200 pb-4">
+        <CardTitle className="text-2xl text-gray-900">Final Evaluation</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <p className="text-gray-700">
+          {finalEval ? 'Your final evaluation is approved but will be visible after your internship ends.' : 'No approved final evaluation available yet.'}
+          {internshipEnd && ` Internship ends on ${new Date(internshipEnd).toLocaleDateString()}.`}
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  const Desktop = () => (
+    <div className="hidden lg:flex h-full">
+      <StudentSidebar />
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <StudentHeader />
+        <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="space-y-6 max-w-4xl">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Evaluations</h1>
+              <p className="text-gray-600 mt-1">Final evaluation visibility depends on approval and internship end date.</p>
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            ) : available ? <FinalView /> : <UnavailableView />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const Mobile = () => (
+    <div className="lg:hidden h-screen flex flex-col overflow-hidden">
+      <MobileHeader title="Evaluations" subtitle="Final evaluation" />
+      <div className="flex-1 overflow-y-auto p-4 pb-20">
+        {loading ? (
+          <div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        ) : available ? <FinalView /> : <UnavailableView />}
+      </div>
+      <BottomNavigation type="student" />
+    </div>
+  );
 
   return (
     <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        <StudentSidebar />
-        
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <StudentHeader />
-          
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">Evaluations</h1>
-                <p className="text-muted-foreground mt-1">Track your performance and feedback</p>
-              </div>
-
-              <EvaluationProgressSummary progress={progress} loading={loading} />
-              <EvaluationTimeline evaluations={evaluations} loading={loading} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <div className="flex-shrink-0">
-          <MobileHeader title="Evaluations" subtitle="Track your performance" />
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <div className="space-y-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Evaluations</h1>
-              <p className="text-sm text-muted-foreground mt-1">Track your performance</p>
-            </div>
-
-            <EvaluationProgressSummary progress={progress} loading={loading} />
-            <EvaluationTimeline evaluations={evaluations} loading={loading} />
-          </div>
-        </div>
-
-        <div className="flex-shrink-0">
-          <BottomNavigation type="student" />
-        </div>
-      </div>
+      <Desktop />
+      <Mobile />
     </div>
   );
 }
