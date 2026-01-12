@@ -25,7 +25,9 @@ let socket: Socket | null = null;
  */
 export function connectDocumentService(
   documentId: string,
-  userId: string
+  userId: string,
+  userName?: string,
+  userEmail?: string
 ): Socket {
   try {
     // Socket.io client uses HTTP protocol, NOT ws://
@@ -50,14 +52,38 @@ export function connectDocumentService(
         console.warn('⚠️ [DocumentSocket] Disconnected:', reason);
       });
       
-      socket.on('connect', () => {
+      socket.on('connect', async () => {
         console.log('🟢 [DocumentSocket] Connected successfully');
-      });
-    }
 
-    // Only join specific document if it's a valid UUID (not a list page)
-    if (documentId && documentId !== 'documents-list') {
-      socket.emit('document:join', { documentId, userId });
+        try {
+          // Derive user info if not provided
+          let name = userName;
+          let email = userEmail;
+          if (!name || !email) {
+            const { createSupabaseClient } = await import('@/lib/supabase');
+            const supabase = createSupabaseClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            email = email || user?.email || 'unknown@example.com';
+            const meta = (user?.user_metadata as any) || {};
+            name = name || meta.full_name || [meta.first_name, meta.last_name].filter(Boolean).join(' ') || 'Unknown';
+          }
+
+          // Only join specific document if it's a valid page context
+          if (documentId && documentId !== 'documents-list') {
+            socket!.emit('document:join', { documentId, userId, userName: name, userEmail: email });
+          }
+        } catch (e) {
+          console.warn('[DocumentSocket] Failed to enrich join payload:', e);
+          if (documentId && documentId !== 'documents-list') {
+            socket!.emit('document:join', { documentId, userId });
+          }
+        }
+      });
+    } else {
+      // Already connected: emit join immediately (best-effort enrich)
+      if (documentId && documentId !== 'documents-list') {
+        socket.emit('document:join', { documentId, userId, userName, userEmail });
+      }
     }
 
     return socket;

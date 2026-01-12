@@ -1,9 +1,23 @@
-// Document management types - Using existing Supabase schema
+// Document management types - Backend gateway to document-service
 
 export type DocumentType = 'evaluation' | 'agreement' | 'report' | 'form' | 'certificate' | 'memorandum' | 'other';
 export type DocumentStatus = 'draft' | 'in_review' | 'approved' | 'published' | 'archived' | 'rejected';
 export type WorkflowStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'skipped';
+
+// Document-service enhanced types
+export type PermissionLevel = 'view' | 'comment' | 'edit' | 'admin';
+export type DocumentField = {
+  name: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'textarea' | 'email' | 'phone';
+  label: string;
+  required: boolean;
+  placeholder?: string;
+  options?: string[];
+  default_value?: any;
+  validation_pattern?: string;
+  help_text?: string;
+};
 
 export interface Document {
   id: string;
@@ -99,6 +113,123 @@ export interface DocumentTemplate {
   update_policy: string;
   created_at: Date;
   updated_at: Date;
+}
+
+// Document-service blockchain types
+export interface BlockchainEntry {
+  id: string;
+  document_id: string;
+  block_hash: string;
+  previous_hash: string;
+  content_hash: string;
+  merkle_root?: string;
+  action_type: string;
+  action_by: string;
+  timestamp: string;
+  metadata?: any;
+}
+
+// Document-service signature types
+export interface DigitalSignature {
+  id: string;
+  document_id: string;
+  signature_data: string;
+  certificate_data: string;
+  signature_hash: string;
+  signer_id: string;
+  verification_status: 'valid' | 'invalid' | 'revoked';
+  signed_at: string;
+  created_at: string;
+  metadata?: any;
+}
+
+// Document-service access control types
+export interface AccessControl {
+  id: string;
+  document_id: string;
+  user_id: string;
+  permission_level: PermissionLevel;
+  granted_by: string;
+  granted_at: string;
+  expires_at?: string;
+  revoked_at?: string;
+  access_conditions?: any;
+}
+
+// Document-service audit log types
+export interface AuditLog {
+  id: string;
+  document_id: string;
+  user_id: string;
+  action: string;
+  ip_address?: string;
+  user_agent?: string;
+  metadata?: any;
+  timestamp: string;
+}
+
+// Document-service workflow types (enhanced)
+export interface WorkflowDefinition {
+  stages: {
+    name: string;
+    required_approvers: Array<{
+      approver_role?: string;
+      approver_user_id?: string;
+      condition_type?: 'all' | 'any';
+      metadata?: any;
+    }>;
+    auto_progress_condition?: string;
+    timeout_days?: number;
+  }[];
+  metadata?: any;
+}
+
+export interface EnhancedDocumentWorkflow extends DocumentWorkflow {
+  workflow_definition: WorkflowDefinition;
+  approvals?: DocumentApproval[];
+  current_stage_index?: number;
+}
+
+// Document-service collaboration types (enhanced)
+export interface UserPresence {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  color: string;
+  cursorPosition?: { x: number; y: number };
+  isEditing: boolean;
+  lastActive: string;
+}
+
+export interface DocumentChange {
+  id?: string;
+  documentId: string;
+  userId: string;
+  operation: string;
+  index: number;
+  content?: string;
+  timestamp: string;
+  metadata?: any;
+}
+
+export interface StackStatus {
+  canUndo: boolean;
+  canRedo: boolean;
+  undoCount: number;
+  redoCount: number;
+}
+
+// Document-service templates types
+export interface DocumentTemplateWithFields extends DocumentTemplate {
+  fields: DocumentField[];
+  is_public: boolean;
+  requires_approval: boolean;
+  tags?: string[];
+  created_by_user?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
 }
 
 export interface DocumentWithDetails extends Document {

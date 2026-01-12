@@ -21,15 +21,10 @@ interface Evaluation {
     [key: string]: any;
 }
 interface QualityMetrics {
-    total_this_month: number;
-    total_processed: number;
-    avg_confidence: number;
-    bias_pass_rate: number;
-    sentiment_distribution: {
-        positive: number;
-        neutral: number;
-        negative: number;
-    };
+    total: number;
+    on_draft: number;
+    submitted: number;
+    approved: number;
 }
 export declare class EvaluationsService {
     /**
@@ -51,7 +46,8 @@ export declare class EvaluationsService {
      */
     isReadyForApproval(evaluation: Evaluation): boolean;
     /**
-     * Get quality metrics for current month
+     * Get evaluation count metrics (total and by status)
+     * Note: This replaces old AI quality metrics (confidence/bias/sentiment)
      */
     getQualityMetrics(): Promise<QualityMetrics>;
     /**

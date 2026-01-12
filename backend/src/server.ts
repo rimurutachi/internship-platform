@@ -19,6 +19,7 @@ import adminRoutes from "./routes/admin";
 import studentRoutes from "./routes/student";
 import advisorRoutes from "./routes/advisor";
 import supervisorRoutes from "./routes/supervisor";
+import publicRoutes from "./routes/public";
 
 const app = express();
 
@@ -94,6 +95,9 @@ app.use("/api/evaluations", evaluationRoutes);
 
 // Communication APIs - Register BEFORE auth to prevent route conflict
 app.use("/api/communications", communicationRoutes);
+
+// Public APIs - No authentication required (e.g., QR code verification)
+app.use("/api/public", publicRoutes);
 
 // Admin APIs
 app.use("/api/admin", adminRoutes);

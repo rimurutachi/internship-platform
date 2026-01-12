@@ -31,12 +31,26 @@ class EvaluationService {
         const evaluationType = data.evaluation_type || 'final';
         // Determine if mandatory (midterm and final are mandatory)
         const isMandatory = evaluationType === 'midterm' || evaluationType === 'final';
+        // Fetch advisor_id from internship
+        console.log('🔵 [EvaluationService] Fetching advisor_id for internship:', data.internship_id);
+        const { data: internship, error: internshipError } = await supabase
+            .from('internships')
+            .select('advisor_id')
+            .eq('id', data.internship_id)
+            .single();
+        if (internshipError) {
+            console.error('❌ [EvaluationService] Error fetching internship:', internshipError);
+            throw new Error(`Failed to fetch internship: ${internshipError.message}`);
+        }
+        const advisorId = internship?.advisor_id || null;
+        console.log('✅ [EvaluationService] Found advisor_id:', advisorId);
         const { data: evaluation, error } = await supabase
             .from("evaluations")
             .insert({
             ...data,
             evaluation_type: evaluationType,
             is_mandatory: isMandatory,
+            advisor_id: advisorId,
             status: "draft",
         })
             .select()

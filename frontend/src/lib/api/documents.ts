@@ -313,6 +313,214 @@ export const documentsAPI = {
       throw error;
     }
   },
+
+  // =============================
+  // ACCESS CONTROL METHODS
+  // =============================
+
+  /**
+   * Grant access to a document for another user
+   */
+  async grantAccess(
+    documentId: string,
+    data: {
+      user_id: string;
+      permission_level: 'view' | 'comment' | 'edit' | 'admin';
+      expires_at?: string;
+    }
+  ): Promise<{ id: string; document_id: string; user_id: string; permission_level: string }> {
+    try {
+      console.log('🔵 [Documents API] Granting access to document:', documentId, 'for user:', data.user_id);
+      
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${DOCUMENT_SERVICE_URL}/api/access/${documentId}/access/grant`,
+        data,
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Access granted:', response.data);
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Grant access error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * List all access grants for a document
+   */
+  async listAccess(documentId: string): Promise<Array<{
+    id: string;
+    document_id: string;
+    user_id: string;
+    permission_level: string;
+    granted_by: string;
+    granted_at: string;
+    expires_at?: string;
+    users?: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+    };
+  }>> {
+    try {
+      console.log('🔵 [Documents API] Listing access for document:', documentId);
+      
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/access/${documentId}/access`,
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Access list fetched:', response.data);
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error('❌ [Documents API] List access error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Revoke access for a user
+   */
+  async revokeAccess(accessId: string): Promise<void> {
+    try {
+      console.log('🔵 [Documents API] Revoking access:', accessId);
+      
+      const headers = await getAuthHeaders();
+      await axios.delete(
+        `${DOCUMENT_SERVICE_URL}/api/access/${accessId}/revoke`,
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Access revoked successfully');
+    } catch (error) {
+      console.error('❌ [Documents API] Revoke access error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  // =============================
+  // USER SEARCH FOR SHARING
+  // =============================
+
+  /**
+   * Search users for document sharing
+   * Uses the backend communication endpoint for user search
+   */
+  async searchUsersForSharing(query: string, roleFilter?: string): Promise<Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: string;
+  }>> {
+    try {
+      console.log('🔵 [Documents API] Searching users:', query);
+      
+      const headers = await getAuthHeaders();
+      const params = new URLSearchParams();
+      if (query) params.append('q', query);
+      if (roleFilter) params.append('role', roleFilter);
+      
+      // NEXT_PUBLIC_API_URL already includes /api (e.g., http://localhost:5000/api)
+      const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const response = await axios.get(
+        `${BACKEND_API_URL}/communications/users/search?${params.toString()}`,
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Users found:', response.data);
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.error('❌ [Documents API] Search users error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  // =============================
+  // DOWNLOAD FUNCTIONALITY
+  // =============================
+
+  /**
+   * Get a signed download URL for a document file
+   * First fetches document files, then gets signed URL for the primary file
+   */
+  async getDownloadUrl(documentId: string): Promise<{ url: string; fileName: string }> {
+    try {
+      console.log('🔵 [Documents API] Getting download URL for document:', documentId);
+      
+      const headers = await getAuthHeaders();
+      
+      // First, get the document files list
+      const filesResponse = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${documentId}/files`,
+        { headers }
+      );
+
+      console.log('📁 [Documents API] Document files:', filesResponse.data);
+      
+      const files = filesResponse.data.success ? filesResponse.data.data : filesResponse.data;
+      
+      if (!files || files.length === 0) {
+        console.warn('⚠️ [Documents API] No files attached to document:', documentId);
+        throw new Error('This document does not have a file attached yet. Please upload a file first.');
+      }
+
+      // Find the primary file, or use the first one
+      const primaryFile = files.find((f: any) => f.is_primary) || files[0];
+      
+      // Get signed URL for the file
+      const signedUrlResponse = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/documents/files/${primaryFile.id}/signed-url`,
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Signed URL obtained');
+      
+      const signedUrl = signedUrlResponse.data.success 
+        ? signedUrlResponse.data.data.signed_url 
+        : signedUrlResponse.data.signed_url;
+      
+      return { url: signedUrl, fileName: primaryFile.file_name };
+    } catch (error) {
+      console.error('❌ [Documents API] Get download URL error:', error);
+      if (axios.isAxiosError(error)) {
+        const errorMsg = error.response?.data?.error || error.message;
+        throw new Error(errorMsg);
+      }
+      throw error;
+    }
+  },
 };
 
 export default documentsAPI;

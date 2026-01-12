@@ -23,6 +23,7 @@ const admin_1 = __importDefault(require("./routes/admin"));
 const student_1 = __importDefault(require("./routes/student"));
 const advisor_1 = __importDefault(require("./routes/advisor"));
 const supervisor_1 = __importDefault(require("./routes/supervisor"));
+const public_1 = __importDefault(require("./routes/public"));
 const app = (0, express_1.default)();
 // Disable ETag to prevent 304 responses for dynamic APIs
 app.set("etag", false);
@@ -83,6 +84,8 @@ app.use("/api/internships", internships_1.default);
 app.use("/api/evaluations", evaluations_1.default);
 // Communication APIs - Register BEFORE auth to prevent route conflict
 app.use("/api/communications", communications_1.default);
+// Public APIs - No authentication required (e.g., QR code verification)
+app.use("/api/public", public_1.default);
 // Admin APIs
 app.use("/api/admin", admin_1.default);
 // Student APIs

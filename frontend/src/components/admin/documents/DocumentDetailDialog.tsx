@@ -1,14 +1,19 @@
 import { useState } from 'react';
-import { X, Calendar, User, FileText, GitBranch, MessageSquare, Users, Activity } from 'lucide-react';
+import { Calendar, User, FileText, GitBranch, MessageSquare, Users, Activity, Lock, PenTool, Network, Download, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { DocumentResponse, DocumentStatus, DocumentType } from '@/types/documents';
+import { Button } from '@/components/ui/button';
+import { DocumentResponse, DocumentType } from '@/types/documents';
 import { VersionHistoryTab } from './VersionHistoryTab';
 import { CommentsTab } from './CommentsTab';
 import { WorkflowTab } from './WorkflowTab';
 import { CollaboratorsTab } from './CollaboratorsTab';
-import { DocumentStatusManager } from './DocumentStatusManager';
+import { BlockchainTab } from './BlockchainTab';
+import { SignaturesTab } from './SignaturesTab';
+import { AccessTab } from './AccessTab';
+import { CollaborationTab } from './CollaborationTab';
+import { documentsAPI } from '@/lib/api/documents';
 
 interface DocumentDetailDialogProps {
   document: DocumentResponse;
@@ -24,18 +29,7 @@ export function DocumentDetailDialog({
   onUpdate,
 }: DocumentDetailDialogProps) {
   const [activeTab, setActiveTab] = useState('details');
-
-  const getStatusColor = (status: DocumentStatus) => {
-    const colors: Record<DocumentStatus, string> = {
-      draft: 'bg-gray-100 text-gray-800',
-      in_review: 'bg-blue-100 text-blue-800',
-      approved: 'bg-green-100 text-green-800',
-      published: 'bg-purple-100 text-purple-800',
-      archived: 'bg-orange-100 text-orange-800',
-      rejected: 'bg-red-100 text-red-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
+  const [downloading, setDownloading] = useState(false);
 
   const getTypeColor = (type: DocumentType) => {
     const colors: Record<DocumentType, string> = {
@@ -46,6 +40,11 @@ export function DocumentDetailDialog({
       certificate: 'bg-violet-100 text-violet-800',
       memorandum: 'bg-rose-100 text-rose-800',
       other: 'bg-slate-100 text-slate-800',
+      pdf: 'bg-red-100 text-red-800',
+      docx: 'bg-blue-100 text-blue-800',
+      xlsx: 'bg-green-100 text-green-800',
+      image: 'bg-purple-100 text-purple-800',
+      zip: 'bg-yellow-100 text-yellow-800',
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
@@ -60,74 +59,112 @@ export function DocumentDetailDialog({
     });
   };
 
+  // Handle document download
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      console.log('📥 [Admin] Downloading document:', document.id);
+      
+      const { url, fileName } = await documentsAPI.getDownloadUrl(document.id);
+      
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = fileName || document.title || 'document';
+      link.target = '_blank';
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+    } catch (error) {
+      console.error('❌ [Admin] Download error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to download document');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start justify-between">
-            <div>
+            <div className="flex-1">
               <DialogTitle className="text-2xl mb-2">{document.title}</DialogTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={getTypeColor(document.type)}>
                   {document.type}
-                </Badge>
-                <Badge className={getStatusColor(document.status)}>
-                  {document.status.replace('_', ' ')}
                 </Badge>
                 <span className="text-sm text-gray-500 font-mono">
                   v{document.version}
                 </span>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="ml-4"
+            >
+              {downloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </>
+              )}
+            </Button>
           </div>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="details">
-              <FileText className="h-4 w-4 mr-2" />
-              Details
+          <TabsList className="grid w-full grid-cols-9 h-auto">
+            <TabsTrigger value="details" className="text-xs sm:text-sm">
+              <FileText className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Details</span>
             </TabsTrigger>
-            <TabsTrigger value="versions">
-              <GitBranch className="h-4 w-4 mr-2" />
-              Versions ({document.versions?.length || 0})
+            <TabsTrigger value="versions" className="text-xs sm:text-sm">
+              <GitBranch className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Versions</span>
             </TabsTrigger>
-            <TabsTrigger value="comments">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Comments ({document.comments?.length || 0})
+            <TabsTrigger value="comments" className="text-xs sm:text-sm">
+              <MessageSquare className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Comments</span>
             </TabsTrigger>
-            <TabsTrigger value="workflow">
-              <Activity className="h-4 w-4 mr-2" />
-              Workflow
+            <TabsTrigger value="workflow" className="text-xs sm:text-sm">
+              <Activity className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Workflow</span>
             </TabsTrigger>
-            <TabsTrigger value="collaborators">
-              <Users className="h-4 w-4 mr-2" />
-              Collaborators
+            <TabsTrigger value="collaborators" className="text-xs sm:text-sm">
+              <Users className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Collaborators</span>
+            </TabsTrigger>
+            <TabsTrigger value="blockchain" className="text-xs sm:text-sm">
+              <Network className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Blockchain</span>
+            </TabsTrigger>
+            <TabsTrigger value="signatures" className="text-xs sm:text-sm">
+              <PenTool className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Signatures</span>
+            </TabsTrigger>
+            <TabsTrigger value="access" className="text-xs sm:text-sm">
+              <Lock className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Access</span>
+            </TabsTrigger>
+            <TabsTrigger value="collaboration" className="text-xs sm:text-sm">
+              <Users className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Activity</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="mt-4 space-y-4">
-            {/* Status Manager */}
-            <DocumentStatusManager
-              documentId={document.id}
-              currentStatus={document.status}
-              onStatusUpdate={onUpdate}
-            />
-
             {/* Document Info */}
             <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Description</h3>
-                <p className="text-gray-600">
-                  {document.description || 'No description provided'}
-                </p>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-1 flex items-center">
                     <User className="h-4 w-4 mr-2" />
-                    Owner
+                    Uploaded By
                   </h3>
                   <p className="text-gray-600">
                     {document.owner?.first_name} {document.owner?.last_name}
@@ -138,7 +175,7 @@ export function DocumentDetailDialog({
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-1 flex items-center">
                     <Calendar className="h-4 w-4 mr-2" />
-                    Created
+                    Upload Date
                   </h3>
                   <p className="text-gray-600">{formatDate(document.created_at)}</p>
                 </div>
@@ -158,15 +195,6 @@ export function DocumentDetailDialog({
                   </a>
                 </div>
               )}
-
-              {document.metadata && Object.keys(document.metadata).length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Metadata</h3>
-                  <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
-                    {JSON.stringify(document.metadata, null, 2)}
-                  </pre>
-                </div>
-              )}
             </div>
           </TabsContent>
 
@@ -184,6 +212,22 @@ export function DocumentDetailDialog({
 
           <TabsContent value="collaborators" className="mt-4">
             <CollaboratorsTab documentId={document.id} />
+          </TabsContent>
+
+          <TabsContent value="blockchain" className="mt-4">
+            <BlockchainTab documentId={document.id} />
+          </TabsContent>
+
+          <TabsContent value="signatures" className="mt-4">
+            <SignaturesTab documentId={document.id} />
+          </TabsContent>
+
+          <TabsContent value="access" className="mt-4">
+            <AccessTab documentId={document.id} />
+          </TabsContent>
+
+          <TabsContent value="collaboration" className="mt-4">
+            <CollaborationTab documentId={document.id} />
           </TabsContent>
         </Tabs>
       </DialogContent>
