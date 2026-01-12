@@ -11,17 +11,24 @@ export function setupWebSocket(io: SocketServer) {
   io.on("connection", (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`);
 
-    let currentSession: any = null;
+    let currentSession: { sessionId: string; color: string } | null = null;
+    let currentDocumentId: string | null = null;
+    let currentUserId: string | null = null;
 
-    socket.on("document:join", async ({ documentId, userId, userColor }) => {
+    socket.on("document:join", async ({ documentId, userId, userName, userEmail, userColor }) => {
       try {
         socket.join(documentId);
 
-        // Create collaboration session in DB
-        currentSession = await collaborationService.startSession(
+        // Track current context
+        currentDocumentId = documentId;
+        currentUserId = userId;
+
+        // Initialize collaboration session in DB
+        currentSession = await collaborationService.initializeSession(
           documentId,
           userId,
-          userColor || "#" + Math.floor(Math.random() * 16777215).toString(16)
+          userName || "Unknown",
+          userEmail || "unknown@example.com"
         );
 
         // Get or create Y.Doc
@@ -30,15 +37,13 @@ export function setupWebSocket(io: SocketServer) {
         }
 
         // Get active collaborators
-        const activeUsers = await collaborationService.getActiveUsers(
-          documentId
-        );
+        const activeUsers = await collaborationService.getActiveUsers(documentId);
 
         // Notify others
         socket.to(documentId).emit("user:joined", {
           userId,
           socketId: socket.id,
-          userColor: currentSession.user_color,
+          userColor: currentSession.color,
         });
 
         // Send active users to new joiner
@@ -66,15 +71,17 @@ export function setupWebSocket(io: SocketServer) {
           // Broadcast update to other clients
           socket.to(documentId).emit("document:update", { update, userId });
 
-          // Save changes to database
-          await collaborationService.saveChange(
+          // Persist change to database via collaboration service
+          const index = typeof position === "number" ? position : (position?.index ?? 0);
+          await collaborationService.recordChange({
             documentId,
             userId,
-            operationType,
-            position,
+            operation: operationType,
+            index,
             content,
-            {}
-          );
+            timestamp: new Date().toISOString(),
+            metadata: {},
+          });
 
           // Persist to Redis
           await redis.lpush(
@@ -93,11 +100,11 @@ export function setupWebSocket(io: SocketServer) {
       async ({ documentId, position, userId, selectionRange }) => {
         try {
           // Update in database if session exists
-          if (currentSession) {
+          if (currentSession && currentDocumentId && currentUserId) {
             await collaborationService.updatePresence(
-              currentSession.id,
-              position,
-              selectionRange
+              currentDocumentId,
+              currentUserId,
+              { cursorPosition: position }
             );
           }
 
@@ -120,8 +127,8 @@ export function setupWebSocket(io: SocketServer) {
         socket.leave(documentId);
 
         // End session in database
-        if (currentSession) {
-          await collaborationService.endSession(currentSession.id);
+        if (currentSession && currentDocumentId && currentUserId) {
+          await collaborationService.endSession(currentDocumentId, currentUserId, currentSession.sessionId);
         }
 
         socket.to(documentId).emit("user:left", { userId });
@@ -134,8 +141,8 @@ export function setupWebSocket(io: SocketServer) {
     socket.on("disconnect", async () => {
       try {
         // Clean up session
-        if (currentSession) {
-          await collaborationService.endSession(currentSession.id);
+        if (currentSession && currentDocumentId && currentUserId) {
+          await collaborationService.endSession(currentDocumentId, currentUserId, currentSession.sessionId);
         }
         console.log(`Client disconnected: ${socket.id}`);
       } catch (error) {
@@ -144,12 +151,5 @@ export function setupWebSocket(io: SocketServer) {
     });
   });
 
-  // Periodic cleanup of stale sessions
-  setInterval(async () => {
-    try {
-      await collaborationService.cleanupStaleSessions();
-    } catch (error) {
-      console.error("Error cleaning up sessions:", error);
-    }
-  }, 60000);
+  // Note: Stale session cleanup handled at the service/database level
 }

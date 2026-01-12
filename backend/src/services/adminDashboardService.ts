@@ -179,7 +179,7 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
       .from('evaluations')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
-      .gte('advisor_approved_at', startOfMonth.toISOString());
+      .gte('approved_at', startOfMonth.toISOString());
 
     if (completedEvaluationsError) {
       console.error('[adminDashboard] completedEvaluationsThisMonth query error', completedEvaluationsError);
@@ -286,125 +286,60 @@ export async function getHistoricalMetrics(
 }
 
 /**
- * Get AI insights for admin dashboard
- * Top 3 insights from evaluation analytics
+ * Get AI insights for admin dashboard (v2.0.0)
+ * Now uses analyticsService for on-demand trend analysis
  */
 export async function getAIInsights(universityId: string) {
   try {
-    // Step 1: Get internship IDs for students in this university
-    const { data: internships, error: internshipsError } = await supabase
-      .from('internships')
-      .select('id, student:users!internships_student_id_fkey(university_id)')
-      .eq('student.university_id', universityId);
-
-    if (internshipsError) {
-      console.error('Error fetching internships:', internshipsError);
-      return { success: true, data: [] };
-    }
-
-    if (!internships || internships.length === 0) {
-      return {
-        success: true,
-        data: [
-          {
-            type: 'info',
-            message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
-          },
-        ],
-      };
-    }
-
-    const internshipIds = internships.map((i: any) => i.id);
-
-    // Step 2: Get evaluation IDs for these internships
-    const { data: evaluations, error: evaluationsError } = await supabase
-      .from('evaluations')
-      .select('id')
-      .in('internship_id', internshipIds);
-
-    if (evaluationsError) {
-      console.error('Error fetching evaluations:', evaluationsError);
-      return { success: true, data: [] };
-    }
-
-    if (!evaluations || evaluations.length === 0) {
-      return {
-        success: true,
-        data: [
-          {
-            type: 'info',
-            message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
-          },
-        ],
-      };
-    }
-
-    const evaluationIds = evaluations.map((e: any) => e.id);
-
-    // Step 3: Get AI analysis for these evaluations
-    const { data: analytics, error } = await supabase
-      .from('evaluations_ai_analysis')
-      .select(`
-        id,
-        ai_recommendations,
-        suggested_improvements,
-        extracted_technical_skills,
-        extracted_soft_skills,
-        overall_sentiment,
-        overall_confidence_score,
-        created_at,
-        evaluation_id
-      `)
-      .in('evaluation_id', evaluationIds)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      console.error('Failed to fetch AI insights:', error);
-      return {
-        success: true,
-        data: [],
-      };
-    }
-
-    if (!analytics || analytics.length === 0) {
-      return {
-        success: true,
-        data: [
-          {
-            type: 'info',
-            message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
-          },
-        ],
-      };
-    }
-
-    // Aggregate top insights from AI recommendations and suggested improvements
-    const allInsights: string[] = [];
-    analytics.forEach(a => {
-      if (a.ai_recommendations && Array.isArray(a.ai_recommendations)) {
-        allInsights.push(...a.ai_recommendations);
-      }
-      if (a.suggested_improvements && Array.isArray(a.suggested_improvements)) {
-        allInsights.push(...a.suggested_improvements);
-      }
+    // Import analytics service dynamically to avoid circular dependencies
+    const analyticsService = await import('./analyticsService');
+    
+    // Get quick dashboard insights from AI
+    const result = await analyticsService.getDashboardInsights({
+      maxInsights: 3,
+      limit: 50,
+      universityId: universityId,
     });
 
-    // Get top 3 unique insights
-    const uniqueInsights = [...new Set(allInsights)].slice(0, 3);
+    if (result.status === 'unavailable' || result.status === 'no_data') {
+      return {
+        success: true,
+        data: [
+          {
+            type: 'info',
+            message: result.insights?.[0]?.description || 'AI insights are being generated. Check back soon.',
+          },
+        ],
+      };
+    }
+
+    // Transform insights to the expected format
+    const formattedInsights = result.insights.slice(0, 3).map(insight => ({
+      type: insight.type || 'insight',
+      message: insight.description,
+      title: insight.title,
+      category: insight.category,
+    }));
 
     return {
       success: true,
-      data: uniqueInsights.map(insight => ({
-        type: 'insight',
-        message: insight,
-      })),
+      data: formattedInsights.length > 0 ? formattedInsights : [
+        {
+          type: 'info',
+          message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
+        },
+      ],
     };
   } catch (error: any) {
     console.error('Error getting AI insights:', error);
     return {
       success: true,
-      data: [],
+      data: [
+        {
+          type: 'info',
+          message: 'AI service is temporarily unavailable.',
+        },
+      ],
     };
   }
 }

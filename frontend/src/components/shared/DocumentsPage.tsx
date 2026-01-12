@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
-import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle, Search, UserPlus, X, Users } from 'lucide-react';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,8 +37,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadType, setUploadType] = useState<string>(defaultUploadType);
-  const [uploadDescription, setUploadDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -56,13 +54,37 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentWithDetails | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editType, setEditType] = useState('');
-  const [editDescription, setEditDescription] = useState('');
   const [editing, setEditing] = useState(false);
 
   // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [sharingDocument, setSharingDocument] = useState<DocumentWithDetails | null>(null);
+  const [shareSearchQuery, setShareSearchQuery] = useState('');
+  const [shareSearchResults, setShareSearchResults] = useState<Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: string;
+  }>>([]);
+  const [shareSearching, setShareSearching] = useState(false);
+  const [selectedShareUser, setSelectedShareUser] = useState<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: string;
+  } | null>(null);
+  const [sharePermission, setSharePermission] = useState<'view' | 'comment' | 'edit' | 'admin'>('view');
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [documentAccessList, setDocumentAccessList] = useState<Array<{
+    id: string;
+    user_id: string;
+    permission_level: string;
+    users?: { first_name: string; last_name: string; email: string };
+  }>>([]);
+  const [loadingAccess, setLoadingAccess] = useState(false);
 
   // Load documents on mount
   useEffect(() => {
@@ -171,7 +193,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
     }
   };
 
-  // Handle upload
+  // Handle upload - Creates document metadata then uploads actual file to storage
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle.trim()) {
       setUploadError('Please select a file and provide a title');
@@ -182,38 +204,96 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       setUploading(true);
       setUploadError(null);
       setUploadProgress(10);
+      
+      console.log('📤 [Upload] Starting upload for:', uploadFile.name);
 
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
+      // Determine file type from extension
+      const fileExtension = uploadFile.name.split('.').pop()?.toLowerCase() || 'other';
+      const typeMap: Record<string, string> = {
+        'pdf': 'pdf',
+        'doc': 'docx',
+        'docx': 'docx',
+        'xls': 'xlsx',
+        'xlsx': 'xlsx',
+        'jpg': 'image',
+        'jpeg': 'image',
+        'png': 'image',
+        'zip': 'zip'
+      };
+      const documentType = typeMap[fileExtension] || 'other';
 
+      setUploadProgress(20);
+
+      // Step 1: Create document metadata first
+      console.log('📝 [Upload] Creating document metadata...');
       const newDocument = await documentsAPI.createDocument({
         title: uploadTitle.trim(),
-        type: uploadType,
-        description: uploadDescription.trim() || undefined,
-        content: { fileName: uploadFile.name, fileSize: uploadFile.size },
+        type: documentType,
+        content: { 
+          fileName: uploadFile.name, 
+          fileSize: uploadFile.size,
+          mimeType: uploadFile.type 
+        },
         metadata: { 
           originalName: uploadFile.name,
           mimeType: uploadFile.type,
-          size: uploadFile.size 
+          size: uploadFile.size,
+          uploadedAt: new Date().toISOString()
         }
       });
 
-      clearInterval(progressInterval);
+      console.log('✅ [Upload] Document created:', newDocument.id);
+      setUploadProgress(40);
+
+      // Step 2: Upload actual file to Supabase Storage via document-service
+      console.log('📁 [Upload] Uploading file to storage...');
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('is_primary', 'true');
+
+      const DOCUMENT_SERVICE_URL = process.env.NEXT_PUBLIC_DOCUMENT_SERVICE_URL || 'http://localhost:6001';
+      const { createSupabaseClient } = await import('@/lib/supabase');
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const uploadResponse = await fetch(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${newDocument.id}/files`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      setUploadProgress(80);
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || 'Failed to upload file');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log('✅ [Upload] File uploaded:', uploadResult);
+
       setUploadProgress(100);
+
+      // Show success notification
+      setRealtimeUpdate(`Document "${uploadTitle}" uploaded successfully`);
+      setTimeout(() => setRealtimeUpdate(null), 3000);
 
       setTimeout(() => {
         setUploadDialogOpen(false);
         setUploadFile(null);
         setUploadTitle('');
-        setUploadType(defaultUploadType);
-        setUploadDescription('');
         setUploadProgress(0);
         setUploading(false);
         loadDocuments();
       }, 500);
 
     } catch (err) {
+      console.error('❌ [Upload] Error:', err);
       setUploadError(err instanceof Error ? err.message : 'Failed to upload document');
       setUploading(false);
       setUploadProgress(0);
@@ -226,8 +306,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       setUploadDialogOpen(false);
       setUploadFile(null);
       setUploadTitle('');
-      setUploadType(defaultUploadType);
-      setUploadDescription('');
       setUploadError(null);
       setUploadProgress(0);
     }
@@ -255,8 +333,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   const handleEditDocument = (doc: DocumentWithDetails) => {
     setEditingDocument(doc);
     setEditTitle(doc.title);
-    setEditType(doc.type);
-    setEditDescription(doc.metadata?.description || '');
     setEditDialogOpen(true);
   };
 
@@ -271,16 +347,14 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       setEditing(true);
       await documentsAPI.updateDocument(editingDocument.id, {
         title: editTitle.trim(),
-        type: editType as any,
-        metadata: {
-          ...editingDocument.metadata,
-          description: editDescription.trim() || undefined
-        }
       });
 
       setEditDialogOpen(false);
       setEditingDocument(null);
       loadDocuments();
+      
+      setRealtimeUpdate(`Document "${editTitle}" updated successfully`);
+      setTimeout(() => setRealtimeUpdate(null), 3000);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update document');
     } finally {
@@ -289,14 +363,129 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   };
 
   // Handle share document
-  const handleShareDocument = (doc: DocumentWithDetails) => {
+  const handleShareDocument = async (doc: DocumentWithDetails) => {
     setSharingDocument(doc);
     setShareDialogOpen(true);
+    setShareSearchQuery('');
+    setShareSearchResults([]);
+    setSelectedShareUser(null);
+    setSharePermission('view');
+    setShareError(null);
+    
+    // Load existing access list
+    setLoadingAccess(true);
+    try {
+      const accessList = await documentsAPI.listAccess(doc.id);
+      setDocumentAccessList(accessList);
+    } catch (err) {
+      console.error('Failed to load access list:', err);
+      setDocumentAccessList([]);
+    } finally {
+      setLoadingAccess(false);
+    }
   };
 
-  // Handle download document
-  const handleDownloadDocument = (doc: DocumentWithDetails) => {
-    alert('Download functionality will be available once file storage is integrated (Phase 3).\n\nFor now, documents are stored as metadata only.');
+  // Search users for sharing
+  const handleShareUserSearch = async () => {
+    if (!shareSearchQuery.trim() || shareSearchQuery.length < 2) {
+      setShareSearchResults([]);
+      return;
+    }
+    
+    setShareSearching(true);
+    try {
+      const results = await documentsAPI.searchUsersForSharing(shareSearchQuery);
+      // Filter out the current user and users who already have access
+      const filteredResults = results.filter(u => 
+        u.id !== user?.id && 
+        !documentAccessList.some(a => a.user_id === u.id)
+      );
+      setShareSearchResults(filteredResults);
+    } catch (err) {
+      console.error('User search error:', err);
+      setShareSearchResults([]);
+    } finally {
+      setShareSearching(false);
+    }
+  };
+
+  // Grant access to selected user
+  const handleGrantAccess = async () => {
+    if (!sharingDocument || !selectedShareUser) return;
+    
+    setSharing(true);
+    setShareError(null);
+    
+    try {
+      await documentsAPI.grantAccess(sharingDocument.id, {
+        user_id: selectedShareUser.id,
+        permission_level: sharePermission,
+      });
+      
+      // Refresh access list
+      const accessList = await documentsAPI.listAccess(sharingDocument.id);
+      setDocumentAccessList(accessList);
+      
+      // Reset selection
+      setSelectedShareUser(null);
+      setShareSearchQuery('');
+      setShareSearchResults([]);
+      
+      // Show success feedback
+      setRealtimeUpdate(`Shared with ${selectedShareUser.first_name} ${selectedShareUser.last_name}`);
+      setTimeout(() => setRealtimeUpdate(null), 3000);
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Failed to grant access');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Revoke access
+  const handleRevokeAccess = async (accessId: string, userName: string) => {
+    if (!confirm(`Remove access for ${userName}?`)) return;
+    
+    try {
+      await documentsAPI.revokeAccess(accessId);
+      setDocumentAccessList(prev => prev.filter(a => a.id !== accessId));
+      setRealtimeUpdate(`Access removed for ${userName}`);
+      setTimeout(() => setRealtimeUpdate(null), 3000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to revoke access');
+    }
+  };
+
+  // Handle download document - Gets signed URL from Supabase Storage
+  const handleDownloadDocument = async (doc: DocumentWithDetails) => {
+    try {
+      console.log('📥 [Download] Starting download for:', doc.title, doc.id);
+      
+      // Get download URL from document files in Supabase Storage
+      const { url, fileName } = await documentsAPI.getDownloadUrl(doc.id);
+      
+      console.log('📥 [Download] Got signed URL for:', fileName);
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || doc.title || 'document';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setRealtimeUpdate(`Downloading "${doc.title}"...`);
+      setTimeout(() => setRealtimeUpdate(null), 2000);
+    } catch (err) {
+      console.error('❌ [Download] Error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to download document';
+      
+      if (errorMessage.includes('No files attached')) {
+        alert('This document does not have a file attached yet.\n\nPlease upload a file first.');
+      } else {
+        alert(errorMessage);
+      }
+    }
   };
 
   // Check if current user is the owner of the document
@@ -470,36 +659,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                             className="mt-2"
                             disabled={uploading}
                           />
-                        </div>
-
-                        {/* Type Selection with Tabs (Advisor style) */}
-                        <div>
-                          <Label>Document Type *</Label>
-                          <Tabs value={uploadType} onValueChange={setUploadType} className="mt-2">
-                            <TabsList className="grid grid-cols-3 w-full">
-                              <TabsTrigger value={userType === 'advisor' ? 'template' : 'report'}>
-                                {userType === 'advisor' ? 'Template' : 'Report'}
-                              </TabsTrigger>
-                              <TabsTrigger value={userType === 'advisor' ? 'guideline' : 'evaluation'}>
-                                {userType === 'advisor' ? 'Guideline' : 'Evaluation'}
-                              </TabsTrigger>
-                              <TabsTrigger value={userType === 'advisor' ? 'form' : 'certificate'}>
-                                {userType === 'advisor' ? 'Form' : 'Certificate'}
-                              </TabsTrigger>
-                            </TabsList>
-                          </Tabs>
-                        </div>
-
-                        {/* Description */}
-                        <div>
-                          <Label>Description (Optional)</Label>
-                          <Input
-                            value={uploadDescription}
-                            onChange={(e) => setUploadDescription(e.target.value)}
-                            placeholder="Brief description of the document"
-                            className="mt-2"
-                            disabled={uploading}
-                          />
+                          <p className="text-xs text-gray-500 mt-1">The file type will be automatically detected</p>
                         </div>
 
                         {/* Progress */}
@@ -680,14 +840,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                                   </div>
                                 </DialogContent>
                               </Dialog>
-                              {doc.file_url && (
-                                <Button variant="ghost" size="sm" asChild>
-                                  <a href={doc.file_url} download>
-                                    <Download className="w-4 h-4" />
-                                  </a>
-                                </Button>
-                              )}
-                              
+
                               {/* Edit button - only show for document owner */}
                               {isDocumentOwner(doc) && (
                                 <Button 
@@ -882,37 +1035,22 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Document</DialogTitle>
-            <DialogDescription>Update document information</DialogDescription>
+            <DialogDescription>Update document title</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div>
               <Label>Title *</Label>
-              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Document title" />
-            </div>
-            <div>
-              <Label>Type *</Label>
-              <select className="w-full p-2 border rounded-md" value={editType} onChange={(e) => setEditType(e.target.value)}>
-                <option value="report">Report</option>
-                <option value="template">Template</option>
-                <option value="evaluation">Evaluation</option>
-                <option value="certificate">Certificate</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <Label>Description</Label>
-              <textarea 
-                className="w-full p-2 border rounded-md" 
-                value={editDescription} 
-                onChange={(e) => setEditDescription(e.target.value)} 
-                placeholder="Optional description"
-                rows={4}
+              <Input 
+                value={editTitle} 
+                onChange={(e) => setEditTitle(e.target.value)} 
+                placeholder="Document title"
+                className="mt-2"
               />
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setEditDialogOpen(false)} disabled={editing}>Cancel</Button>
-              <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleSubmitEdit} disabled={editing || !editTitle.trim()}>
+              <Button className="flex-1 bg-[#4CAF50] hover:bg-[#45a049]" onClick={handleSubmitEdit} disabled={editing || !editTitle.trim()}>
                 {editing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
               </Button>
             </div>
@@ -921,7 +1059,15 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       </Dialog>
 
       {/* Share Document Dialog */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+      <Dialog open={shareDialogOpen} onOpenChange={(open) => {
+        setShareDialogOpen(open);
+        if (!open) {
+          setShareSearchQuery('');
+          setShareSearchResults([]);
+          setSelectedShareUser(null);
+          setShareError(null);
+        }
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -931,15 +1077,151 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
             <DialogDescription>{sharingDocument?.title}</DialogDescription>
           </DialogHeader>
           
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Coming Soon!</strong><br />
-              Document sharing functionality will be available in the next phase.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            {shareError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{shareError}</AlertDescription>
+              </Alert>
+            )}
 
-          <Button className="w-full" onClick={() => setShareDialogOpen(false)}>Got it</Button>
+            {/* User Search */}
+            <div>
+              <Label className="text-sm font-medium">Add people</Label>
+              <div className="flex gap-2 mt-2">
+                <Input
+                  placeholder="Search by name or email..."
+                  value={shareSearchQuery}
+                  onChange={(e) => setShareSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleShareUserSearch()}
+                  className="flex-1"
+                />
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={handleShareUserSearch}
+                  disabled={shareSearching || shareSearchQuery.length < 2}
+                >
+                  {shareSearching ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Search Results */}
+            {shareSearchResults.length > 0 && !selectedShareUser && (
+              <div className="border rounded-md max-h-48 overflow-y-auto">
+                {shareSearchResults.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                    onClick={() => setSelectedShareUser(u)}
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{u.first_name} {u.last_name}</div>
+                      <div className="text-xs text-gray-500">{u.email}</div>
+                    </div>
+                    <Badge variant="outline" className="capitalize text-xs">{u.role}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Selected User */}
+            {selectedShareUser && (
+              <div className="border rounded-md p-3 bg-blue-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <UserPlus className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <div className="font-medium text-sm">{selectedShareUser.first_name} {selectedShareUser.last_name}</div>
+                      <div className="text-xs text-gray-500">{selectedShareUser.email}</div>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedShareUser(null)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                {/* Permission Selection */}
+                <div className="mt-3 flex items-center gap-3">
+                  <Label className="text-sm">Permission:</Label>
+                  <select 
+                    className="border rounded-md p-1 text-sm flex-1"
+                    value={sharePermission}
+                    onChange={(e) => setSharePermission(e.target.value as 'view' | 'comment' | 'edit' | 'admin')}
+                  >
+                    <option value="view">Can view</option>
+                    <option value="comment">Can comment</option>
+                    <option value="edit">Can edit</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <Button 
+                    size="sm" 
+                    className="bg-[#4CAF50] hover:bg-[#45a049]"
+                    onClick={handleGrantAccess}
+                    disabled={sharing}
+                  >
+                    {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Share'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Current Access List */}
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                People with access
+              </Label>
+              <div className="mt-2 border rounded-md max-h-48 overflow-y-auto">
+                {loadingAccess ? (
+                  <div className="p-4 text-center">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto text-gray-400" />
+                  </div>
+                ) : documentAccessList.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">
+                    Only you have access to this document
+                  </div>
+                ) : (
+                  documentAccessList.map((access) => (
+                    <div key={access.id} className="flex items-center justify-between p-3 border-b last:border-b-0">
+                      <div>
+                        <div className="font-medium text-sm">
+                          {access.users?.first_name} {access.users?.last_name}
+                        </div>
+                        <div className="text-xs text-gray-500">{access.users?.email}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {access.permission_level === 'write' ? 'Can edit' : 'Can view'}
+                        </Badge>
+                        {isDocumentOwner(sharingDocument!) && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => handleRevokeAccess(access.id, `${access.users?.first_name || ''} ${access.users?.last_name || ''}`)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShareDialogOpen(false)}>
+              Done
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -5,6 +5,14 @@ declare class StudentService {
      */
     calculateProgress(startDate: string, endDate: string): number;
     /**
+     * Calculate remaining days until internship end
+     */
+    calculateRemainingDays(endDate: string): number;
+    /**
+     * Calculate remaining weeks until internship end
+     */
+    calculateRemainingWeeks(endDate: string): number;
+    /**
      * Calculate detailed progress metrics including phase completion
      */
     calculateProgressMetrics(startDate: string, endDate: string): ProgressMetrics;

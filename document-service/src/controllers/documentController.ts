@@ -25,29 +25,103 @@ export async function getDocuments(req: AuthRequest, res: Response) {
       limit = '10',
     } = req.query;
 
-    let query = supabase
-      .from("documents")
-      .select("*, owner:users!owner_id(id, first_name, last_name, email)", { count: 'exact' });
+    const userId = req.user.id;
+    const isAdmin = req.user.role === 'admin';
 
-    // Filter by owner (students can only see their own documents)
-    if (req.user.role === 'student') {
-      query = query.eq('owner_id', req.user.id);
-    } else if (owner_id) {
-      query = query.eq('owner_id', owner_id);
+    console.log('📂 [Documents] Fetching documents for user:', userId, 'role:', req.user.role);
+
+    // Admin can see all documents
+    if (isAdmin) {
+      let query = supabase
+        .from("documents")
+        .select("*, owner:users!owner_id(id, first_name, last_name, email)", { count: 'exact' });
+
+      if (type) query = query.eq('type', type);
+      if (status) query = query.eq('status', status);
+      if (owner_id) query = query.eq('owner_id', owner_id);
+      if (search) {
+        query = query.or(`title.ilike.%${search}%`);
+      }
+
+      const ascending = sort_order === 'asc';
+      query = query.order(sort_by as string, { ascending });
+
+      const pageNum = parseInt(page as string, 10);
+      const limitNum = parseInt(limit as string, 10);
+      const from = (pageNum - 1) * limitNum;
+      const to = from + limitNum - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      console.log('✅ [Documents] Admin fetched', count, 'documents');
+      
+      return res.json({
+        success: true,
+        data: {
+          documents: data || [],
+          total: count || 0,
+          page: pageNum,
+          limit: limitNum,
+          total_pages: Math.ceil((count || 0) / limitNum),
+        },
+      });
     }
 
-    // Apply filters
+    // For non-admin users: Get documents they own OR have access to
+    // Step 1: Get documents user owns
+    const { data: ownedDocs, error: ownedError } = await supabase
+      .from("documents")
+      .select("id")
+      .eq("owner_id", userId);
+
+    if (ownedError) throw ownedError;
+
+    // Step 2: Get documents shared with user via document_access_control
+    const { data: sharedAccess, error: accessError } = await supabase
+      .from("document_access_control")
+      .select("document_id")
+      .eq("user_id", userId)
+      .is("revoked_at", null);
+
+    if (accessError) throw accessError;
+
+    // Combine owned and shared document IDs
+    const ownedIds = (ownedDocs || []).map(d => d.id);
+    const sharedIds = (sharedAccess || []).map(a => a.document_id);
+    const accessibleIds = [...new Set([...ownedIds, ...sharedIds])];
+
+    console.log('📂 [Documents] User has access to', accessibleIds.length, 'documents (owned:', ownedIds.length, ', shared:', sharedIds.length, ')');
+
+    if (accessibleIds.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          documents: [],
+          total: 0,
+          page: parseInt(page as string, 10),
+          limit: parseInt(limit as string, 10),
+          total_pages: 0,
+        },
+      });
+    }
+
+    // Step 3: Fetch full document details for accessible documents
+    let query = supabase
+      .from("documents")
+      .select("*, owner:users!owner_id(id, first_name, last_name, email)", { count: 'exact' })
+      .in("id", accessibleIds);
+
     if (type) query = query.eq('type', type);
     if (status) query = query.eq('status', status);
     if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+      query = query.or(`title.ilike.%${search}%`);
     }
 
-    // Apply sorting
     const ascending = sort_order === 'asc';
     query = query.order(sort_by as string, { ascending });
 
-    // Apply pagination
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const from = (pageNum - 1) * limitNum;
@@ -57,6 +131,8 @@ export async function getDocuments(req: AuthRequest, res: Response) {
     const { data, error, count } = await query;
 
     if (error) throw error;
+
+    console.log('✅ [Documents] User fetched', count, 'accessible documents');
 
     return res.json({
       success: true,
@@ -69,6 +145,7 @@ export async function getDocuments(req: AuthRequest, res: Response) {
       },
     });
   } catch (error) {
+    console.error('❌ [Documents] Get documents error:', error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return res.status(500).json({ success: false, error: message });
   }
