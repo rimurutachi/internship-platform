@@ -266,15 +266,24 @@ class EvaluationsController {
             try {
                 const { id } = req.params;
                 const { final_grade, notes, use_ai_grade } = req.body;
-                // Get evaluation
+                // Get evaluation with internship to fetch advisor_id
                 const { data: evaluation, error: fetchError } = await supabase
                     .from('evaluations')
-                    .select('*')
+                    .select(`
+          *,
+          internship:internships(
+            id,
+            advisor_id
+          )
+        `)
                     .eq('id', id)
                     .single();
                 if (fetchError || !evaluation) {
+                    console.error('[AdminEvaluations] Evaluation not found:', fetchError);
                     return res.status(404).json({ error: 'Evaluation not found' });
                 }
+                // Get advisor_id from internship
+                const advisorId = evaluation.internship?.advisor_id || null;
                 // Determine final grade
                 let gradeToSet = null;
                 if (final_grade !== undefined && final_grade !== null) {
@@ -286,21 +295,25 @@ class EvaluationsController {
                 if (gradeToSet === null) {
                     return res.status(400).json({ error: 'Final grade required' });
                 }
-                // Validate grade range
-                if (gradeToSet < 0 || gradeToSet > 100) {
+                // Validate grade range (CvSU scale: 1.0 to 5.0)
+                if (gradeToSet < 1.0 || gradeToSet > 5.0) {
                     return res
                         .status(400)
-                        .json({ error: 'Grade must be between 0 and 100' });
+                        .json({ error: 'Grade must be between 1.0 and 5.0 (CvSU scale)' });
                 }
-                // Update evaluation
+                // Update evaluation with advisor_id and approved_at
+                const now = new Date().toISOString();
                 const { error: updateError } = await supabase
                     .from('evaluations')
                     .update({
                     status: 'approved',
                     final_grade: gradeToSet,
-                    processed_at: new Date().toISOString(),
+                    advisor_id: advisorId,
+                    approved_at: now,
+                    processed_at: now,
                 })
                     .eq('id', id);
+                console.log('[AdminEvaluations] Updated evaluation with advisor_id:', advisorId, 'approved_at:', now);
                 if (updateError) {
                     console.error('Error approving evaluation:', updateError);
                     return res.status(500).json({ error: updateError.message });

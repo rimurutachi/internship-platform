@@ -70,20 +70,9 @@ export class EvaluationServiceFacade {
     }
   }
 
-  /**
-   * Analyze draft text for quick feedback (no persistence)
-   */
-  async analyzeDraft(text: string): Promise<any> {
-    console.log('[EvaluationFacade] analyzeDraft start');
-    try {
-      const result = await this.crudService.analyzeDraft(text);
-      console.log('[EvaluationFacade] analyzeDraft success');
-      return result;
-    } catch (error) {
-      console.error('[EvaluationFacade] analyzeDraft failed', { error });
-      throw error;
-    }
-  }
+  // NOTE: analyzeDraft method removed in v2.0.0
+  // AI is now used only for historical trend analysis (admin analytics)
+  // Not for individual evaluation assistance
 
   /**
    * Update draft evaluation (only allowed while status is draft)

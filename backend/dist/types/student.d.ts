@@ -28,6 +28,7 @@ export interface StudentInternship {
     start_date: string;
     end_date: string;
     status: 'active' | 'completed' | 'cancelled';
+    progress?: number;
     progress_percentage?: number;
     company?: {
         id: string;

@@ -48,74 +48,62 @@ class EvaluationsService {
             (evaluation.recommended_grade !== null || evaluation.final_grade !== null));
     }
     /**
-     * Get quality metrics for current month
+     * Get evaluation count metrics (total and by status)
+     * Note: This replaces old AI quality metrics (confidence/bias/sentiment)
      */
     async getQualityMetrics() {
         try {
-            const thisMonth = new Date();
-            thisMonth.setDate(1);
-            thisMonth.setHours(0, 0, 0, 0);
-            const { data: evaluations } = await supabase
+            console.log('🔵 [EvaluationsService] Fetching evaluation count metrics...');
+            // Get all evaluations with status
+            const { data: evaluations, error } = await supabase
                 .from('evaluations')
-                .select('confidence_score, bias_check_passed, status, sentiment_scores')
-                .gte('created_at', thisMonth.toISOString());
+                .select('id, status')
+                .eq('evaluation_type', 'final');
+            if (error) {
+                console.error('❌ [EvaluationsService] Error fetching evaluations:', error);
+                throw error;
+            }
             if (!evaluations || evaluations.length === 0) {
+                console.log('⚠️ [EvaluationsService] No evaluations found');
                 return {
-                    total_this_month: 0,
-                    total_processed: 0,
-                    avg_confidence: 0,
-                    bias_pass_rate: 0,
-                    sentiment_distribution: { positive: 0, neutral: 0, negative: 0 },
+                    total: 0,
+                    on_draft: 0,
+                    submitted: 0,
+                    approved: 0,
                 };
             }
-            const processedEvaluations = evaluations.filter((e) => e.status === 'processed' || e.status === 'approved');
-            // Calculate average confidence
-            const confidenceScores = processedEvaluations
-                .map((e) => e.confidence_score)
-                .filter((s) => s !== null);
-            const avgConfidence = confidenceScores.length > 0
-                ? confidenceScores.reduce((a, b) => a + b, 0) / confidenceScores.length
-                : 0;
-            // Calculate bias pass rate
-            const biasPassRate = processedEvaluations.length > 0
-                ? (processedEvaluations.filter((e) => e.bias_check_passed).length /
-                    processedEvaluations.length) *
-                    100
-                : 0;
-            // Calculate sentiment distribution
-            const sentimentTotals = { positive: 0, neutral: 0, negative: 0 };
-            let sentimentCount = 0;
-            processedEvaluations.forEach((e) => {
-                if (e.sentiment_scores && typeof e.sentiment_scores === 'object') {
-                    sentimentTotals.positive += e.sentiment_scores.positive || 0;
-                    sentimentTotals.neutral += e.sentiment_scores.neutral || 0;
-                    sentimentTotals.negative += e.sentiment_scores.negative || 0;
-                    sentimentCount++;
-                }
+            // Count by status
+            const statusCounts = evaluations.reduce((acc, e) => {
+                const status = e.status || 'unknown';
+                acc[status] = (acc[status] || 0) + 1;
+                return acc;
+            }, {});
+            const total = evaluations.length;
+            const onDraft = statusCounts['draft'] || 0;
+            const submitted = statusCounts['submitted'] || 0;
+            const approved = statusCounts['approved'] || 0;
+            console.log('✅ [EvaluationsService] Metrics calculated:', {
+                total,
+                onDraft,
+                submitted,
+                approved,
+                statusBreakdown: statusCounts
             });
-            const sentimentDistribution = sentimentCount > 0
-                ? {
-                    positive: parseFloat((sentimentTotals.positive / sentimentCount).toFixed(2)),
-                    neutral: parseFloat((sentimentTotals.neutral / sentimentCount).toFixed(2)),
-                    negative: parseFloat((sentimentTotals.negative / sentimentCount).toFixed(2)),
-                }
-                : { positive: 0, neutral: 0, negative: 0 };
+            // Return new metrics structure (removed old AI fields)
             return {
-                total_this_month: evaluations.length,
-                total_processed: processedEvaluations.length,
-                avg_confidence: parseFloat(avgConfidence.toFixed(2)),
-                bias_pass_rate: parseFloat(biasPassRate.toFixed(2)),
-                sentiment_distribution: sentimentDistribution,
+                total: total,
+                on_draft: onDraft,
+                submitted: submitted,
+                approved: approved,
             };
         }
         catch (error) {
-            console.error('Error getting quality metrics:', error);
+            console.error('❌ [EvaluationsService] Error getting quality metrics:', error);
             return {
-                total_this_month: 0,
-                total_processed: 0,
-                avg_confidence: 0,
-                bias_pass_rate: 0,
-                sentiment_distribution: { positive: 0, neutral: 0, negative: 0 },
+                total: 0,
+                on_draft: 0,
+                submitted: 0,
+                approved: 0,
             };
         }
     }

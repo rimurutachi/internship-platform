@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import documentServiceProxy from '../../services/documentServiceProxy';
 import {
   Document,
   DocumentVersion,

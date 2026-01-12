@@ -32,16 +32,30 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const documentController = __importStar(require("../controllers/documentController"));
+const auth_1 = require("../middleware/auth");
+const fileController = __importStar(require("../controllers/fileController"));
+const multer_1 = __importDefault(require("multer"));
 const router = (0, express_1.Router)();
+const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
+router.use(auth_1.authenticateToken);
 // Document CRUD
-router.post('/', documentController.createDocument);
-router.get('/:id', documentController.getDocument);
-router.put('/:id', documentController.updateDocument);
-router.delete('/:id', documentController.deleteDocument);
+router.get("/", documentController.getDocuments);
+router.post("/", documentController.createDocument);
+router.get("/:id", documentController.getDocument);
+router.put("/:id", documentController.updateDocument);
+router.delete("/:id", documentController.deleteDocument); // Allow owners to delete
 // Version control
-router.get('/:id/versions', documentController.getVersions);
-router.post('/:id/versions', documentController.createVersion);
+router.get("/:id/versions", documentController.getVersions);
+router.post("/:id/versions", documentController.createVersion);
+// Files
+router.post("/:id/files", upload.single("file"), fileController.uploadFile);
+router.get("/:id/files", fileController.listFiles);
+router.get("/files/:fileId/signed-url", fileController.getSignedUrl);
+router.delete("/files/:fileId", fileController.deleteFile);
 exports.default = router;

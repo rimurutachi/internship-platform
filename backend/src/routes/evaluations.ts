@@ -21,11 +21,8 @@ router.get('/progress/:internshipId', evaluationController.getEvaluationProgress
 // Get evaluations by type for an internship (must be before /:id)
 router.get('/internship/:internshipId/type/:evaluationType', evaluationController.getEvaluationsByType);
 
-// Analyze draft evaluation (supervisor) - MUST be before /:id routes
-router.post('/analyze-draft',
-    requireRole(['supervisor']),
-    evaluationController.analyzeDraftEvaluation
-);
+// NOTE: POST /analyze-draft route removed in v2.0.0
+// AI is now used only for historical trend analysis (admin analytics)
 
 // Create evaluation (supervisor)
 router.post('/',

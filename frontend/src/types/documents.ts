@@ -7,6 +7,11 @@ export type DocumentType =
   | 'form'
   | 'certificate'
   | 'memorandum'
+  | 'pdf'
+  | 'docx'
+  | 'xlsx'
+  | 'image'
+  | 'zip'
   | 'other';
 
 export type DocumentStatus = 

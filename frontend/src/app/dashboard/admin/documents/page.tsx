@@ -5,8 +5,7 @@ import {
   Search, 
   FileText, 
   Eye, 
-  Archive, 
-  ArchiveRestore,
+  Archive,
   Loader2,
   RefreshCw,
   MoreHorizontal
@@ -32,7 +31,6 @@ import { adminDocumentsAPI } from '@/lib/api/admin-documents';
 import {
   DocumentWithDetails,
   DocumentType,
-  DocumentStatus,
   StatsResponse
 } from '@/types/documents';
 import { DocumentDetailDialog } from '@/components/admin/documents/DocumentDetailDialog';
@@ -50,7 +48,6 @@ export default function DocumentsPage() {
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,13 +65,13 @@ export default function DocumentsPage() {
     try {
       setLoading(true);
       
+      console.log('📂 [Admin] Fetching documents...');
+      
       const filters: {
         type?: DocumentType;
-        status?: DocumentStatus;
         search?: string;
       } = {};
       if (filterType !== 'all') filters.type = filterType as DocumentType;
-      if (filterStatus !== 'all') filters.status = filterStatus as DocumentStatus;
       if (searchQuery) filters.search = searchQuery;
       
       const response = await adminDocumentsAPI.getDocuments(
@@ -83,10 +80,13 @@ export default function DocumentsPage() {
         { sort_by: 'created_at', sort_order: 'desc' }
       );
       
+      console.log('✅ [Admin] Fetched', response.total, 'documents');
+      
       setDocuments(response.documents);
       setTotalPages(response.total_pages);
       setTotalDocuments(response.total);
     } catch (error) {
+      console.error('❌ [Admin] Fetch documents error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch documents';
       toast({
         title: 'Error',
@@ -96,7 +96,7 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filterType, filterStatus, searchQuery, toast]);
+  }, [currentPage, filterType, searchQuery, toast]);
 
   // Fetch statistics
   const fetchStats = useCallback(async () => {
@@ -115,7 +115,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     fetchDocuments();
     fetchStats();
-  }, [currentPage, filterType, filterStatus, fetchDocuments, fetchStats]);
+  }, [currentPage, filterType, fetchDocuments, fetchStats]);
 
   // Search with debounce
   useEffect(() => {
@@ -177,64 +177,23 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleUnarchive = async (documentId: string) => {
-    try {
-      // Use updateStatus to change status from archived back to draft
-      await adminDocumentsAPI.updateStatus(documentId, { status: 'draft' });
-      toast({
-        title: 'Success',
-        description: 'Document unarchived successfully',
-      });
-      fetchDocuments();
-      fetchStats();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to unarchive document';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Get status badge color
-  const getStatusColor = (status: DocumentStatus) => {
-    const colors: Record<DocumentStatus, string> = {
-      draft: 'bg-gray-100 text-gray-800',
-      in_review: 'bg-blue-100 text-blue-800',
-      approved: 'bg-green-100 text-green-800',
-      published: 'bg-purple-100 text-purple-800',
-      archived: 'bg-orange-100 text-orange-800',
-      rejected: 'bg-red-100 text-red-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
   // Get type badge color
   const getTypeColor = (type: DocumentType) => {
-    const colors: Record<DocumentType, string> = {
+    const colors: Record<string, string> = {
       evaluation: 'bg-indigo-100 text-indigo-800',
       agreement: 'bg-cyan-100 text-cyan-800',
       report: 'bg-emerald-100 text-emerald-800',
       form: 'bg-amber-100 text-amber-800',
       certificate: 'bg-violet-100 text-violet-800',
       memorandum: 'bg-rose-100 text-rose-800',
+      pdf: 'bg-red-100 text-red-800',
+      docx: 'bg-blue-100 text-blue-800',
+      xlsx: 'bg-green-100 text-green-800',
+      image: 'bg-purple-100 text-purple-800',
+      zip: 'bg-yellow-100 text-yellow-800',
       other: 'bg-slate-100 text-slate-800',
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
-  };
-
-  // Get status badge class for mobile view
-  const getStatusBadgeClass = (status: DocumentStatus) => {
-    const classes: Record<DocumentStatus, string> = {
-      draft: 'bg-gray-500/10 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400',
-      in_review: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400',
-      approved: 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400',
-      published: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
-      archived: 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400',
-      rejected: 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400',
-    };
-    return classes[status] || 'bg-gray-500/10 text-gray-600';
   };
 
   // Format date
@@ -294,29 +253,12 @@ export default function DocumentsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="evaluation">Evaluation</SelectItem>
-                      <SelectItem value="agreement">Agreement</SelectItem>
-                      <SelectItem value="report">Report</SelectItem>
-                      <SelectItem value="form">Form</SelectItem>
-                      <SelectItem value="certificate">Certificate</SelectItem>
-                      <SelectItem value="memorandum">Memorandum</SelectItem>
+                      <SelectItem value="pdf">PDF</SelectItem>
+                      <SelectItem value="docx">Word Document</SelectItem>
+                      <SelectItem value="xlsx">Excel</SelectItem>
+                      <SelectItem value="image">Image</SelectItem>
+                      <SelectItem value="zip">Archive</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* Status Filter */}
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="in_review">In Review</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -359,10 +301,9 @@ export default function DocumentsPage() {
                           <TableRow>
                             <TableHead>Title</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead>Status</TableHead>
                             <TableHead>Version</TableHead>
-                            <TableHead>Owner</TableHead>
-                            <TableHead>Created</TableHead>
+                            <TableHead>Uploaded By</TableHead>
+                            <TableHead>Upload Date</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -371,20 +312,10 @@ export default function DocumentsPage() {
                             <TableRow key={doc.id}>
                               <TableCell>
                                 <div className="font-medium">{doc.title}</div>
-                                {doc.description && (
-                                  <div className="text-sm text-muted-foreground truncate max-w-xs">
-                                    {doc.description}
-                                  </div>
-                                )}
                               </TableCell>
                               <TableCell>
                                 <Badge className={getTypeColor(doc.type)}>
                                   {doc.type}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={getStatusColor(doc.status)}>
-                                  {doc.status.replace('_', ' ')}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -414,24 +345,13 @@ export default function DocumentsPage() {
                                   >
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  {doc.status === 'archived' ? (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleUnarchive(doc.id)}
-                                      className="text-blue-600 hover:text-blue-700"
-                                    >
-                                      <ArchiveRestore className="h-4 w-4" />
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleArchive(doc.id)}
-                                    >
-                                      <Archive className="h-4 w-4" />
-                                    </Button>
-                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleArchive(doc.id)}
+                                  >
+                                    <Archive className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -524,21 +444,6 @@ export default function DocumentsPage() {
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="in_review">In Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Mobile Refresh Button */}
@@ -588,26 +493,16 @@ export default function DocumentsPage() {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            {doc.status === 'archived' ? (
-                              <DropdownMenuItem onClick={() => handleUnarchive(doc.id)}>
-                                <ArchiveRestore className="h-4 w-4 mr-2" />
-                                Unarchive
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onClick={() => handleArchive(doc.id)}>
-                                <Archive className="h-4 w-4 mr-2" />
-                                Archive
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem onClick={() => handleArchive(doc.id)}>
+                              <Archive className="h-4 w-4 mr-2" />
+                              Archive
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className={getTypeColor(doc.type)}>
                           {doc.type}
-                        </Badge>
-                        <Badge className={getStatusBadgeClass(doc.status)}>
-                          {doc.status.replace('_', ' ')}
                         </Badge>
                       </div>
                       {doc.owner && (

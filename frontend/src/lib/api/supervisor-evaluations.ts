@@ -189,19 +189,9 @@ export async function getEvaluationById(evaluationId: string): Promise<Superviso
   return get<SupervisorEvaluation>(`/evaluations/${evaluationId}`);
 }
 
-/**
- * Analyze draft evaluation text (real-time, lightweight)
- * 
- * @param text - Evaluation feedback text to analyze
- * @returns Draft analysis with features and sentiment (no bias check)
- */
-export async function analyzeDraftEvaluation(text: string): Promise<DraftAnalysisResult> {
-  if (!text || text.trim().length < 5) {
-    throw new Error('Text is too short for analysis (minimum 5 characters)');
-  }
-
-  return post<DraftAnalysisResult>('/evaluations/analyze-draft', { text });
-}
+// NOTE: analyzeDraftEvaluation removed in v2.0.0
+// AI is now used only for historical trend analysis (admin dashboard)
+// Not for individual evaluation assistance during supervisor draft writing
 
 /**
  * Create a new evaluation (draft)

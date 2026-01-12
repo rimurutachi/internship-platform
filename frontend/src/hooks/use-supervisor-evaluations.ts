@@ -2,12 +2,14 @@
  * Custom Hooks for Supervisor Evaluations
  * 
  * React hooks for evaluation API integration with debouncing and state management
+ * 
+ * NOTE: Real-time AI draft analysis removed in v2.0.0
+ * AI is now used only for historical trend analysis (admin analytics)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createSupabaseClient } from '@/lib/supabase';
 import {
-  analyzeDraftEvaluation,
   submitEvaluation,
   getInternshipEvaluations,
   getSupervisorEvaluations,
@@ -17,69 +19,17 @@ import {
 } from '@/lib/api/supervisor-evaluations';
 
 /**
- * Hook for real-time draft evaluation analysis with debouncing
- * 
- * @param feedbackText - The feedback text to analyze
- * @param debounceMs - Debounce delay in milliseconds (default: 500ms)
- * @returns Analysis result, loading state, and error
+ * @deprecated Real-time draft analysis removed in v2.0.0
+ * Hook preserved for backward compatibility but returns null analysis
+ * AI is now used for admin trend analysis only
  */
 export function useEvaluationAnalysis(feedbackText: string, debounceMs: number = 500) {
-  const [analysis, setAnalysis] = useState<DraftAnalysisResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    // Clear previous timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    // Abort previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Reset if text is too short
-    if (!feedbackText || feedbackText.trim().length < 5) {
-      setAnalysis(null);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    // Set loading state immediately
-    setIsLoading(true);
-    setError(null);
-
-    // Debounce the API call
-    timeoutRef.current = setTimeout(async () => {
-      try {
-        const result = await analyzeDraftEvaluation(feedbackText.trim());
-        setAnalysis(result);
-        setError(null);
-      } catch (err) {
-        console.error('Draft analysis error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to analyze draft');
-        setAnalysis(null);
-      } finally {
-        setIsLoading(false);
-      }
-    }, debounceMs);
-
-    // Cleanup function
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [feedbackText, debounceMs]);
-
-  return { analysis, isLoading, error };
+  // Return null analysis - feature removed
+  return { 
+    analysis: null as DraftAnalysisResult | null, 
+    isLoading: false, 
+    error: null as string | null
+  };
 }
 
 /**

@@ -10,6 +10,7 @@ import internshipsRoutes from './admin/internships';
 import evaluationsRoutes from './admin/evaluations.routes';
 import companiesRoutes from './admin/companies';
 import rubricsRoutes from './admin/rubrics';
+import analyticsRoutes from './admin/analytics.routes';
 
 const router = Router();
 
@@ -73,5 +74,8 @@ router.use('/evaluations', evaluationsRoutes);
 
 // Companies management routes
 router.use('/companies', companiesRoutes);
+
+// AI Analytics routes (trend analysis) - v2.0.0
+router.use('/analytics', analyticsRoutes);
 
 export default router;
