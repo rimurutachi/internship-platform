@@ -53,6 +53,7 @@ router.delete("/:id", documentController.deleteDocument); // Allow owners to del
 // Version control
 router.get("/:id/versions", documentController.getVersions);
 router.post("/:id/versions", documentController.createVersion);
+router.get("/:id/versions/:versionId/download", documentController.getVersionDownloadUrl);
 // Files
 router.post("/:id/files", upload.single("file"), fileController.uploadFile);
 router.get("/:id/files", fileController.listFiles);

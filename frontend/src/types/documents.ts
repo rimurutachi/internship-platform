@@ -53,12 +53,18 @@ export interface Document {
 export interface DocumentVersion {
   id: string;
   document_id: string;
-  version: string; // Semantic version
-  content: any; // JSONB
-  file_url?: string;
-  change_summary?: string;
-  created_by: string;
+  version: string; // Semantic version (e.g., "v1.0.0", "v2.0.0")
+  storage_path?: string | null; // Supabase Storage path
+  file_path?: string | null; // Alias for storage_path (backwards compatibility)
+  file_name?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  uploaded_by?: string; // User ID who uploaded this version
+  changed_by?: string; // Alias for uploaded_by (backwards compatibility)
   created_at: string;
+  is_current?: boolean; // True if this is the active version
+  is_archived?: boolean; // True for old versions
+  replaced_by_version?: string | null; // Version string that replaced this one
   created_by_user?: {
     id: string;
     first_name: string;
