@@ -59,6 +59,24 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [sharingDocument, setSharingDocument] = useState<DocumentWithDetails | null>(null);
+
+  // Version history state
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [versionHistoryDoc, setVersionHistoryDoc] = useState<DocumentWithDetails | null>(null);
+  const [versions, setVersions] = useState<Array<{
+    id: string;
+    version: string;
+    file_path?: string | null;
+    file_name?: string | null;
+    file_size?: number | null;
+    change_summary?: string;
+    created_at: string;
+    is_current?: boolean;
+    created_by_user?: { first_name: string; last_name: string };
+  }>>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
+  
   const [shareSearchQuery, setShareSearchQuery] = useState('');
   const [shareSearchResults, setShareSearchResults] = useState<Array<{
     id: string;
@@ -441,6 +459,55 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
     }
   };
 
+  // Open version history dialog and fetch versions
+  const handleOpenVersionHistory = async (doc: DocumentWithDetails) => {
+    setVersionHistoryDoc(doc);
+    setVersionHistoryOpen(true);
+    setLoadingVersions(true);
+    
+    try {
+      console.log('📚 [Versions] Fetching versions for:', doc.id);
+      const response = await documentsAPI.getVersions(doc.id);
+      console.log('📚 [Versions] Received:', response);
+      setVersions(response);
+    } catch (err) {
+      console.error('Failed to fetch versions:', err);
+      setVersions([]);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  // Download a specific version
+  const handleDownloadVersion = async (versionId: string, fileName: string | null) => {
+    if (!versionHistoryDoc) return;
+    
+    try {
+      setDownloadingVersion(versionId);
+      console.log('📥 [Versions] Downloading version:', versionId);
+      
+      const result = await documentsAPI.getVersionDownloadUrl(versionHistoryDoc.id, versionId);
+      
+      if (result?.url) {
+        const link = document.createElement('a');
+        link.href = result.url;
+        link.download = fileName || `version-${versionId}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        console.log('✅ [Versions] Download started');
+      } else {
+        alert('Could not get download URL for this version');
+      }
+    } catch (err) {
+      console.error('Failed to download version:', err);
+      alert('Failed to download this version');
+    } finally {
+      setDownloadingVersion(null);
+    }
+  };
+
   // Revoke access
   const handleRevokeAccess = async (accessId: string, userName: string) => {
     if (!confirm(`Remove access for ${userName}?`)) return;
@@ -792,54 +859,15 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                               <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" onClick={() => setSelectedDocument(doc.id)}>
-                                    <History className="w-4 h-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Version History - {doc.title}</DialogTitle>
-                                    <DialogDescription>View and manage document versions</DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                                    {doc.versions && doc.versions.length > 0 ? (
-                                      doc.versions.map((version) => (
-                                        <Card key={version.id} className={version.version === doc.version ? 'border-blue-600' : ''}>
-                                          <CardContent className="pt-4">
-                                            <div className="flex items-start justify-between">
-                                              <div className="flex-1">
-                                                <Badge variant={version.version === doc.version ? 'default' : 'outline'}>
-                                                  Version {version.version}
-                                                  {version.version === doc.version && ' (Current)'}
-                                                </Badge>
-                                                <div className="mt-2 space-y-1">
-                                                  {version.created_by_user && (
-                                                    <div className="text-sm text-foreground">
-                                                      <span className="font-medium">Updated by:</span> {version.created_by_user.first_name} {version.created_by_user.last_name}
-                                                    </div>
-                                                  )}
-                                                  <div className="text-sm text-muted-foreground">
-                                                    <span className="font-medium">Date:</span> {new Date(version.created_at).toLocaleString()}
-                                                  </div>
-                                                  {version.change_summary && (
-                                                    <div className="text-sm text-muted-foreground">
-                                                      <span className="font-medium">Changes:</span> {version.change_summary}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </CardContent>
-                                        </Card>
-                                      ))
-                                    ) : (
-                                      <div className="py-8 text-center text-muted-foreground">No version history available</div>
-                                    )}
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
+                              {/* Version History Button - Opens dedicated dialog */}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleOpenVersionHistory(doc)}
+                                title="Version history"
+                              >
+                                <History className="w-4 h-4" />
+                              </Button>
 
                               {/* Edit button - only show for document owner */}
                               {isDocumentOwner(doc) && (
@@ -1220,6 +1248,92 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
           <div className="flex gap-2 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => setShareDialogOpen(false)}>
               Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Version History Dialog */}
+      <Dialog open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Version History - {versionHistoryDoc?.title}</DialogTitle>
+            <DialogDescription>View and download previous versions of this document</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {loadingVersions ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
+            ) : versions.length > 0 ? (
+              versions.map((version) => (
+                <Card 
+                  key={version.id} 
+                  className={version.is_current ? 'border-green-500 dark:border-green-700' : ''}
+                >
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant={version.is_current ? 'default' : 'outline'}>
+                            v{version.version}
+                          </Badge>
+                          {version.is_current && (
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Current
+                            </Badge>
+                          )}
+                        </div>
+                        {version.file_name && (
+                          <div className="text-sm text-muted-foreground mb-1">
+                            📄 {version.file_name}
+                            {version.file_size && ` (${(version.file_size / 1024).toFixed(1)} KB)`}
+                          </div>
+                        )}
+                        {version.change_summary && (
+                          <div className="text-sm text-muted-foreground mb-1">
+                            {version.change_summary}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          {version.created_by_user && (
+                            <span>{version.created_by_user.first_name} {version.created_by_user.last_name} • </span>
+                          )}
+                          {new Date(version.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      {version.file_path && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadVersion(version.id, version.file_name || null)}
+                          disabled={downloadingVersion === version.id}
+                        >
+                          {downloadingVersion === version.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                <History className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No version history available</p>
+                <p className="text-sm mt-2">Upload a new version to see history</p>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setVersionHistoryOpen(false)}>
+              Close
             </Button>
           </div>
         </DialogContent>

@@ -73,9 +73,29 @@ export const adminDocumentsAPI = {
   async getVersions(documentId: string): Promise<DocumentVersion[]> {
     try {
       const response = await apiClient.get(`${DOCUMENTS_ENDPOINT}/${documentId}/versions`);
-      return response.data;
+      // Handle both success wrapper and direct array
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      return response.data || [];
     } catch (error: any) {
       console.error('Get versions error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get download URL for a specific version
+   */
+  async getVersionDownloadUrl(documentId: string, versionId: string): Promise<{ url: string; file_name: string }> {
+    try {
+      const response = await apiClient.get(`${DOCUMENTS_ENDPOINT}/${documentId}/versions/${versionId}/download`);
+      if (response.data?.success && response.data.data) {
+        return response.data.data;
+      }
+      return response.data;
+    } catch (error: any) {
+      console.error('Get version download URL error:', error);
       throw error;
     }
   },
