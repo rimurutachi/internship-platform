@@ -257,6 +257,35 @@ export const documentsAPI = {
   },
 
   /**
+   * Get download URL for a specific version
+   */
+  async getVersionDownloadUrl(documentId: string, versionId: string): Promise<{ url: string; file_name: string }> {
+    try {
+      console.log('🔵 [Documents API] Getting version download URL:', versionId);
+      
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${documentId}/versions/${versionId}/download`,
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Version download URL obtained');
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Get version download URL error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
    * Create a new version of a document
    */
   async createVersion(
