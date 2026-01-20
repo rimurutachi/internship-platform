@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole, AuthRequest } from '../../middleware/auth';
 import * as advisorEvaluationService from '../../services/advisorEvaluationService';
+import { ensureString } from '../../utils/typeGuards';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.get('/evaluations/pending', async (req: AuthRequest, res) => {
 router.get('/evaluations/status/:status', async (req: AuthRequest, res) => {
   try {
     const advisorId = req.user?.id;
-    const { status } = req.params;
+    const status = ensureString(req.params.status, 'status');
 
     if (!advisorId) {
       return res.status(401).json({
@@ -87,7 +88,7 @@ router.get('/evaluations/status/:status', async (req: AuthRequest, res) => {
 router.get('/evaluations/:id/context', async (req: AuthRequest, res) => {
   try {
     const advisorId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     if (!advisorId) {
       return res.status(401).json({
@@ -150,7 +151,7 @@ router.get('/evaluations/statistics', async (req: AuthRequest, res) => {
 router.post('/evaluations/:id/approve', async (req: AuthRequest, res) => {
   try {
     const advisorId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const approvalData = req.body;
 
     if (!advisorId) {
@@ -187,7 +188,7 @@ router.post('/evaluations/:id/approve', async (req: AuthRequest, res) => {
 router.post('/evaluations/:id/request-revision', async (req: AuthRequest, res) => {
   try {
     const advisorId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { revision_reason } = req.body;
 
     if (!advisorId) {

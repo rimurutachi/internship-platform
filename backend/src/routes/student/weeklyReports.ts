@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole, AuthRequest } from '../../middleware/auth';
 import * as weeklyReportsService from '../../services/weeklyReportsService';
+import { ensureString } from '../../utils/typeGuards';
 
 const router = Router();
 
@@ -97,7 +98,7 @@ router.post('/weekly-reports', async (req: AuthRequest, res) => {
  */
 router.get('/weekly-reports/:id', async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     const result = await weeklyReportsService.getWeeklyReportById(id);
 
@@ -131,7 +132,7 @@ router.get('/weekly-reports/:id', async (req: AuthRequest, res) => {
 router.put('/weekly-reports/:id', async (req: AuthRequest, res) => {
   try {
     const studentId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const updates = req.body;
 
     if (!studentId) {
@@ -164,7 +165,7 @@ router.put('/weekly-reports/:id', async (req: AuthRequest, res) => {
 router.delete('/weekly-reports/:id', async (req: AuthRequest, res) => {
   try {
     const studentId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     if (!studentId) {
       return res.status(401).json({
@@ -196,7 +197,7 @@ router.delete('/weekly-reports/:id', async (req: AuthRequest, res) => {
 router.get('/weekly-reports/deadline/:internship_id', async (req: AuthRequest, res) => {
   try {
     const studentId = req.user?.id;
-    const { internship_id } = req.params;
+    const internship_id = ensureString(req.params.internship_id, 'internship_id');
 
     if (!studentId) {
       return res.status(401).json({

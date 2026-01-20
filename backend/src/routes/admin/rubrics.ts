@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole, AuthRequest } from '../../middleware/auth';
 import * as rubricService from '../../services/rubricService';
+import { ensureString } from '../../utils/typeGuards';
 
 const router = Router();
 
@@ -162,7 +163,7 @@ router.post('/', async (req: AuthRequest, res) => {
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const adminId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { updates, change_reason } = req.body;
 
     if (!adminId) {
@@ -203,7 +204,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
 router.post('/:id/activate', async (req: AuthRequest, res) => {
   try {
     const adminId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     if (!adminId) {
       return res.status(401).json({
@@ -235,7 +236,7 @@ router.post('/:id/activate', async (req: AuthRequest, res) => {
 router.post('/:id/deactivate', async (req: AuthRequest, res) => {
   try {
     const adminId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { reason } = req.body;
 
     if (!adminId) {

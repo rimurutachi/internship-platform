@@ -12,6 +12,7 @@ exports.migrateUserNames = migrateUserNames;
 exports.archiveUser = archiveUser;
 exports.unarchiveUser = unarchiveUser;
 const supabase_js_1 = require("@supabase/supabase-js");
+const typeGuards_1 = require("../utils/typeGuards");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Get all users with filtering, search, and pagination
@@ -76,7 +77,7 @@ async function getAllUsers(req, res) {
  */
 async function getUserById(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -222,7 +223,7 @@ async function createUser(req, res) {
  */
 async function updateUser(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { firstName, lastName, email, company_id, university_id } = req.body;
         if (!firstName && !lastName && !email && !company_id && !university_id) {
             return res.status(400).json({
@@ -302,7 +303,7 @@ async function updateUser(req, res) {
  */
 async function updateUserStatus(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { status } = req.body;
         // Validate status
         const validStatuses = ['active', 'inactive', 'suspended'];
@@ -370,7 +371,7 @@ async function updateUserStatus(req, res) {
  */
 async function updateUserRole(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { role } = req.body;
         // Validate role
         const validRoles = ['student', 'advisor', 'supervisor', 'admin'];
@@ -430,7 +431,7 @@ async function updateUserRole(req, res) {
  */
 async function deleteUser(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         // Prevent self-deletion
         if (req.user?.id === id) {
             return res.status(403).json({
@@ -628,7 +629,7 @@ async function migrateUserNames(req, res) {
  */
 async function archiveUser(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         // Check if user exists
         const { data: user, error: fetchError } = await supabase
             .from('users')
@@ -687,7 +688,7 @@ async function archiveUser(req, res) {
  */
 async function unarchiveUser(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         // Check if user exists
         const { data: user, error: fetchError } = await supabase
             .from('users')

@@ -16,6 +16,7 @@ import { documentsAPI } from '@/lib/api/documents';
 import { connectForUpdates } from '@/lib/documentSocket';
 import { useUser } from '@/hooks/use-user';
 import type { DocumentWithDetails } from '@/types/documents';
+import type { Socket } from 'socket.io-client';
 
 interface DocumentsPageProps {
   sidebar: ReactNode;
@@ -113,25 +114,37 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   useEffect(() => {
     if (!user?.id) return;
 
-    const socket = connectForUpdates();
+    let socket: Socket | null = null;
 
-    socket.on('connect', () => {
-      setWsConnected(true);
-    });
+    const setupSocket = async () => {
+      try {
+        socket = await connectForUpdates();
 
-    socket.on('disconnect', () => {
-      setWsConnected(false);
-    });
+        socket.on('connect', () => {
+          console.log('✅ [DocumentSocket] Connected successfully with authentication');
+          setWsConnected(true);
+        });
 
-    socket.on('document:update', (data: any) => {
-      setRealtimeUpdate(data.message || 'Document updated');
-      loadDocuments();
-      setTimeout(() => setRealtimeUpdate(null), 3000);
-    });
+        socket.on('disconnect', () => {
+          console.warn('⚠️ [DocumentSocket] Disconnected');
+          setWsConnected(false);
+        });
 
-    socket.on('document:error', (error: any) => {
-      console.error('[WebSocket] Error:', error);
-    });
+        socket.on('document:update', (data: any) => {
+          setRealtimeUpdate(data.message || 'Document updated');
+          loadDocuments();
+          setTimeout(() => setRealtimeUpdate(null), 3000);
+        });
+
+        socket.on('document:error', (error: any) => {
+          console.error('[WebSocket] Error:', error);
+        });
+      } catch (error) {
+        console.error('❌ [DocumentSocket] Failed to connect:', error);
+      }
+    };
+
+    setupSocket();
 
     return () => {
       if (socket && socket.connected) {

@@ -10,6 +10,7 @@ exports.deleteUser = deleteUser;
 exports.updateUserRole = updateUserRole;
 exports.updateUserStatus = updateUserStatus;
 const supabase_js_1 = require("@supabase/supabase-js");
+const typeGuards_1 = require("../../utils/typeGuards");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Get all users with filtering, search, and pagination
@@ -82,7 +83,7 @@ async function getAllUsers(req, res) {
  */
 async function getUserById(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -116,7 +117,7 @@ async function getUserById(req, res) {
  */
 async function verifyUserProfile(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { comments } = req.body;
         const adminId = req.user?.id;
         if (!adminId) {
@@ -221,7 +222,7 @@ async function verifyUserProfile(req, res) {
  */
 async function rejectUserProfile(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { rejection_reason } = req.body;
         const adminId = req.user?.id;
         if (!adminId) {
@@ -315,7 +316,7 @@ async function rejectUserProfile(req, res) {
  */
 async function archiveUser(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const adminId = req.user?.id;
         if (!adminId) {
             return res.status(401).json({
@@ -419,7 +420,7 @@ async function archiveUser(req, res) {
  */
 async function unarchiveUser(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const adminId = req.user?.id;
         if (!adminId) {
             return res.status(401).json({
@@ -527,7 +528,7 @@ async function deleteUser(req, res) {
  */
 async function updateUserRole(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { role } = req.body;
         const adminId = req.user?.id;
         // Validate role
@@ -603,7 +604,7 @@ async function updateUserRole(req, res) {
  */
 async function updateUserStatus(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { status } = req.body;
         const adminId = req.user?.id;
         // Validate status

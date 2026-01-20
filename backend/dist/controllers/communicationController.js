@@ -7,6 +7,7 @@ exports.CommunicationController = void 0;
 const messageService_1 = __importDefault(require("../services/messageService"));
 const conversationService_1 = __importDefault(require("../services/conversationService"));
 const notificationService_1 = __importDefault(require("../services/notificationService"));
+const typeGuards_1 = require("../utils/typeGuards");
 class CommunicationController {
     /* Messages */
     // Send message
@@ -45,7 +46,7 @@ class CommunicationController {
     // Get conversation messages
     async getMessages(req, res) {
         try {
-            const { conversationId } = req.params;
+            const conversationId = (0, typeGuards_1.ensureString)(req.params.conversationId, 'conversationId');
             const { limit = 50, offset = 0 } = req.query;
             const messages = await messageService_1.default.getMessages(conversationId, Number(limit), Number(offset));
             return res.json({ success: true, data: messages });
@@ -68,7 +69,7 @@ class CommunicationController {
                     error: "User not authenticated",
                 });
             }
-            const { messageId } = req.params;
+            const messageId = (0, typeGuards_1.ensureString)(req.params.messageId, 'messageId');
             const { content } = req.body;
             if (!content || content.trim().length === 0) {
                 return res.status(400).json({
@@ -101,7 +102,7 @@ class CommunicationController {
                     error: "User not authenticated",
                 });
             }
-            const { messageId } = req.params;
+            const messageId = (0, typeGuards_1.ensureString)(req.params.messageId, 'messageId');
             await messageService_1.default.deleteMessage(messageId, userId);
             return res.json({
                 success: true,
@@ -165,7 +166,7 @@ class CommunicationController {
     // Get conversation by Id
     async getConversation(req, res) {
         try {
-            const { conversationId } = req.params;
+            const conversationId = (0, typeGuards_1.ensureString)(req.params.conversationId, 'conversationId');
             const conversation = await conversationService_1.default.getConversation(conversationId);
             return res.json({ success: true, data: conversation });
         }
@@ -187,7 +188,7 @@ class CommunicationController {
                     error: "User not authenticated",
                 });
             }
-            const { conversationId } = req.params;
+            const conversationId = (0, typeGuards_1.ensureString)(req.params.conversationId, 'conversationId');
             await conversationService_1.default.markAsRead(conversationId, userId);
             return res.json({
                 success: true,
@@ -345,7 +346,7 @@ class CommunicationController {
                     error: "User not authenticated",
                 });
             }
-            const { notificationId } = req.params;
+            const notificationId = (0, typeGuards_1.ensureString)(req.params.notificationId, 'notificationId');
             await notificationService_1.default.markAsRead(notificationId, userId);
             return res.json({
                 success: true,
@@ -397,7 +398,7 @@ class CommunicationController {
                     error: "User not authenticated",
                 });
             }
-            const { notificationId } = req.params;
+            const notificationId = (0, typeGuards_1.ensureString)(req.params.notificationId, 'notificationId');
             await notificationService_1.default.deleteNotification(notificationId, userId);
             return res.json({
                 success: true,

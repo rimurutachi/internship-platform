@@ -6,16 +6,37 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireRole = exports.authenticateToken = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-// Validate required environment variables (skip strict check in test environment)
-if (process.env.NODE_ENV !== "test" &&
-    (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)) {
-    throw new Error("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY");
+// Lazy-load Supabase client
+let supabaseClient = null;
+function getSupabaseClient() {
+    if (!supabaseClient) {
+        // Validate required environment variables (skip strict check in test environment)
+        if (process.env.NODE_ENV !== "test" &&
+            (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)) {
+            throw new Error("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY");
+        }
+        supabaseClient = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+    }
+    return supabaseClient;
 }
-const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+/**
+ * SECURITY: Test mode configuration
+ * - Only enabled when NODE_ENV=test AND ALLOW_TEST_MODE=true
+ * - TEST_USER_ROLE must be explicitly set (no default admin fallback)
+ * - Production deployment: Ensure ALLOW_TEST_MODE is NOT set or set to false
+ */
+const isTestModeAllowed = () => {
+    // Double-check: test mode requires BOTH conditions
+    if (process.env.NODE_ENV !== "test")
+        return false;
+    if (process.env.ALLOW_TEST_MODE !== "true")
+        return false;
+    return true;
+};
 /* Middleware for authentication and extract user info including its role. */
 const authenticateToken = async (req, res, next) => {
-    // In test environment, accept any Bearer token and attach a default user
-    if (process.env.NODE_ENV === "test") {
+    // SECURITY: Test mode with strict guards (requires explicit ALLOW_TEST_MODE=true)
+    if (isTestModeAllowed()) {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return res.status(401).json({
@@ -23,10 +44,20 @@ const authenticateToken = async (req, res, next) => {
                 message: "Authorization header with Bearer token is required",
             });
         }
+        // SECURITY: TEST_USER_ROLE must be explicitly configured - no default admin fallback
+        const testRole = process.env.TEST_USER_ROLE;
+        if (!testRole) {
+            console.error("🔴 SECURITY: Test mode enabled but TEST_USER_ROLE not configured");
+            return res.status(500).json({
+                error: "Test configuration error",
+                message: "TEST_USER_ROLE environment variable must be explicitly set",
+            });
+        }
+        console.warn("⚠️ TEST MODE: Using mock authentication for user with role:", testRole);
         req.user = {
             id: "test-user",
             email: "test@example.com",
-            role: process.env.TEST_USER_ROLE || "admin",
+            role: testRole,
         };
         return next();
     }
@@ -40,6 +71,7 @@ const authenticateToken = async (req, res, next) => {
         }
         const token = authHeader.replace("Bearer ", "");
         // Verify token with Supabase
+        const supabase = getSupabaseClient();
         const { data: { user }, error, } = await supabase.auth.getUser(token);
         if (error || !user) {
             return res.status(401).json({
@@ -59,6 +91,7 @@ const authenticateToken = async (req, res, next) => {
         const role = decoded.app_metadata?.role || decoded.user_metadata?.role;
         if (!role) {
             // IF no role in JWT, fetch from database as fallback
+            const supabase = getSupabaseClient();
             const { data: userProfile, error: profileError } = await supabase
                 .from("users")
                 .select("role, status")
@@ -91,6 +124,7 @@ const authenticateToken = async (req, res, next) => {
         }
         else {
             // Even if role exists in JWT, check status from database
+            const supabase = getSupabaseClient();
             const { data: userProfile } = await supabase
                 .from("users")
                 .select("status")

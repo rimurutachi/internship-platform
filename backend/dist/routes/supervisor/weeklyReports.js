@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const supervisorReportsService = __importStar(require("../../services/supervisorReportsService"));
+const typeGuards_1 = require("../../utils/typeGuards");
 const router = (0, express_1.Router)();
 // All routes require authentication and supervisor role
 router.use(auth_1.authenticateToken);
@@ -166,7 +167,7 @@ router.get('/weekly-reports/summary-by-student', async (req, res) => {
 router.post('/weekly-reports/:id/approve', async (req, res) => {
     try {
         const supervisorId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { comments } = req.body;
         if (!supervisorId) {
             return res.status(401).json({
@@ -195,7 +196,7 @@ router.post('/weekly-reports/:id/approve', async (req, res) => {
 router.post('/weekly-reports/:id/reject', async (req, res) => {
     try {
         const supervisorId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { rejection_reason } = req.body;
         if (!supervisorId) {
             return res.status(401).json({
@@ -231,7 +232,7 @@ router.post('/weekly-reports/:id/reject', async (req, res) => {
 router.post('/weekly-reports/:id/comment', async (req, res) => {
     try {
         const supervisorId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { comment } = req.body;
         if (!supervisorId) {
             return res.status(401).json({

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { internshipService } from '../services/internship.service';
+import { ensureString } from '../utils/typeGuards';
 
 export async function createInternship(req: Request, res: Response) {
     try {
@@ -13,7 +14,7 @@ export async function createInternship(req: Request, res: Response) {
 
 export async function getInternship(req: Request, res: Response) {
     try {
-        const internship = await internshipService.getById(req.params.id);
+        const internship = await internshipService.getById(ensureString(req.params.id, 'id'));
         if (!internship) {
             return res.status(404).json({success: false, error: 'Internship not found.'});
         }
@@ -34,7 +35,7 @@ export async function getAllInternships(req: Request, res: Response) {
 
 export async function updateInternship(req: Request, res: Response) {
     try {
-        const internship = await internshipService.update(req.params.id, req.body);
+        const internship = await internshipService.update(ensureString(req.params.id, 'id'), req.body);
         res.json({success: true, data: internship});
     } catch (error: any) {
         res.status(400).json({success: false, error: error.message});
@@ -43,7 +44,7 @@ export async function updateInternship(req: Request, res: Response) {
 
 export async function deleteInternship(req: Request, res: Response) {
     try {
-        await internshipService.delete(req.params.id);
+        await internshipService.delete(ensureString(req.params.id, 'id'));
         res.json({success: true, message: 'Internship deleted successfully.'});
     } catch (error: any) {
         res.status(500).json({success: false, error: error.message});

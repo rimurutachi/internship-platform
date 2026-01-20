@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const advisorEvaluationService = __importStar(require("../../services/advisorEvaluationService"));
+const typeGuards_1 = require("../../utils/typeGuards");
 const router = (0, express_1.Router)();
 /**
  * GET /api/advisor/evaluations/pending
@@ -71,7 +72,7 @@ router.get('/evaluations/pending', async (req, res) => {
 router.get('/evaluations/status/:status', async (req, res) => {
     try {
         const advisorId = req.user?.id;
-        const { status } = req.params;
+        const status = (0, typeGuards_1.ensureString)(req.params.status, 'status');
         if (!advisorId) {
             return res.status(401).json({
                 success: false,
@@ -107,7 +108,7 @@ router.get('/evaluations/status/:status', async (req, res) => {
 router.get('/evaluations/:id/context', async (req, res) => {
     try {
         const advisorId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         if (!advisorId) {
             return res.status(401).json({
                 success: false,
@@ -162,7 +163,7 @@ router.get('/evaluations/statistics', async (req, res) => {
 router.post('/evaluations/:id/approve', async (req, res) => {
     try {
         const advisorId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const approvalData = req.body;
         if (!advisorId) {
             return res.status(401).json({
@@ -191,7 +192,7 @@ router.post('/evaluations/:id/approve', async (req, res) => {
 router.post('/evaluations/:id/request-revision', async (req, res) => {
     try {
         const advisorId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { revision_reason } = req.body;
         if (!advisorId) {
             return res.status(401).json({
