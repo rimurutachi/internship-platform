@@ -1,5 +1,6 @@
 import ReportsService from '../../services/reportsService';
 import { Request, Response } from 'express';
+import { ensureString } from '../../utils/typeGuards';
 
 class ReportsController {
   static async getOverview(req: Request, res: Response) {
@@ -86,7 +87,7 @@ class ReportsController {
 
   static async getMetricTrend(req: Request, res: Response) {
     try {
-      const metric = req.params.metric;
+      const metric = ensureString(req.params.metric, 'metric');
       const days = parseInt(req.query.days as string) || 30;
       const data = await ReportsService.generateMetricTrend(metric, days);
       res.json({ metric, trend: data });

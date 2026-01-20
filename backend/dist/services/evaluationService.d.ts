@@ -9,13 +9,6 @@
 import { Evaluation, CreateEvaluationDTO, ProcessEvaluationResult } from "../models/evaluation";
 export declare class EvaluationService {
     create(data: CreateEvaluationDTO): Promise<Evaluation>;
-    /**
-     * Analyze draft evaluation text (lightweight, real-time feedback)
-     *
-     * @param text - Evaluation feedback text
-     * @returns Draft analysis with features and sentiment
-     */
-    analyzeDraft(text: string): Promise<import("./aiService").DraftAnalysisResult>;
     getById(id: string): Promise<Evaluation | null>;
     update(id: string, data: any): Promise<Evaluation>;
     processWithAI(evaluationId: string): Promise<ProcessEvaluationResult>;

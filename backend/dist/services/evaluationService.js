@@ -15,7 +15,8 @@ exports.EvaluationService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const axios_1 = __importDefault(require("axios"));
 const emitters_1 = require("../socket/emitters");
-const aiService_1 = __importDefault(require("./aiService"));
+// NOTE: aiService is now used only for admin trend analysis (admin dashboard/analytics)
+// Individual evaluation analysis removed in v2.0.0
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 class EvaluationService {
@@ -63,24 +64,6 @@ class EvaluationService {
             evaluation,
         });
         return evaluation;
-    }
-    /**
-     * Analyze draft evaluation text (lightweight, real-time feedback)
-     *
-     * @param text - Evaluation feedback text
-     * @returns Draft analysis with features and sentiment
-     */
-    async analyzeDraft(text) {
-        if (!text || text.trim().length < 5) {
-            throw new Error('Text is too short for analysis (minimum 5 characters)');
-        }
-        try {
-            const result = await aiService_1.default.analyzeDraft(text);
-            return result;
-        }
-        catch (error) {
-            throw new Error(`Failed to analyze draft: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
     }
     async getById(id) {
         const { data, error } = await supabase
@@ -185,99 +168,31 @@ class EvaluationService {
         if (!evaluation) {
             throw new Error('Evaluation not found');
         }
-        if (!evaluation.feedback_text || evaluation.feedback_text.trim().length < 10) {
-            throw new Error('Feedback text is too short for submission (minimum 10 characters)');
+        // NOTE: AI analysis removed in v2.0.0
+        // AI is now used for historical trend analysis on approved evaluations only
+        // Not for individual evaluation assistance during submission
+        // Step 2: Update evaluation status to submitted
+        const { data: updatedEvaluation, error: updateError } = await supabase
+            .from('evaluations')
+            .update({
+            status: 'submitted',
+            submitted_at: new Date().toISOString(),
+        })
+            .eq('id', evaluationId)
+            .select()
+            .single();
+        if (updateError) {
+            throw new Error(`Failed to update evaluation: ${updateError.message}`);
         }
-        try {
-            // Step 2: Call AI Service with text and ratings
-            const aiResult = await aiService_1.default.analyzeEvaluation(evaluation.feedback_text, {
-                rating_overall: evaluation.rating_overall,
-                rating_technical: evaluation.rating_technical,
-                rating_communication: evaluation.rating_communication,
-                rating_work_ethic: evaluation.rating_work_ethic,
-            });
-            // Step 3: Insert AI analysis result into evaluations_ai_analysis table
-            // Map AI service response to database schema
-            // Phase 1: Extract bias flags - handle both string[] and object[] formats
-            const biasFlags = Array.isArray(aiResult.bias_check.flags)
-                ? aiResult.bias_check.flags.map((flag) => typeof flag === 'string' ? flag : (flag.type || flag.description || JSON.stringify(flag)))
-                : [];
-            const { data: aiAnalysisRecord, error: aiError } = await supabase
-                .from('evaluations_ai_analysis')
-                .insert({
-                evaluation_id: evaluationId,
-                extracted_technical_skills: aiResult.features.technical_skills,
-                extracted_soft_skills: aiResult.features.soft_skills,
-                key_achievements: [], // Can be extracted later or from additional AI processing
-                areas_for_improvement: [], // Can be extracted later or from additional AI processing
-                sentiment_positive_score: aiResult.sentiment.breakdown?.positive || 0,
-                sentiment_neutral_score: aiResult.sentiment.breakdown?.neutral || 0,
-                sentiment_negative_score: aiResult.sentiment.breakdown?.negative || 0,
-                overall_sentiment: aiResult.sentiment.label,
-                ai_recommendations: [], // Can be generated from bias check or additional processing
-                suggested_improvements: [], // Can be generated from additional processing
-                potential_biases: biasFlags,
-                ai_model_version: 'v1.1.0-phase1', // Updated version
-                processing_time_ms: aiResult.processing_time_ms,
-                overall_confidence_score: aiResult.confidence_score,
-            })
-                .select()
-                .single();
-            if (aiError) {
-                throw new Error(`Failed to save AI analysis: ${aiError.message}`);
-            }
-            // Step 4: Update evaluations table with AI analysis link and status
-            const { data: updatedEvaluation, error: updateError } = await supabase
-                .from('evaluations')
-                .update({
-                status: 'submitted',
-                submitted_at: new Date().toISOString(),
-                ai_analysis_id: aiAnalysisRecord.id,
-                bias_check_passed: aiResult.bias_check.passed,
-                confidence_score: aiResult.confidence_score,
-            })
-                .eq('id', evaluationId)
-                .select()
-                .single();
-            if (updateError) {
-                throw new Error(`Failed to update evaluation: ${updateError.message}`);
-            }
-            // Step 5: Real-time emit
-            (0, emitters_1.emitEvaluationUpdate)(evaluationId, {
-                event: 'evaluation_submitted',
-                evaluation: updatedEvaluation,
-            });
-            // Step 6: Return combined result
-            return {
-                evaluation: updatedEvaluation,
-                ai_analysis: aiAnalysisRecord,
-            };
-        }
-        catch (error) {
-            // If AI service fails, still submit evaluation but without AI analysis
-            console.error('AI analysis failed during submission:', error);
-            const { data: updatedEvaluation, error: updateError } = await supabase
-                .from('evaluations')
-                .update({
-                status: 'submitted',
-                submitted_at: new Date().toISOString(),
-            })
-                .eq('id', evaluationId)
-                .select()
-                .single();
-            if (updateError) {
-                throw new Error(`Failed to update evaluation: ${updateError.message}`);
-            }
-            (0, emitters_1.emitEvaluationUpdate)(evaluationId, {
-                event: 'evaluation_submitted',
-                evaluation: updatedEvaluation,
-            });
-            return {
-                evaluation: updatedEvaluation,
-                ai_analysis: null,
-                warning: 'AI analysis unavailable',
-            };
-        }
+        // Step 3: Real-time emit
+        (0, emitters_1.emitEvaluationUpdate)(evaluationId, {
+            event: 'evaluation_submitted',
+            evaluation: updatedEvaluation,
+        });
+        console.log(`✅ Evaluation ${evaluationId} submitted successfully`);
+        return {
+            evaluation: updatedEvaluation,
+        };
     }
     async approve(evaluationId, finalGrade) {
         const { data, error } = await supabase

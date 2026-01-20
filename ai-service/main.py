@@ -14,8 +14,12 @@ Endpoints:
 - POST /api/skill-analysis - Skill demand trends
 - GET /health - Service health check
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from pydantic import ValidationError
 import uvicorn
 import os
@@ -43,6 +47,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# SECURITY: Rate Limiting Configuration (OWASP Best Practice)
+# =============================================================================
+
+"""
+Rate limit configuration via environment variables:
+- RATE_LIMIT_ENABLED: Feature flag to disable rate limiting (default: true)
+- RATE_LIMIT_REQUESTS_PER_MINUTE: Max requests per minute per IP (default: 10)
+- RATE_LIMIT_ANALYSIS_PER_MINUTE: Max analysis requests per minute (default: 5)
+"""
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+RATE_LIMIT_DEFAULT = os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "10") + "/minute"
+RATE_LIMIT_ANALYSIS = os.getenv("RATE_LIMIT_ANALYSIS_PER_MINUTE", "5") + "/minute"
+
+# Initialize rate limiter
+limiter = Limiter(
+    key_func=get_remote_address,
+    enabled=RATE_LIMIT_ENABLED,
+    default_limits=[RATE_LIMIT_DEFAULT]
+)
+
+logger.info(f"🔒 Rate Limiting: enabled={RATE_LIMIT_ENABLED}, default={RATE_LIMIT_DEFAULT}, analysis={RATE_LIMIT_ANALYSIS}")
+
 # Initialize AI Engine
 logger.info("🚀 Starting Intern-Galing AI Service v2.0.0 - Trend Analysis")
 ai_engine = AIEngine()
@@ -54,13 +81,55 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# CORS configuration
+# Attach rate limiter to app
+app.state.limiter = limiter
+
+# Custom rate limit exceeded handler with logging
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    client_ip = get_remote_address(request)
+    logger.warning(f"⚠️ RATE LIMIT: IP {client_ip} exceeded limit on {request.method} {request.url.path}")
+    return JSONResponse(
+        status_code=429,
+        content={
+            "success": False,
+            "error": "Too many requests",
+            "message": "Rate limit exceeded. Please wait before making more requests.",
+            "retry_after": 60  # seconds
+        },
+        headers={"Retry-After": "60"}
+    )
+
+# =============================================================================
+# SECURITY: CORS Configuration (Restricted to Backend Only)
+# =============================================================================
+
+# Get allowed origins from environment (comma-separated)
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else []
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
+
+# Always include backend URL
+if BACKEND_URL not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append(BACKEND_URL)
+
+# In development, also allow localhost frontend for testing
+if os.getenv("NODE_ENV") != "production":
+    dev_origins = ["http://localhost:3000", "http://localhost:5000", "http://127.0.0.1:3000", "http://127.0.0.1:5000"]
+    for origin in dev_origins:
+        if origin not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(origin)
+
+# Remove empty strings
+ALLOWED_ORIGINS = [o for o in ALLOWED_ORIGINS if o]
+
+logger.info(f"🌐 CORS Allowed Origins: {ALLOWED_ORIGINS}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,  # SECURITY: Restricted to specific origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],  # SECURITY: Only methods we need
+    allow_headers=["Authorization", "Content-Type"],  # SECURITY: Only headers we need
 )
 
 
@@ -100,7 +169,8 @@ async def health_check():
 # =============================================================================
 
 @app.post("/api/analyze-trends")
-async def analyze_trends(request: TrendAnalysisRequest):
+@limiter.limit(RATE_LIMIT_ANALYSIS)  # SECURITY: Stricter limit for CPU-intensive analysis
+async def analyze_trends(request: Request, data: TrendAnalysisRequest):
     """
     Comprehensive trend analysis endpoint.
     
@@ -121,7 +191,7 @@ async def analyze_trends(request: TrendAnalysisRequest):
         Complete TrendAnalysisResponse with all analysis components
     """
     try:
-        eval_count = len(request.evaluations)
+        eval_count = len(data.evaluations)
         logger.info(f"🔵 POST /api/analyze-trends - Analyzing {eval_count} evaluations")
         
         if eval_count == 0:
@@ -129,13 +199,13 @@ async def analyze_trends(request: TrendAnalysisRequest):
             raise HTTPException(status_code=400, detail="No evaluations provided for analysis")
         
         # Convert Pydantic models to dicts for processing
-        evaluations = [e.model_dump() for e in request.evaluations]
+        evaluations = [e.model_dump() for e in data.evaluations]
         
         # Build options from request
         options = {
-            'include_recommendations': request.include_recommendations,
-            'top_n_skills': request.top_n_skills,
-            'top_n_companies': request.top_n_companies,
+            'include_recommendations': data.include_recommendations,
+            'top_n_skills': data.top_n_skills,
+            'top_n_companies': data.top_n_companies,
             'include_detailed_analysis': True  # Always include for full endpoint
         }
         
@@ -157,7 +227,8 @@ async def analyze_trends(request: TrendAnalysisRequest):
 
 
 @app.post("/api/dashboard-insights")
-async def get_dashboard_insights(request: DashboardInsightRequest):
+@limiter.limit(RATE_LIMIT_DEFAULT)  # SECURITY: Rate limited
+async def get_dashboard_insights(request: Request, data: DashboardInsightRequest):
     """
     Quick insights for admin dashboard.
     Lighter-weight analysis optimized for dashboard cards.
@@ -170,7 +241,7 @@ async def get_dashboard_insights(request: DashboardInsightRequest):
         Quick insights with summary statistics
     """
     try:
-        eval_count = len(request.evaluations)
+        eval_count = len(data.evaluations)
         logger.info(f"🔵 POST /api/dashboard-insights - Processing {eval_count} evaluations")
         
         if eval_count == 0:
@@ -190,10 +261,10 @@ async def get_dashboard_insights(request: DashboardInsightRequest):
             }
         
         # Convert to dicts
-        evaluations = [e.model_dump() for e in request.evaluations]
+        evaluations = [e.model_dump() for e in data.evaluations]
         
         # Get dashboard insights
-        result = ai_engine.get_dashboard_insights(evaluations, request.max_insights)
+        result = ai_engine.get_dashboard_insights(evaluations, data.max_insights)
         
         logger.info(f"✅ Dashboard insights generated: {len(result.get('insights', []))} insights")
         
@@ -212,7 +283,8 @@ async def get_dashboard_insights(request: DashboardInsightRequest):
 # =============================================================================
 
 @app.post("/api/company-performance")
-async def analyze_company_performance(request: TrendAnalysisRequest):
+@limiter.limit(RATE_LIMIT_ANALYSIS)  # SECURITY: Rate limited
+async def analyze_company_performance(request: Request, data: TrendAnalysisRequest):
     """
     Detailed company performance analysis.
     
@@ -229,13 +301,13 @@ async def analyze_company_performance(request: TrendAnalysisRequest):
         Company rankings with detailed performance metrics
     """
     try:
-        eval_count = len(request.evaluations)
+        eval_count = len(data.evaluations)
         logger.info(f"🔵 POST /api/company-performance - Analyzing {eval_count} evaluations")
         
         if eval_count == 0:
             raise HTTPException(status_code=400, detail="No evaluations provided")
         
-        evaluations = [e.model_dump() for e in request.evaluations]
+        evaluations = [e.model_dump() for e in data.evaluations]
         
         # Get company performance (no university filter in this version)
         result = ai_engine.analyze_company_performance(evaluations)
@@ -252,7 +324,8 @@ async def analyze_company_performance(request: TrendAnalysisRequest):
 
 
 @app.post("/api/university-performance")
-async def analyze_university_performance(request: TrendAnalysisRequest):
+@limiter.limit(RATE_LIMIT_ANALYSIS)  # SECURITY: Rate limited
+async def analyze_university_performance(request: Request, data: TrendAnalysisRequest):
     """
     University performance comparison.
     
@@ -265,13 +338,13 @@ async def analyze_university_performance(request: TrendAnalysisRequest):
         University rankings with comparison insights
     """
     try:
-        eval_count = len(request.evaluations)
+        eval_count = len(data.evaluations)
         logger.info(f"🔵 POST /api/university-performance - Analyzing {eval_count} evaluations")
         
         if eval_count == 0:
             raise HTTPException(status_code=400, detail="No evaluations provided")
         
-        evaluations = [e.model_dump() for e in request.evaluations]
+        evaluations = [e.model_dump() for e in data.evaluations]
         
         result = ai_engine.analyze_university_performance(evaluations)
         
@@ -287,7 +360,8 @@ async def analyze_university_performance(request: TrendAnalysisRequest):
 
 
 @app.post("/api/university-company-matrix")
-async def get_university_company_matrix(request: TrendAnalysisRequest):
+@limiter.limit(RATE_LIMIT_ANALYSIS)  # SECURITY: Rate limited
+async def get_university_company_matrix(request: Request, data: TrendAnalysisRequest):
     """
     University × Company performance matrix.
     
@@ -298,13 +372,13 @@ async def get_university_company_matrix(request: TrendAnalysisRequest):
         Matrix with best and worst matches per university
     """
     try:
-        eval_count = len(request.evaluations)
+        eval_count = len(data.evaluations)
         logger.info(f"🔵 POST /api/university-company-matrix - Building matrix from {eval_count} evaluations")
         
         if eval_count == 0:
             raise HTTPException(status_code=400, detail="No evaluations provided")
         
-        evaluations = [e.model_dump() for e in request.evaluations]
+        evaluations = [e.model_dump() for e in data.evaluations]
         
         result = ai_engine.get_university_company_matrix(evaluations)
         
@@ -320,7 +394,8 @@ async def get_university_company_matrix(request: TrendAnalysisRequest):
 
 
 @app.post("/api/skill-analysis")
-async def analyze_skills(request: TrendAnalysisRequest):
+@limiter.limit(RATE_LIMIT_ANALYSIS)  # SECURITY: Rate limited
+async def analyze_skills(request: Request, data: TrendAnalysisRequest):
     """
     Skill demand analysis.
     
@@ -334,13 +409,13 @@ async def analyze_skills(request: TrendAnalysisRequest):
         Comprehensive skill analysis with recommendations
     """
     try:
-        eval_count = len(request.evaluations)
+        eval_count = len(data.evaluations)
         logger.info(f"🔵 POST /api/skill-analysis - Analyzing skills from {eval_count} evaluations")
         
         if eval_count == 0:
             raise HTTPException(status_code=400, detail="No evaluations provided")
         
-        evaluations = [e.model_dump() for e in request.evaluations]
+        evaluations = [e.model_dump() for e in data.evaluations]
         
         result = ai_engine.analyze_skill_demands(evaluations)
         
@@ -360,7 +435,8 @@ async def analyze_skills(request: TrendAnalysisRequest):
 # =============================================================================
 
 @app.post("/api/evaluate-post-approval")
-async def evaluate_post_approval_legacy(evaluations: list[dict]):
+@limiter.limit(RATE_LIMIT_DEFAULT)  # SECURITY: Rate limited
+async def evaluate_post_approval_legacy(request: Request, evaluations: list[dict]):
     """
     LEGACY ENDPOINT - Maintained for backward compatibility.
     Use /api/dashboard-insights instead.

@@ -28,10 +28,6 @@ export declare class EvaluationServiceFacade {
      */
     processWithAI(evaluationId: string): Promise<any>;
     /**
-     * Analyze draft text for quick feedback (no persistence)
-     */
-    analyzeDraft(text: string): Promise<any>;
-    /**
      * Update draft evaluation (only allowed while status is draft)
      */
     update(id: string, data: any): Promise<Evaluation>;

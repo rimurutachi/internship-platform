@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import { createClient } from '@supabase/supabase-js';
+import { ensureString } from '../../utils/typeGuards';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -99,7 +100,7 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
  */
 export async function getUserById(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     const { data: user, error } = await supabase
       .from('users')
@@ -136,7 +137,7 @@ export async function getUserById(req: AuthRequest, res: Response) {
  */
 export async function verifyUserProfile(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { comments } = req.body;
     const adminId = req.user?.id;
 
@@ -251,7 +252,7 @@ export async function verifyUserProfile(req: AuthRequest, res: Response) {
  */
 export async function rejectUserProfile(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { rejection_reason } = req.body;
     const adminId = req.user?.id;
 
@@ -354,7 +355,7 @@ export async function rejectUserProfile(req: AuthRequest, res: Response) {
  */
 export async function archiveUser(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const adminId = req.user?.id;
 
     if (!adminId) {
@@ -467,7 +468,7 @@ export async function archiveUser(req: AuthRequest, res: Response) {
  */
 export async function unarchiveUser(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const adminId = req.user?.id;
 
     if (!adminId) {
@@ -584,7 +585,7 @@ export async function deleteUser(req: AuthRequest, res: Response) {
  */
 export async function updateUserRole(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { role } = req.body;
     const adminId = req.user?.id;
 
@@ -667,7 +668,7 @@ export async function updateUserRole(req: AuthRequest, res: Response) {
  */
 export async function updateUserStatus(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { status } = req.body;
     const adminId = req.user?.id;
 

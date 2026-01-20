@@ -146,8 +146,8 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
         // Prepare update data
         const updates = {
             status: 'approved',
-            advisor_approved_at: new Date().toISOString(),
-            advisor_approved_by: advisorId,
+            approved_at: new Date().toISOString(),
+            approved_by: advisorId,
             advisor_comments: approval_comments?.trim() || null,
             updated_at: new Date().toISOString(),
         };
@@ -196,18 +196,14 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
                 final_grade: evaluation.final_grade,
             },
         });
-        // Trigger AI analytics generation (post-approval)
-        try {
-            await triggerAIAnalytics(evaluationId, evaluation.internship.university_id);
-        }
-        catch (aiError) {
-            console.error('AI analytics generation failed (non-critical):', aiError);
-            // Don't fail the approval if AI fails
-        }
+        // NOTE: AI trend analysis removed from approval flow in v2.0.0
+        // Admin can now trigger trend analysis on-demand from the analytics dashboard
+        // This improves approval performance and allows more comprehensive batch analysis
+        console.log(`✅ Evaluation ${evaluationId} approved successfully`);
         return {
             success: true,
             data: approvedEval,
-            message: 'Evaluation approved successfully. AI analytics are being generated.',
+            message: 'Evaluation approved successfully.',
         };
     }
     catch (error) {
@@ -387,97 +383,9 @@ async function getEvaluationStatistics(advisorId) {
         };
     }
 }
-/**
- * Trigger AI analytics generation (post-approval only)
- * This calls the AI service to generate historical insights from approved evaluations
- *
- * @param evaluationId - The newly approved evaluation ID
- * @param universityId - University context for filtering
- */
-async function triggerAIAnalytics(evaluationId, universityId) {
-    try {
-        const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-        // Get recent approved evaluations (including the one just approved)
-        const { data: approvedEvaluations, error: fetchError } = await supabase
-            .from('evaluations')
-            .select(`
-        id,
-        internship_id,
-        student_id,
-        supervisor_id,
-        supervisor_comments,
-        advisor_comments,
-        final_grade,
-        created_at,
-        approved_at:advisor_approved_at,
-        criterion_scores:evaluation_criterion_scores(
-          criterion_type,
-          score
-        )
-      `)
-            .eq('status', 'approved')
-            .order('advisor_approved_at', { ascending: false })
-            .limit(50); // Last 50 approved evaluations for trends
-        if (fetchError) {
-            console.error('Error fetching evaluations for AI analysis:', fetchError);
-            return;
-        }
-        if (!approvedEvaluations || approvedEvaluations.length === 0) {
-            console.log('No approved evaluations to analyze');
-            return;
-        }
-        // Transform data to match AI service expected format
-        const evaluationsForAI = approvedEvaluations.map((evaluation) => ({
-            evaluation_id: evaluation.id,
-            text: `${evaluation.supervisor_comments || ''} ${evaluation.advisor_comments || ''}`.trim(),
-            ratings: evaluation.criterion_scores?.reduce((acc, cs) => {
-                acc[cs.criterion_type] = cs.score;
-                return acc;
-            }, {}) || {},
-            student_id: evaluation.student_id,
-            supervisor_id: evaluation.supervisor_id,
-            created_at: evaluation.created_at,
-            final_grade: evaluation.final_grade,
-        }));
-        // Call AI service analytics endpoint
-        const response = await fetch(`${AI_SERVICE_URL}/api/evaluate-post-approval`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(evaluationsForAI),
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`AI service returned ${response.status}: ${errorText}`);
-        }
-        const analyticsResult = await response.json();
-        // Store analytics insights in database
-        // NOTE: This is legacy code - the evaluations_ai_analysis table has a different schema
-        // The actual AI analysis is done in evaluationService.ts which uses the correct schema
-        // Commenting out to prevent errors
-        /*
-        if (analyticsResult?.insights && analyticsResult.insights.length > 0) {
-          await supabase.from('evaluations_ai_analysis').insert({
-            evaluation_id: evaluationId,
-            university_id: universityId,
-            insights: analyticsResult.insights,
-            total_evaluations_analyzed: analyticsResult.total_evaluations_analyzed,
-            generated_at: analyticsResult.generated_at || new Date().toISOString(),
-          });
-    
-          console.log(`AI analytics generated successfully: ${analyticsResult.insights.length} insights for evaluation ${evaluationId}`);
-        } else {
-          console.log('AI analytics returned no insights');
-        }
-        */
-        console.log('AI analytics generation skipped (using real-time analysis in evaluationService instead)');
-    }
-    catch (error) {
-        console.error('Failed to generate AI analytics (non-critical):', error);
-        // Don't throw - analytics failure shouldn't block evaluation approval
-    }
-}
+// NOTE: triggerAIAnalytics function removed in v2.0.0
+// AI trend analysis is now triggered on-demand by admin from the analytics dashboard
+// See: backend/src/routes/admin/analytics.routes.ts for new implementation
 /**
  * Get evaluation with full context (for advisor review)
  */

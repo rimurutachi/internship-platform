@@ -3,6 +3,7 @@ import messageService from "../services/messageService";
 import conversationService from "../services/conversationService";
 import notificationService from "../services/notificationService";
 import { AuthRequest } from "../middleware/auth";
+import { ensureString } from '../utils/typeGuards';
 
 export class CommunicationController {
   /* Messages */
@@ -46,7 +47,7 @@ export class CommunicationController {
   // Get conversation messages
   async getMessages(req: Request, res: Response) {
     try {
-      const { conversationId } = req.params;
+      const conversationId = ensureString(req.params.conversationId, 'conversationId');
       const { limit = 50, offset = 0 } = req.query;
 
       const messages = await messageService.getMessages(
@@ -76,7 +77,7 @@ export class CommunicationController {
         });
       }
 
-      const { messageId } = req.params;
+      const messageId = ensureString(req.params.messageId, 'messageId');
       const { content } = req.body;
 
       if (!content || content.trim().length === 0) {
@@ -117,7 +118,7 @@ export class CommunicationController {
         });
       }
 
-      const { messageId } = req.params;
+      const messageId = ensureString(req.params.messageId, 'messageId');
 
       await messageService.deleteMessage(messageId, userId);
 
@@ -192,7 +193,7 @@ export class CommunicationController {
   // Get conversation by Id
   async getConversation(req: Request, res: Response) {
     try {
-      const { conversationId } = req.params;
+      const conversationId = ensureString(req.params.conversationId, 'conversationId');
       const conversation = await conversationService.getConversation(
         conversationId
       );
@@ -218,7 +219,7 @@ export class CommunicationController {
         });
       }
 
-      const { conversationId } = req.params;
+      const conversationId = ensureString(req.params.conversationId, 'conversationId');
 
       await conversationService.markAsRead(conversationId, userId);
 
@@ -410,7 +411,7 @@ export class CommunicationController {
         });
       }
 
-      const { notificationId } = req.params;
+      const notificationId = ensureString(req.params.notificationId, 'notificationId');
 
       await notificationService.markAsRead(notificationId, userId);
 
@@ -467,7 +468,7 @@ export class CommunicationController {
         });
       }
 
-      const { notificationId } = req.params;
+      const notificationId = ensureString(req.params.notificationId, 'notificationId');
 
       await notificationService.deleteNotification(notificationId, userId);
 

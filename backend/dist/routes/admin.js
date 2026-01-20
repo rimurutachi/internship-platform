@@ -48,6 +48,7 @@ const internships_1 = __importDefault(require("./admin/internships"));
 const evaluations_routes_1 = __importDefault(require("./admin/evaluations.routes"));
 const companies_1 = __importDefault(require("./admin/companies"));
 const rubrics_1 = __importDefault(require("./admin/rubrics"));
+const analytics_routes_1 = __importDefault(require("./admin/analytics.routes"));
 const router = (0, express_1.Router)();
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
@@ -91,5 +92,7 @@ router.use('/internships', internships_1.default);
 router.use('/evaluations', evaluations_routes_1.default);
 // Companies management routes
 router.use('/companies', companies_1.default);
+// AI Analytics routes (trend analysis) - v2.0.0
+router.use('/analytics', analytics_routes_1.default);
 exports.default = router;
 //# sourceMappingURL=admin.js.map

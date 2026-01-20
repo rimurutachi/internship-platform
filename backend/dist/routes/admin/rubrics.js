@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const rubricService = __importStar(require("../../services/rubricService"));
+const typeGuards_1 = require("../../utils/typeGuards");
 const router = (0, express_1.Router)();
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
@@ -173,7 +174,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const adminId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { updates, change_reason } = req.body;
         if (!adminId) {
             return res.status(401).json({
@@ -209,7 +210,7 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/activate', async (req, res) => {
     try {
         const adminId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         if (!adminId) {
             return res.status(401).json({
                 success: false,
@@ -237,7 +238,7 @@ router.post('/:id/activate', async (req, res) => {
 router.post('/:id/deactivate', async (req, res) => {
     try {
         const adminId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const { reason } = req.body;
         if (!adminId) {
             return res.status(401).json({

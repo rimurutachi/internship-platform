@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { internshipService } from '../../services/internship.service';
+import { ensureString } from '../../utils/typeGuards';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -143,7 +144,7 @@ export class InternshipsController {
    */
   async getInternship(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
 
       const { data: internship, error } = await supabase
         .from('internships')
@@ -311,7 +312,7 @@ export class InternshipsController {
   async updateInternship(req: Request, res: Response) {
     console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: (req as any).user?.id });
     try {
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
       const { position, department, advisor_id, supervisor_id, start_date, end_date, status } =
         req.body;
 
@@ -418,7 +419,7 @@ export class InternshipsController {
    */
   async deleteInternship(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
 
       const { data: internship, error: fetchError } = await supabase
         .from('internships')
@@ -477,7 +478,7 @@ export class InternshipsController {
    */
   async archiveInternship(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
 
       // Check if internship exists and is not already archived
       const { data: internship, error: fetchError } = await supabase
@@ -559,7 +560,7 @@ export class InternshipsController {
    */
   async unarchiveInternship(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
 
       // Check if internship exists and is archived
       const { data: internship, error: fetchError } = await supabase
@@ -744,7 +745,7 @@ export class InternshipsController {
    */
   async getInternshipActivityLog(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
 
       const { data: logs, error } = await supabase
         .from('activity_log')

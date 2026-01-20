@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { createClient } from '@supabase/supabase-js';
+import { ensureString } from '../utils/typeGuards';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -78,7 +79,7 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
  */
 export async function getUserById(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     const { data: user, error } = await supabase
       .from('users')
@@ -239,7 +240,7 @@ export async function createUser(req: AuthRequest, res: Response) {
  */
 export async function updateUser(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { firstName, lastName, email, company_id, university_id } = req.body;
 
     if (!firstName && !lastName && !email && !company_id && !university_id) {
@@ -326,7 +327,7 @@ export async function updateUser(req: AuthRequest, res: Response) {
  */
 export async function updateUserStatus(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { status } = req.body;
 
     // Validate status
@@ -397,7 +398,7 @@ export async function updateUserStatus(req: AuthRequest, res: Response) {
  */
 export async function updateUserRole(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { role } = req.body;
 
     // Validate role
@@ -463,7 +464,7 @@ export async function updateUserRole(req: AuthRequest, res: Response) {
  */
 export async function deleteUser(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     // Prevent self-deletion
     if (req.user?.id === id) {
@@ -690,7 +691,7 @@ export async function migrateUserNames(req: AuthRequest, res: Response) {
  */
 export async function archiveUser(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     // Check if user exists
     const { data: user, error: fetchError } = await supabase
@@ -755,7 +756,7 @@ export async function archiveUser(req: AuthRequest, res: Response) {
  */
 export async function unarchiveUser(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
 
     // Check if user exists
     const { data: user, error: fetchError } = await supabase
