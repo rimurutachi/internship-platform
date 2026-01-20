@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.internshipsController = exports.InternshipsController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const internship_service_1 = require("../../services/internship.service");
+const typeGuards_1 = require("../../utils/typeGuards");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class InternshipsController {
     constructor() {
@@ -121,7 +122,7 @@ class InternshipsController {
      */
     async getInternship(req, res) {
         try {
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             const { data: internship, error } = await supabase
                 .from('internships')
                 .select(`
@@ -250,7 +251,7 @@ class InternshipsController {
     async updateInternship(req, res) {
         console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: req.user?.id });
         try {
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             const { position, department, advisor_id, supervisor_id, start_date, end_date, status } = req.body;
             // Get current internship
             const { data: currentInternship, error: fetchError } = await supabase
@@ -339,7 +340,7 @@ class InternshipsController {
      */
     async deleteInternship(req, res) {
         try {
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             const { data: internship, error: fetchError } = await supabase
                 .from('internships')
                 .select('*')
@@ -386,7 +387,7 @@ class InternshipsController {
      */
     async archiveInternship(req, res) {
         try {
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             // Check if internship exists and is not already archived
             const { data: internship, error: fetchError } = await supabase
                 .from('internships')
@@ -453,7 +454,7 @@ class InternshipsController {
      */
     async unarchiveInternship(req, res) {
         try {
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             // Check if internship exists and is archived
             const { data: internship, error: fetchError } = await supabase
                 .from('internships')
@@ -613,7 +614,7 @@ class InternshipsController {
      */
     async getInternshipActivityLog(req, res) {
         try {
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             const { data: logs, error } = await supabase
                 .from('activity_log')
                 .select(`

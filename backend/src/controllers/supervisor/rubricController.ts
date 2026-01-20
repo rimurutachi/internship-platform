@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express';
 import evaluationRubricService from '../../services/evaluationRubricService';
+import { ensureString } from '../../utils/typeGuards';
 
 // Extend Express Request type to include user from auth middleware
 interface AuthRequest extends Request {
@@ -88,7 +89,7 @@ export const getRubricsByUniversity = async (req: AuthRequest, res: Response) =>
  */
 export const getRubricById = async (req: AuthRequest, res: Response) => {
   try {
-    const { rubricId } = req.params;
+    const rubricId = ensureString(req.params.rubricId, 'rubricId');
 
     if (!rubricId) {
       return res.status(400).json({ 

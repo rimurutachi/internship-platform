@@ -8,6 +8,7 @@ exports.getEvaluationsByInternship = getEvaluationsByInternship;
 exports.deleteEvaluationDraft = deleteEvaluationDraft;
 const supabase_js_1 = require("@supabase/supabase-js");
 const rubricService_1 = require("../../services/rubricService");
+const typeGuards_1 = require("../../utils/typeGuards");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Create final evaluation (draft)
@@ -228,7 +229,7 @@ async function createFinalEvaluation(req, res) {
  */
 async function saveFinalEvaluationDraft(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const supervisorId = req.user?.id;
         const { criterion_scores, attendance, punctuality, comments, } = req.body;
         // Get evaluation
@@ -345,7 +346,7 @@ async function saveFinalEvaluationDraft(req, res) {
  */
 async function submitFinalEvaluation(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const supervisorId = req.user?.id;
         // Get evaluation with criterion scores
         const { data: evaluation, error: fetchError } = await supabase
@@ -467,7 +468,7 @@ async function submitFinalEvaluation(req, res) {
  */
 async function getEvaluationById(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const userId = req.user?.id;
         const { data: evaluation, error } = await supabase
             .from('evaluations')
@@ -560,7 +561,7 @@ async function getEvaluationsByInternship(req, res) {
  */
 async function deleteEvaluationDraft(req, res) {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const supervisorId = req.user?.id;
         // Get evaluation
         const { data: evaluation, error: fetchError } = await supabase

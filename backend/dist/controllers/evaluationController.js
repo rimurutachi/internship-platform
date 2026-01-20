@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.analyzeDraftEvaluation = analyzeDraftEvaluation;
 exports.createEvaluation = createEvaluation;
 exports.getEvaluation = getEvaluation;
 exports.updateEvaluation = updateEvaluation;
@@ -13,41 +12,10 @@ exports.getEvaluationsByType = getEvaluationsByType;
 exports.getOverdueEvaluations = getOverdueEvaluations;
 exports.getEvaluationProgress = getEvaluationProgress;
 const evaluation_service_1 = require("../services/evaluation.service");
-/**
- * Analyze draft evaluation text (real-time feedback)
- * POST /api/evaluations/analyze-draft
- */
-async function analyzeDraftEvaluation(req, res) {
-    try {
-        const { text } = req.body;
-        // Validation
-        if (!text || typeof text !== 'string') {
-            return res.status(400).json({
-                success: false,
-                error: 'Text field is required and must be a string',
-            });
-        }
-        if (text.trim().length < 5) {
-            return res.status(400).json({
-                success: false,
-                error: 'Text is too short for analysis (minimum 5 characters)',
-            });
-        }
-        // Call service
-        const result = await evaluation_service_1.evaluationService.analyzeDraft(text);
-        res.json({
-            success: true,
-            data: result,
-        });
-    }
-    catch (error) {
-        console.error('Draft analysis error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Failed to analyze draft evaluation',
-        });
-    }
-}
+const typeGuards_1 = require("../utils/typeGuards");
+// NOTE: analyzeDraftEvaluation removed in v2.0.0
+// AI is now used only for historical trend analysis (admin dashboard)
+// Not for individual evaluation assistance during supervisor draft writing
 async function createEvaluation(req, res) {
     try {
         const evaluation = await evaluation_service_1.evaluationService.create(req.body);
@@ -59,7 +27,7 @@ async function createEvaluation(req, res) {
 }
 async function getEvaluation(req, res) {
     try {
-        const evaluation = await evaluation_service_1.evaluationService.getById(req.params.id);
+        const evaluation = await evaluation_service_1.evaluationService.getById((0, typeGuards_1.ensureString)(req.params.id, 'id'));
         if (!evaluation) {
             return res.status(404).json({ success: false, error: 'Evaluation not found' });
         }
@@ -71,7 +39,7 @@ async function getEvaluation(req, res) {
 }
 async function updateEvaluation(req, res) {
     try {
-        const evaluation = await evaluation_service_1.evaluationService.update(req.params.id, req.body);
+        const evaluation = await evaluation_service_1.evaluationService.update((0, typeGuards_1.ensureString)(req.params.id, 'id'), req.body);
         res.json({ success: true, data: evaluation });
     }
     catch (error) {
@@ -81,7 +49,7 @@ async function updateEvaluation(req, res) {
 }
 async function submitEvaluation(req, res) {
     try {
-        const evaluation = await evaluation_service_1.evaluationService.submit(req.params.id);
+        const evaluation = await evaluation_service_1.evaluationService.submit((0, typeGuards_1.ensureString)(req.params.id, 'id'));
         res.json({ success: true, data: evaluation, message: 'Evaluation submitted and processing!' });
     }
     catch (error) {
@@ -93,7 +61,7 @@ async function submitEvaluation(req, res) {
 async function approveEvaluation(req, res) {
     try {
         const { final_grade } = req.body;
-        const evaluation = await evaluation_service_1.evaluationService.approve(req.params.id, final_grade);
+        const evaluation = await evaluation_service_1.evaluationService.approve((0, typeGuards_1.ensureString)(req.params.id, 'id'), final_grade);
         res.json({ success: true, data: evaluation });
     }
     catch (error) {
@@ -102,7 +70,7 @@ async function approveEvaluation(req, res) {
 }
 async function getInternshipEvaluations(req, res) {
     try {
-        const evaluations = await evaluation_service_1.evaluationService.getByInternship(req.params.internshipId);
+        const evaluations = await evaluation_service_1.evaluationService.getByInternship((0, typeGuards_1.ensureString)(req.params.internshipId, 'internshipId'));
         res.json({ success: true, data: evaluations });
     }
     catch (error) {
@@ -136,7 +104,7 @@ async function getEvaluations(req, res) {
  */
 async function getEvaluationTimeline(req, res) {
     try {
-        const { internshipId } = req.params;
+        const internshipId = (0, typeGuards_1.ensureString)(req.params.internshipId, 'internshipId');
         const timeline = await evaluation_service_1.evaluationService.getTimelineByInternship(internshipId);
         res.json({ success: true, data: timeline });
     }
@@ -151,7 +119,8 @@ async function getEvaluationTimeline(req, res) {
  */
 async function getEvaluationsByType(req, res) {
     try {
-        const { internshipId, evaluationType } = req.params;
+        const internshipId = (0, typeGuards_1.ensureString)(req.params.internshipId, 'internshipId');
+        const evaluationType = (0, typeGuards_1.ensureString)(req.params.evaluationType, 'evaluationType');
         if (!['weekly', 'midterm', 'final'].includes(evaluationType)) {
             return res.status(400).json({
                 success: false,
@@ -187,7 +156,7 @@ async function getOverdueEvaluations(req, res) {
  */
 async function getEvaluationProgress(req, res) {
     try {
-        const { internshipId } = req.params;
+        const internshipId = (0, typeGuards_1.ensureString)(req.params.internshipId, 'internshipId');
         const progress = await evaluation_service_1.evaluationService.getProgressSummary(internshipId);
         res.json({ success: true, data: progress });
     }

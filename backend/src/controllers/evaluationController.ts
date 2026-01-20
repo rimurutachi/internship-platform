@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { evaluationService } from "../services/evaluation.service";
+import { ensureString } from '../utils/typeGuards';
 
 // NOTE: analyzeDraftEvaluation removed in v2.0.0
 // AI is now used only for historical trend analysis (admin dashboard)
@@ -16,7 +17,7 @@ export async function createEvaluation(req: Request, res: Response) {
 
 export async function getEvaluation(req: Request, res: Response) {
     try {
-        const evaluation = await evaluationService.getById(req.params.id);
+        const evaluation = await evaluationService.getById(ensureString(req.params.id, 'id'));
         if (!evaluation) {
             return res.status(404).json({success: false, error: 'Evaluation not found'});
         }
@@ -28,7 +29,7 @@ export async function getEvaluation(req: Request, res: Response) {
 
 export async function updateEvaluation(req: Request, res: Response) {
     try {
-        const evaluation = await evaluationService.update(req.params.id, req.body);
+        const evaluation = await evaluationService.update(ensureString(req.params.id, 'id'), req.body);
         res.json({success: true, data: evaluation});
     } catch (error: any) {
         console.error('Update evaluation error:', error);
@@ -38,7 +39,7 @@ export async function updateEvaluation(req: Request, res: Response) {
 
 export async function submitEvaluation(req: Request, res: Response) {
     try {
-        const evaluation = await evaluationService.submit(req.params.id);
+        const evaluation = await evaluationService.submit(ensureString(req.params.id, 'id'));
         res.json({success: true, data: evaluation, message: 'Evaluation submitted and processing!'});
     } catch (error: any) {
         console.error('Submit evaluation error:', error);
@@ -50,7 +51,7 @@ export async function submitEvaluation(req: Request, res: Response) {
 export async function approveEvaluation(req: Request, res: Response) {
     try {
         const { final_grade } = req.body;
-        const evaluation = await evaluationService.approve(req.params.id, final_grade);
+        const evaluation = await evaluationService.approve(ensureString(req.params.id, 'id'), final_grade);
         res.json({success: true, data: evaluation});
     } catch (error:any) {
         res.status(500).json({success: false, error: error.message});
@@ -59,7 +60,7 @@ export async function approveEvaluation(req: Request, res: Response) {
 
 export async function getInternshipEvaluations(req: Request, res: Response) {
     try {
-        const evaluations = await evaluationService.getByInternship(req.params.internshipId);
+        const evaluations = await evaluationService.getByInternship(ensureString(req.params.internshipId, 'internshipId'));
         res.json({success: true, data: evaluations})
     } catch (error: any) {
         res.status(500).json({success: false, error: error.message})
@@ -95,7 +96,7 @@ export async function getEvaluations(req: Request, res: Response) {
  */
 export async function getEvaluationTimeline(req: Request, res: Response) {
     try {
-        const { internshipId } = req.params;
+        const internshipId = ensureString(req.params.internshipId, 'internshipId');
         const timeline = await evaluationService.getTimelineByInternship(internshipId);
         res.json({ success: true, data: timeline });
     } catch (error: any) {
@@ -110,7 +111,8 @@ export async function getEvaluationTimeline(req: Request, res: Response) {
  */
 export async function getEvaluationsByType(req: Request, res: Response) {
     try {
-        const { internshipId, evaluationType } = req.params;
+        const internshipId = ensureString(req.params.internshipId, 'internshipId');
+        const evaluationType = ensureString(req.params.evaluationType, 'evaluationType');
         
         if (!['weekly', 'midterm', 'final'].includes(evaluationType)) {
             return res.status(400).json({ 
@@ -151,7 +153,7 @@ export async function getOverdueEvaluations(req: Request, res: Response) {
  */
 export async function getEvaluationProgress(req: Request, res: Response) {
     try {
-        const { internshipId } = req.params;
+        const internshipId = ensureString(req.params.internshipId, 'internshipId');
         const progress = await evaluationService.getProgressSummary(internshipId);
         res.json({ success: true, data: progress });
     } catch (error: any) {

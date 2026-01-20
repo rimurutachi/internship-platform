@@ -42,12 +42,17 @@ export declare function getHistoricalMetrics(universityId: string, days?: number
     data?: undefined;
 }>;
 /**
- * Get AI insights for admin dashboard
- * Top 3 insights from evaluation analytics
+ * Get AI insights for admin dashboard (v2.0.0)
+ * Now uses analyticsService for on-demand trend analysis
  */
 export declare function getAIInsights(universityId: string): Promise<{
     success: boolean;
     data: {
+        type: "sentiment_trend" | "skill_analysis" | "performance" | "comparison";
+        message: string;
+        title: string;
+        category: string;
+    }[] | {
         type: string;
         message: string;
     }[];
@@ -61,6 +66,11 @@ export declare function getAdminDashboardOverview(universityId: string): Promise
     data: {
         metrics: OJTDashboardMetrics;
         insights: {
+            type: "sentiment_trend" | "skill_analysis" | "performance" | "comparison";
+            message: string;
+            title: string;
+            category: string;
+        }[] | {
             type: string;
             message: string;
         }[];

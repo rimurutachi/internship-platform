@@ -7,6 +7,7 @@ exports.updateInternship = updateInternship;
 exports.deleteInternship = deleteInternship;
 exports.getMyInternships = getMyInternships;
 const internship_service_1 = require("../services/internship.service");
+const typeGuards_1 = require("../utils/typeGuards");
 async function createInternship(req, res) {
     try {
         const internship = await internship_service_1.internshipService.create(req.body);
@@ -18,7 +19,7 @@ async function createInternship(req, res) {
 }
 async function getInternship(req, res) {
     try {
-        const internship = await internship_service_1.internshipService.getById(req.params.id);
+        const internship = await internship_service_1.internshipService.getById((0, typeGuards_1.ensureString)(req.params.id, 'id'));
         if (!internship) {
             return res.status(404).json({ success: false, error: 'Internship not found.' });
         }
@@ -39,7 +40,7 @@ async function getAllInternships(req, res) {
 }
 async function updateInternship(req, res) {
     try {
-        const internship = await internship_service_1.internshipService.update(req.params.id, req.body);
+        const internship = await internship_service_1.internshipService.update((0, typeGuards_1.ensureString)(req.params.id, 'id'), req.body);
         res.json({ success: true, data: internship });
     }
     catch (error) {
@@ -48,7 +49,7 @@ async function updateInternship(req, res) {
 }
 async function deleteInternship(req, res) {
     try {
-        await internship_service_1.internshipService.delete(req.params.id);
+        await internship_service_1.internshipService.delete((0, typeGuards_1.ensureString)(req.params.id, 'id'));
         res.json({ success: true, message: 'Internship deleted successfully.' });
     }
     catch (error) {

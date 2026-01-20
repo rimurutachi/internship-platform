@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole, AuthRequest } from '../../middleware/auth';
 import * as supervisorReportsService from '../../services/supervisorReportsService';
+import { ensureString } from '../../utils/typeGuards';
 
 const router = Router();
 
@@ -150,7 +151,7 @@ router.get('/weekly-reports/summary-by-student', async (req: AuthRequest, res) =
 router.post('/weekly-reports/:id/approve', async (req: AuthRequest, res) => {
   try {
     const supervisorId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { comments } = req.body;
 
     if (!supervisorId) {
@@ -183,7 +184,7 @@ router.post('/weekly-reports/:id/approve', async (req: AuthRequest, res) => {
 router.post('/weekly-reports/:id/reject', async (req: AuthRequest, res) => {
   try {
     const supervisorId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { rejection_reason } = req.body;
 
     if (!supervisorId) {
@@ -224,7 +225,7 @@ router.post('/weekly-reports/:id/reject', async (req: AuthRequest, res) => {
 router.post('/weekly-reports/:id/comment', async (req: AuthRequest, res) => {
   try {
     const supervisorId = req.user?.id;
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const { comment } = req.body;
 
     if (!supervisorId) {

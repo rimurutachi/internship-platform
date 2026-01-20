@@ -23,12 +23,12 @@ let socket: Socket | null = null;
  * @returns Socket instance
  * @throws Error if connection fails
  */
-export function connectDocumentService(
+export async function connectDocumentService(
   documentId: string,
   userId: string,
   userName?: string,
   userEmail?: string
-): Socket {
+): Promise<Socket> {
   try {
     // Socket.io client uses HTTP protocol, NOT ws://
     const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:6001';
@@ -36,11 +36,23 @@ export function connectDocumentService(
     console.log('🔵 [DocumentSocket] Connecting to:', websocketUrl);
     
     if (!socket || !socket.connected) {
+      // SECURITY: Get authentication token from Supabase
+      const { createSupabaseClient } = await import('@/lib/supabase');
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No authentication token available. Please login first.');
+      }
+
       socket = io(websocketUrl, {
         transports: ['websocket', 'polling'], // Allow fallback to polling
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
+        auth: {
+          token: session.access_token, // Pass JWT token for authentication
+        },
       });
 
       // Handle connection errors
@@ -99,18 +111,30 @@ export function connectDocumentService(
  * 
  * @returns Socket instance
  */
-export function connectForUpdates(): Socket {
+export async function connectForUpdates(): Promise<Socket> {
   try {
     const websocketUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:6001';
     
     console.log('🔵 [DocumentSocket] Connecting for general updates...');
     
     if (!socket || !socket.connected) {
+      // SECURITY: Get authentication token from Supabase
+      const { createSupabaseClient } = await import('@/lib/supabase');
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No authentication token available. Please login first.');
+      }
+
       socket = io(websocketUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
+        auth: {
+          token: session.access_token, // Pass JWT token for authentication
+        },
       });
 
       socket.on('connect_error', (error) => {

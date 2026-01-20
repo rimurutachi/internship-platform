@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const weeklyReportsService = __importStar(require("../../services/weeklyReportsService"));
+const typeGuards_1 = require("../../utils/typeGuards");
 const router = (0, express_1.Router)();
 // All routes require authentication and student role
 router.use(auth_1.authenticateToken);
@@ -116,7 +117,7 @@ router.post('/weekly-reports', async (req, res) => {
  */
 router.get('/weekly-reports/:id', async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const result = await weeklyReportsService.getWeeklyReportById(id);
         if (!result.success) {
             return res.status(404).json(result);
@@ -146,7 +147,7 @@ router.get('/weekly-reports/:id', async (req, res) => {
 router.put('/weekly-reports/:id', async (req, res) => {
     try {
         const studentId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         const updates = req.body;
         if (!studentId) {
             return res.status(401).json({
@@ -175,7 +176,7 @@ router.put('/weekly-reports/:id', async (req, res) => {
 router.delete('/weekly-reports/:id', async (req, res) => {
     try {
         const studentId = req.user?.id;
-        const { id } = req.params;
+        const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
         if (!studentId) {
             return res.status(401).json({
                 success: false,
@@ -203,7 +204,7 @@ router.delete('/weekly-reports/:id', async (req, res) => {
 router.get('/weekly-reports/deadline/:internship_id', async (req, res) => {
     try {
         const studentId = req.user?.id;
-        const { internship_id } = req.params;
+        const internship_id = (0, typeGuards_1.ensureString)(req.params.internship_id, 'internship_id');
         if (!studentId) {
             return res.status(401).json({
                 success: false,

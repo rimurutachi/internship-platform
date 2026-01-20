@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express';
 import supervisorStudentService from '../../services/supervisorStudentService';
+import { ensureString } from '../../utils/typeGuards';
 
 // Extend Express Request type to include user from auth middleware
 interface AuthRequest extends Request {
@@ -51,7 +52,7 @@ export const getMyStudents = async (req: AuthRequest, res: Response) => {
 export const getStudentDetails = async (req: AuthRequest, res: Response) => {
   try {
     const supervisorId = req.user?.id;
-    const { studentId } = req.params;
+    const studentId = ensureString(req.params.studentId, 'studentId');
 
     if (!supervisorId) {
       return res.status(401).json({ error: 'Unauthorized' });

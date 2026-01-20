@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import { createClient } from '@supabase/supabase-js';
 import { calculateGrade } from '../../services/rubricService';
+import { ensureString } from '../../utils/typeGuards';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -270,7 +271,7 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
  */
 export async function saveFinalEvaluationDraft(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const supervisorId = req.user?.id;
     const {
       criterion_scores,
@@ -405,7 +406,7 @@ export async function saveFinalEvaluationDraft(req: AuthRequest, res: Response) 
  */
 export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const supervisorId = req.user?.id;
 
     // Get evaluation with criterion scores
@@ -539,7 +540,7 @@ export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
  */
 export async function getEvaluationById(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const userId = req.user?.id;
 
     const { data: evaluation, error } = await supabase
@@ -641,7 +642,7 @@ export async function getEvaluationsByInternship(req: AuthRequest, res: Response
  */
 export async function deleteEvaluationDraft(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const id = ensureString(req.params.id, 'id');
     const supervisorId = req.user?.id;
 
     // Get evaluation

@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const reportsService_1 = __importDefault(require("../../services/reportsService"));
+const typeGuards_1 = require("../../utils/typeGuards");
 class ReportsController {
     static async getOverview(req, res) {
         try {
@@ -91,7 +92,7 @@ class ReportsController {
     }
     static async getMetricTrend(req, res) {
         try {
-            const metric = req.params.metric;
+            const metric = (0, typeGuards_1.ensureString)(req.params.metric, 'metric');
             const days = parseInt(req.query.days) || 30;
             const data = await reportsService_1.default.generateMetricTrend(metric, days);
             res.json({ metric, trend: data });

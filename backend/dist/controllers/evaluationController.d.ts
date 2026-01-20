@@ -1,9 +1,4 @@
 import { Request, Response } from "express";
-/**
- * Analyze draft evaluation text (real-time feedback)
- * POST /api/evaluations/analyze-draft
- */
-export declare function analyzeDraftEvaluation(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
 export declare function createEvaluation(req: Request, res: Response): Promise<void>;
 export declare function getEvaluation(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
 export declare function updateEvaluation(req: Request, res: Response): Promise<void>;
