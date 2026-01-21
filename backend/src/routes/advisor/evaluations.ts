@@ -250,4 +250,45 @@ router.get('/weekly-reports/internship/:internship_id', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/advisor/weekly-reports
+ * Get all weekly reports for students under this advisor
+ * Query params: status (pending_approval | approved | rejected), student_id, page, limit
+ */
+router.get('/weekly-reports', async (req: AuthRequest, res) => {
+  try {
+    const advisorId = req.user?.id;
+    const { status, student_id, page = '1', limit = '20' } = req.query;
+
+    if (!advisorId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
+    }
+
+    const result = await advisorEvaluationService.getAllWeeklyReportsForAdvisor(
+      advisorId,
+      {
+        status: status as string,
+        studentId: student_id as string,
+        page: parseInt(page as string, 10),
+        limit: parseInt(limit as string, 10),
+      }
+    );
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+});
+
 export default router;

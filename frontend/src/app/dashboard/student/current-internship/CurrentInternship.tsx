@@ -254,43 +254,43 @@ export default function CurrentInternship() {
           <StudentHeader />
           
           {/* Page Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
             <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-bold text-gray-900">Current Internship</h1>
-        <p className="text-gray-600 mt-2 text-lg">Track your internship progress and milestones</p>
+        <h1 className="text-4xl font-bold text-foreground">Current Internship</h1>
+        <p className="text-muted-foreground mt-2 text-lg">Track your internship progress and milestones</p>
       </div>
 
       {/* Internship Overview Card */}
-      <Card className="bg-white border border-gray-200">
+      <Card className="bg-card border border-border">
         <CardContent className="p-8">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
-                <Badge className="bg-[#4CAF50] text-white text-base px-3 py-1">Active</Badge>
+                <Badge className="bg-primary text-white text-base px-3 py-1">Active</Badge>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">{internship.position}</h2>
-              <div className="space-y-3 text-gray-600">
+              <h2 className="text-3xl font-bold text-foreground mb-6">{internship.position}</h2>
+              <div className="space-y-3 text-muted-foreground">
                 <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-gray-400" />
+                  <Building2 className="w-5 h-5 text-muted-foreground" />
                   <span className="text-lg">{internship.company}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400" />
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
                   <span className="text-lg">{internship.location}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <Calendar className="w-5 h-5 text-muted-foreground" />
                   <span className="text-lg">{new Date(internship.startDate).toLocaleDateString()} - {new Date(internship.endDate).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
             <div className="md:w-64">
-              <Card className="bg-gray-50 border-2 border-gray-200">
+              <Card className="bg-muted border-2 border-border">
                 <CardContent className="p-6">
-                  <div className="text-base text-gray-600 mb-2">Overall Progress</div>
-                  <div className="text-4xl font-bold text-[#4CAF50] mb-4">{internship.progress}%</div>
-                  <Progress value={internship.progress} className="h-3 bg-gray-200" />
+                  <div className="text-base text-muted-foreground mb-2">Overall Progress</div>
+                  <div className="text-4xl font-bold text-primary mb-4">{internship.progress}%</div>
+                  <Progress value={internship.progress} className="h-3 bg-muted-foreground/20" />
                 </CardContent>
               </Card>
             </div>
@@ -300,38 +300,38 @@ export default function CurrentInternship() {
 
       {/* Team Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6 max-w-5xl">
-        <Card className="bg-white border border-gray-200">
+        <Card className="bg-card border border-border">
           <CardHeader className="pb-4">
-            <CardTitle className="text-xl text-gray-900">Company Supervisor</CardTitle>
+            <CardTitle className="text-xl text-foreground">Company Supervisor</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 bg-[#4CAF50]/10 rounded-full flex items-center justify-center">
-                <User className="w-7 h-7 text-[#4CAF50]" />
+              <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center">
+                <User className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <div className="font-semibold text-gray-900 text-lg">{internship.supervisor?.name || 'Not assigned'}</div>
-                <div className="text-base text-gray-600">{internship.supervisor?.email || 'No email'}</div>
+                <div className="font-semibold text-foreground text-lg">{internship.supervisor?.name || 'Not assigned'}</div>
+                <div className="text-base text-muted-foreground">{internship.supervisor?.email || 'No email'}</div>
               </div>
             </div>
-            <Button variant="outline" className="w-full border-gray-300 hover:bg-gray-50 text-base py-5">Send Message</Button>
+            <Button variant="outline" className="w-full border-border hover:bg-muted text-base py-5">Send Message</Button>
           </CardContent>
         </Card>
-        <Card className="bg-white border border-gray-200">
+        <Card className="bg-card border border-border">
           <CardHeader className="pb-4">
-            <CardTitle className="text-xl text-gray-900">University Advisor</CardTitle>
+            <CardTitle className="text-xl text-foreground">University Advisor</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
-                <User className="w-7 h-7 text-purple-600" />
+              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                <User className="w-7 h-7 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <div className="font-semibold text-gray-900 text-lg">{internship.advisor?.name || 'Not assigned'}</div>
-                <div className="text-base text-gray-600">{internship.advisor?.email || 'No email'}</div>
+                <div className="font-semibold text-foreground text-lg">{internship.advisor?.name || 'Not assigned'}</div>
+                <div className="text-base text-muted-foreground">{internship.advisor?.email || 'No email'}</div>
               </div>
             </div>
-            <Button variant="outline" className="w-full border-gray-300 hover:bg-gray-50 text-base py-5">Send Message</Button>
+            <Button variant="outline" className="w-full border-border hover:bg-muted text-base py-5">Send Message</Button>
           </CardContent>
         </Card>
       </div>
@@ -339,22 +339,22 @@ export default function CurrentInternship() {
       {/* Milestones */}
       <div className="space-y-4">
           <div className="relative">
-            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-border"></div>
             {milestones.map((milestone, index) => (
               <div key={milestone.id} className="relative flex gap-4 pb-8">
                 <div className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center ${
-                  milestone.completed ? 'bg-[#4CAF50]/10' : 'bg-gray-100'
+                  milestone.completed ? 'bg-primary/10' : 'bg-muted'
                 }`}>
                   {milestone.completed ? (
-                    <CheckCircle2 className="w-6 h-6 text-[#4CAF50]" />
+                    <CheckCircle2 className="w-6 h-6 text-primary" />
                   ) : (
-                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <div className="w-3 h-3 rounded-full bg-muted-foreground"></div>
                   )}
                 </div>
-                <Card className="flex-1 bg-white border border-gray-200">
+                <Card className="flex-1 bg-card border border-border">
                   <CardContent className="p-6">
-                    <div className="font-semibold text-gray-900 text-lg">{milestone.title}</div>
-                    <div className="text-base text-gray-600 mt-1">{new Date(milestone.date).toLocaleDateString()}</div>
+                    <div className="font-semibold text-foreground text-lg">{milestone.title}</div>
+                    <div className="text-base text-muted-foreground mt-1">{new Date(milestone.date).toLocaleDateString()}</div>
                   </CardContent>
                 </Card>
               </div>

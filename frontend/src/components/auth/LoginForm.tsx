@@ -92,8 +92,8 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
 
       <div className="space-y-4">
         <div className="relative">
-          <div className="absolute left-0 top-0 h-full w-12 bg-[#4CAF50] rounded-l-md flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="absolute left-0 top-0 h-full w-12 bg-primary rounded-l-md flex items-center justify-center">
+            <svg className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
@@ -103,7 +103,7 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
             type="email"
             autoComplete="email"
             required
-            className="w-full pl-14 pr-4 py-3 border-2 border-gray-900 rounded-md bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] transition-all"
+            className="w-full pl-14 pr-4 py-3 border-2 border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
             placeholder="Enter your email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -112,8 +112,8 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
         </div>
 
         <div className="relative">
-          <div className="absolute left-0 top-0 h-full w-12 bg-[#4CAF50] rounded-l-md flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="absolute left-0 top-0 h-full w-12 bg-primary rounded-l-md flex items-center justify-center">
+            <svg className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
@@ -123,7 +123,7 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
             type="password"
             autoComplete="current-password"
             required
-            className="w-full pl-14 pr-4 py-3 border-2 border-gray-900 rounded-md bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] transition-all"
+            className="w-full pl-14 pr-4 py-3 border-2 border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -135,7 +135,7 @@ export default function LoginForm({ redirectTo, className, selectedRole }: Login
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white font-bold py-3 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
       >
         {loading ? 'Signing In...' : 'Login'}
       </button>

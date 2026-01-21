@@ -664,7 +664,7 @@ export async function updateUserRole(req: AuthRequest, res: Response) {
 
 /**
  * Update user status
- * Body: { status: 'active' | 'inactive' | 'suspended' }
+ * Body: { status: 'active' | 'inactive' | 'suspended' | 'graduated' | 'pending_graduation' }
  */
 export async function updateUserStatus(req: AuthRequest, res: Response) {
   try {
@@ -673,12 +673,12 @@ export async function updateUserStatus(req: AuthRequest, res: Response) {
     const adminId = req.user?.id;
 
     // Validate status
-    const validStatuses = ['active', 'inactive', 'suspended'];
+    const validStatuses = ['active', 'inactive', 'suspended', 'graduated', 'pending_graduation'];
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Invalid status. Must be one of: active, inactive, suspended',
+        message: 'Invalid status. Must be one of: active, inactive, suspended, graduated, pending_graduation',
       });
     }
 
@@ -707,7 +707,8 @@ export async function updateUserStatus(req: AuthRequest, res: Response) {
         await supabase.auth.admin.updateUserById(id, {
           ban_duration: '876000h', // ~100 years
         });
-      } else if (status === 'active') {
+      } else if (status === 'active' || status === 'graduated' || status === 'pending_graduation') {
+        // Graduated/pending_graduation students can still access to view their records
         await supabase.auth.admin.updateUserById(id, {
           ban_duration: 'none',
         });
@@ -739,6 +740,152 @@ export async function updateUserStatus(req: AuthRequest, res: Response) {
     });
   } catch (error: any) {
     console.error('Update user status error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Graduate student
+ * Mark a student as graduated after internship completion and evaluation approval
+ * Body: { graduation_notes?: string }
+ */
+export async function graduateStudent(req: AuthRequest, res: Response) {
+  try {
+    const id = ensureString(req.params.id, 'id');
+    const { graduation_notes } = req.body;
+    const adminId = req.user?.id;
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'Admin authentication required',
+      });
+    }
+
+    // Get user to graduate
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*, internships:internships!student_id(*)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'No user found with the provided ID',
+      });
+    }
+
+    // Only students can be graduated
+    if (user.role !== 'student') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid operation',
+        message: 'Only students can be marked as graduated',
+      });
+    }
+
+    // Check if already graduated
+    if (user.status === 'graduated') {
+      return res.status(400).json({
+        success: false,
+        error: 'Already graduated',
+        message: 'This student has already been marked as graduated',
+      });
+    }
+
+    // Check if student has at least one completed internship
+    const completedInternship = user.internships?.find((i: any) => i.status === 'completed');
+    if (!completedInternship) {
+      return res.status(400).json({
+        success: false,
+        error: 'Internship not completed',
+        message: 'Student must have a completed internship before graduating',
+      });
+    }
+
+    // Check if final evaluation is approved
+    const { data: approvedEval, error: evalError } = await supabase
+      .from('evaluations')
+      .select('id')
+      .eq('student_id', id)
+      .eq('status', 'approved')
+      .eq('evaluation_type', 'final')
+      .limit(1)
+      .single();
+
+    if (evalError || !approvedEval) {
+      return res.status(400).json({
+        success: false,
+        error: 'Evaluation not approved',
+        message: 'Student must have an approved final evaluation before graduating',
+      });
+    }
+
+    // Graduate the student
+    const { data: graduatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({
+        status: 'graduated',
+        graduated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to graduate student',
+        message: updateError.message,
+      });
+    }
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      user_id: adminId,
+      action: 'student_graduated',
+      entity_type: 'user',
+      entity_id: id,
+      details: {
+        graduated_student: {
+          id: user.id,
+          name: `${user.first_name} ${user.last_name}`,
+          email: user.email,
+        },
+        graduation_notes: graduation_notes || null,
+        internship_id: completedInternship.id,
+      },
+    });
+
+    // Notify the student
+    await supabase.from('notifications').insert({
+      user_id: id,
+      type: 'student_graduated',
+      title: 'Congratulations! You have Graduated',
+      message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
+      data: {
+        graduation_notes: graduation_notes || null,
+        graduated_at: new Date().toISOString(),
+      },
+    });
+
+    console.log(`✅ Student ${id} graduated successfully by admin ${adminId}`);
+
+    return res.status(200).json({
+      success: true,
+      data: graduatedUser,
+      message: 'Student marked as graduated successfully',
+    });
+  } catch (error: any) {
+    console.error('Graduate student error:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

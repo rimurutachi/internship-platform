@@ -23,28 +23,28 @@ export const DocumentTrackerCard = ({ documents = defaultDocuments }: DocumentTr
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-[#4CAF50] text-white border-0 text-xs">Approved</Badge>;
+        return <Badge className="bg-primary text-primary-foreground border-0 text-xs">Approved</Badge>;
       case 'submitted':
         return <Badge className="bg-blue-500 text-white border-0 text-xs">Submitted</Badge>;
       case 'pending':
         return <Badge className="bg-orange-500 text-white border-0 text-xs">Pending</Badge>;
       default:
-        return <Badge className="bg-gray-500 text-white border-0 text-xs">{status}</Badge>;
+        return <Badge className="bg-muted text-muted-foreground border-0 text-xs">{status}</Badge>;
     }
   };
 
   return (
-    <Card className="bg-white border-gray-200 shadow-sm">
+    <Card className="bg-card border-border shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900">Document Tracker</CardTitle>
+        <CardTitle className="text-xl font-bold text-foreground">Document Tracker</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {documents.map((doc, index) => (
-            <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+            <div key={index} className="flex items-center justify-between py-2 border-b border-border last:border-0">
               <div className="flex items-center space-x-3">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <span className="text-base text-gray-900">{doc.name}</span>
+                <FileText className="w-5 h-5 text-muted-foreground" />
+                <span className="text-base text-foreground">{doc.name}</span>
               </div>
               {getStatusBadge(doc.status)}
             </div>

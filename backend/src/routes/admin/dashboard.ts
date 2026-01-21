@@ -261,4 +261,41 @@ router.post('/snapshot', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/dashboard/company-capacity
+ * Get detailed company capacity breakdown
+ */
+router.get('/company-capacity', async (req, res) => {
+  console.log('[admin/dashboard] GET /company-capacity', req.query);
+  try {
+    const { university_id } = req.query;
+
+    if (!university_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'university_id is required',
+      });
+    }
+
+    const result = await adminDashboardService.getCompanyCapacityBreakdown(
+      university_id as string
+    );
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    console.log('[admin/dashboard] /company-capacity success', { university_id: university_id as string });
+    return res.status(200).json(result);
+  } catch (error: any) {
+    console.error('[admin/dashboard] /company-capacity error', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+});
+
 export default router;

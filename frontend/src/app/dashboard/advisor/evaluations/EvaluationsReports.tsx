@@ -463,7 +463,7 @@ export default function EvaluationsReports() {
           <AdvisorHeader />
           
           {/* Page Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
             <div className="space-y-8">
               {/* Header */}
               <div>
@@ -473,7 +473,7 @@ export default function EvaluationsReports() {
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-6">
-                <TabsList className="bg-white border border-gray-200 p-1">
+                <TabsList className="bg-card border border-border p-1">
                   <TabsTrigger value="weekly-reports" className="data-[state=active]:bg-[#4CAF50] data-[state=active]:text-white text-base px-6 py-3">
                     Weekly Reports
                   </TabsTrigger>
@@ -486,47 +486,47 @@ export default function EvaluationsReports() {
                 <TabsContent value="weekly-reports" className="space-y-6">
                   {/* Stats Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
-                        <div className="text-3xl font-bold text-gray-900">{reportStats.total}</div>
-                        <div className="text-base text-gray-600 mt-1">Total Reports</div>
+                        <div className="text-3xl font-bold text-foreground">{reportStats.total}</div>
+                        <div className="text-base text-muted-foreground mt-1">Total Reports</div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
                         <div className="text-3xl font-bold text-yellow-600">{reportStats.pending}</div>
-                        <div className="text-base text-gray-600 mt-1">Pending Review</div>
+                        <div className="text-base text-muted-foreground mt-1">Pending Review</div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
-                        <div className="text-3xl font-bold text-[#4CAF50]">{reportStats.approved}</div>
-                        <div className="text-base text-gray-600 mt-1">Approved</div>
+                        <div className="text-3xl font-bold text-primary">{reportStats.approved}</div>
+                        <div className="text-base text-muted-foreground mt-1">Approved</div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
                         <div className="text-3xl font-bold text-red-600">{reportStats.rejected}</div>
-                        <div className="text-base text-gray-600 mt-1">Rejected</div>
+                        <div className="text-base text-muted-foreground mt-1">Rejected</div>
                       </CardContent>
                     </Card>
                   </div>
 
                   {/* Search and Filters */}
-                  <Card className="bg-white border border-gray-200">
+                  <Card className="bg-card border border-border">
                     <CardContent className="p-6">
                       <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                           <Input
                             placeholder="Search by student name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 h-11 text-base border-gray-300"
+                            className="pl-10 h-11 text-base"
                           />
                         </div>
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
-                          <SelectTrigger className="w-full md:w-56 h-11 text-base border-gray-300">
+                          <SelectTrigger className="w-full md:w-56 h-11 text-base">
                             <SelectValue placeholder="Filter by status" />
                           </SelectTrigger>
                           <SelectContent>
@@ -543,20 +543,20 @@ export default function EvaluationsReports() {
                   {/* Reports List */}
                   <div className="space-y-4">
                     {loadingReports ? (
-                      <Card className="bg-white border border-gray-200">
+                      <Card className="bg-card border border-border">
                         <CardContent className="py-16 text-center">
-                          <p className="text-gray-600 text-lg">Loading reports...</p>
+                          <p className="text-muted-foreground text-lg">Loading reports...</p>
                         </CardContent>
                       </Card>
                     ) : filteredReports.length === 0 ? (
-                      <Card className="bg-white border border-gray-200">
+                      <Card className="bg-card border border-border">
                         <CardContent className="py-16 text-center">
-                          <p className="text-gray-600 text-lg">No reports found</p>
+                          <p className="text-muted-foreground text-lg">No reports found</p>
                         </CardContent>
                       </Card>
                     ) : (
                       filteredReports.map((report) => (
-                        <Card key={report.id} className="bg-white border border-gray-200 hover:shadow-lg transition-shadow">
+                        <Card key={report.id} className="bg-card border border-border hover:shadow-lg transition-shadow">
                           <CardContent className="p-6">
                             <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                               <div className="flex-1">
@@ -564,11 +564,11 @@ export default function EvaluationsReports() {
                                   <Badge className={`${getStatusColor(report.status)} text-base px-3 py-1`}>
                                     {report.status}
                                   </Badge>
-                                  <span className="text-base text-gray-600">Week {report.weekNumber}</span>
+                                  <span className="text-base text-muted-foreground">Week {report.weekNumber}</span>
                                 </div>
-                                <h3 className="text-xl font-semibold text-gray-900 mb-2">{report.studentName}</h3>
-                                <p className="text-base text-gray-600 line-clamp-2">{report.accomplishments}</p>
-                                <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-500">
+                                <h3 className="text-xl font-semibold text-foreground mb-2">{report.studentName}</h3>
+                                <p className="text-base text-muted-foreground line-clamp-2">{report.accomplishments}</p>
+                                <div className="flex flex-wrap gap-4 mt-4 text-sm text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-4 h-4" />
                                     {report.weekStartDate ? new Date(report.weekStartDate).toLocaleDateString() : 'N/A'} - {report.weekEndDate ? new Date(report.weekEndDate).toLocaleDateString() : 'N/A'}
@@ -601,41 +601,41 @@ export default function EvaluationsReports() {
                 <TabsContent value="evaluations" className="space-y-6">
                   {/* Stats Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
-                        <div className="text-3xl font-bold text-gray-900">{evaluationStats.total}</div>
-                        <div className="text-base text-gray-600 mt-1">Total Final Evaluations</div>
+                        <div className="text-3xl font-bold text-foreground">{evaluationStats.total}</div>
+                        <div className="text-base text-muted-foreground mt-1">Total Final Evaluations</div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
-                        <div className="text-3xl font-bold text-[#4CAF50]">{evaluationStats.approved}</div>
-                        <div className="text-base text-gray-600 mt-1">Approved</div>
+                        <div className="text-3xl font-bold text-primary">{evaluationStats.approved}</div>
+                        <div className="text-base text-muted-foreground mt-1">Approved</div>
                       </CardContent>
                     </Card>
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="p-6">
                         <div className="text-3xl font-bold text-yellow-600">{evaluationStats.pendingReview}</div>
-                        <div className="text-base text-gray-600 mt-1">Submitted</div>
+                        <div className="text-base text-muted-foreground mt-1">Submitted</div>
                       </CardContent>
                     </Card>
                   </div>
 
                   {/* Search and Filters */}
-                  <Card className="bg-white border border-gray-200">
+                  <Card className="bg-card border border-border">
                     <CardContent className="p-6">
                       <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                           <Input
                             placeholder="Search by student name or email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 h-11 text-base border-gray-300"
+                            className="pl-10 h-11 text-base border-border"
                           />
                         </div>
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
-                          <SelectTrigger className="w-full md:w-56 h-11 text-base border-gray-300">
+                          <SelectTrigger className="w-full md:w-56 h-11 text-base border-border">
                             <SelectValue placeholder="Filter by status" />
                           </SelectTrigger>
                           <SelectContent>
@@ -652,20 +652,20 @@ export default function EvaluationsReports() {
                   {/* Evaluations List */}
                   <div className="space-y-4">
                     {loadingEvaluations ? (
-                      <Card className="bg-white border border-gray-200">
+                      <Card className="bg-card border border-border">
                         <CardContent className="py-16 text-center">
-                          <p className="text-gray-600 text-lg">Loading evaluations...</p>
+                          <p className="text-muted-foreground text-lg">Loading evaluations...</p>
                         </CardContent>
                       </Card>
                     ) : filteredEvaluations.length === 0 ? (
-                      <Card className="bg-white border border-gray-200">
+                      <Card className="bg-card border border-border">
                         <CardContent className="py-16 text-center">
-                          <p className="text-gray-600 text-lg">No evaluations found</p>
+                          <p className="text-muted-foreground text-lg">No evaluations found</p>
                         </CardContent>
                       </Card>
                     ) : (
                       filteredEvaluations.map((evaluation) => (
-                        <Card key={evaluation.id} className="bg-white border border-gray-200 hover:shadow-lg transition-shadow">
+                        <Card key={evaluation.id} className="bg-card border border-border hover:shadow-lg transition-shadow">
                           <CardContent className="p-6">
                             <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                               <div className="flex-1">
@@ -673,13 +673,13 @@ export default function EvaluationsReports() {
                                   <Badge className={`${getStatusColor(evaluation.status)} text-base px-3 py-1`}>
                                     {evaluation.status.replace('_', ' ')}
                                   </Badge>
-                                  <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-base px-3 py-1">
+                                  <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-base px-3 py-1">
                                     Final Evaluation
                                   </Badge>
                                 </div>
-                                <h3 className="text-xl font-semibold text-gray-900 mb-1">{evaluation.studentName}</h3>
-                                <p className="text-base text-gray-600 mb-3">{evaluation.studentEmail}</p>
-                                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                                <h3 className="text-xl font-semibold text-foreground mb-1">{evaluation.studentName}</h3>
+                                <p className="text-base text-muted-foreground mb-3">{evaluation.studentEmail}</p>
+                                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                                   <span className="flex items-center gap-1">
                                     <Building2 className="w-4 h-4" />
                                     {evaluation.company}
@@ -692,27 +692,27 @@ export default function EvaluationsReports() {
                               </div>
                               <div className="flex items-center gap-6">
                                 <div className="text-center">
-                                  <div className="text-2xl font-bold text-[#4CAF50]">
+                                  <div className="text-2xl font-bold text-primary">
                                     {evaluation.total_score ?? 'N/A'}/{getMaxScore(evaluation) || '—'}
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">Total Score</div>
+                                  <div className="text-sm text-muted-foreground mt-1">Total Score</div>
                                 </div>
                                 <div className="text-center">
-                                  <div className="text-2xl font-bold text-gray-900">
+                                  <div className="text-2xl font-bold text-foreground">
                                     {getPercentageScore(evaluation) ? `${getPercentageScore(evaluation)}%` : 'N/A'}
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">Percentage</div>
+                                  <div className="text-sm text-muted-foreground mt-1">Percentage</div>
                                 </div>
                                 <div className="text-center">
-                                  <div className="text-2xl font-bold text-[#4CAF50]">
+                                  <div className="text-2xl font-bold text-primary">
                                     {evaluation.final_grade?.toFixed(2) ?? 'N/A'}
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">Final Grade</div>
+                                  <div className="text-sm text-muted-foreground mt-1">Final Grade</div>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                   <Button 
                                     variant="outline"
-                                    className="border-gray-300 hover:bg-gray-50 text-base py-5 px-6"
+                                    className="border-border hover:bg-muted text-base py-5 px-6"
                                     onClick={() => handleViewEvaluation(evaluation)}
                                   >
                                     <Eye className="w-5 h-5 mr-2" />

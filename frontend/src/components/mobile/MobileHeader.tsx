@@ -69,7 +69,7 @@ export const MobileHeader = ({
   const paths = getRolePaths();
 
   return (
-    <header className="lg:hidden bg-white border-b border-gray-200 z-40 px-4 py-3 flex-shrink-0 shadow-sm">
+    <header className="lg:hidden bg-background border-b border-border z-40 px-4 py-3 flex-shrink-0 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {onMenuClick && (
@@ -79,7 +79,7 @@ export const MobileHeader = ({
               className="lg:hidden"
               onClick={onMenuClick}
             >
-              <Menu className="w-5 h-5 text-gray-700" />
+              <Menu className="w-5 h-5 text-muted-foreground" />
             </Button>
           )}
           
@@ -93,14 +93,17 @@ export const MobileHeader = ({
           />
           
           <div>
-            <h1 className="text-base font-bold text-gray-900">{title}</h1>
+            <h1 className="text-base font-bold text-foreground">{title}</h1>
             {subtitle && (
-              <p className="text-xs text-gray-600">{subtitle}</p>
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
           {/* Notifications */}
           <NotificationsDropdown />
 

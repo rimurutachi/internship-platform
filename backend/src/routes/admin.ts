@@ -47,6 +47,9 @@ router.patch('/users/:id/role', adminController.updateUserRole);
 router.post('/users/:id/archive', adminController.archiveUser);
 router.post('/users/:id/unarchive', adminController.unarchiveUser);
 
+// Graduate student (mark as graduated after internship completion)
+router.post('/users/:id/graduate', adminController.graduateStudent);
+
 // Delete user
 router.delete('/users/:id', adminController.deleteUser);
 

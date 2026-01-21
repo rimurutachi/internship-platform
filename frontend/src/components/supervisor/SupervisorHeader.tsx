@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { logout } from '@/lib/auth';
 import { useUserContext } from '@/components/providers/UserProvider';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +33,7 @@ export const SupervisorHeader = () => {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-3 shadow-sm">
+    <header className="bg-background border-b border-border px-6 py-3 shadow-sm">
       <div className="flex items-center justify-between">
         {/* Left: CVSU Branding */}
         <div className="flex items-center space-x-3">
@@ -44,7 +45,7 @@ export const SupervisorHeader = () => {
             className="object-contain"
           />
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+            <span className="text-sm font-bold text-foreground" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
               CAVITE STATE UNIVERSITY - BACOOR CITY CAMPUS
             </span>
           </div>
@@ -52,11 +53,14 @@ export const SupervisorHeader = () => {
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
           {/* Notifications */}
           <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
-            <Bell className="w-5 h-5 text-gray-700" />
+            <Bell className="w-5 h-5 text-muted-foreground" />
             {notificationCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs p-0 flex items-center justify-center">
+              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs p-0 flex items-center justify-center">
                 {notificationCount > 9 ? '9+' : notificationCount}
               </Badge>
             )}
@@ -66,12 +70,12 @@ export const SupervisorHeader = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2" aria-label="User menu">
-                <span className="text-sm font-medium text-gray-900">Log out</span>
+                <span className="text-sm font-medium text-foreground">Log out</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
               <DropdownMenuItem 
-                className="text-red-600 cursor-pointer font-medium"
+                className="text-destructive cursor-pointer font-medium"
                 onClick={handleLogout}
               >
                 <LogOut className="w-4 h-4 mr-2" />
