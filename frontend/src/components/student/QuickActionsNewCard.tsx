@@ -5,13 +5,13 @@ import Link from "next/link";
 
 export const QuickActionsNewCard = () => {
   return (
-    <Card className="bg-white border-gray-200 shadow-sm">
+    <Card className="bg-card border-border shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900">Quick Actions</CardTitle>
+        <CardTitle className="text-xl font-bold text-foreground">Quick Actions</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <Button 
-          className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold py-6 text-base justify-start"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 text-base justify-start"
           asChild
         >
           <Link href="/dashboard/student/documents">
@@ -21,7 +21,7 @@ export const QuickActionsNewCard = () => {
         </Button>
         
         <Button 
-          className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold py-6 text-base justify-start"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 text-base justify-start"
           asChild
         >
           <Link href="/dashboard/student/messages">

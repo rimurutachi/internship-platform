@@ -337,12 +337,12 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
         {sidebar}
         <div className="flex-1 flex flex-col overflow-hidden">
           {header}
-          <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-6 bg-muted">
             <div className="max-w-4xl mx-auto">
               {/* Header */}
               <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-                <p className="text-gray-600 mt-2">Manage your account and preferences</p>
+                <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+                <p className="text-muted-foreground mt-2">Manage your account and preferences</p>
               </div>
 
               {/* Success/Error Alerts */}
@@ -382,7 +382,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                       {/* Profile Picture */}
                       <div className="flex items-center gap-6">
                         <Avatar className="w-24 h-24">
-                          <AvatarFallback className="bg-[#4CAF50] text-white text-2xl font-semibold">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-semibold">
                             {getInitials()}
                           </AvatarFallback>
                         </Avatar>
@@ -391,7 +391,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                             <Upload className="w-4 h-4 mr-2" />
                             Change Photo
                           </Button>
-                          <p className="text-xs text-gray-500">JPG, PNG or GIF. Max size 2MB</p>
+                          <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 2MB</p>
                         </div>
                       </div>
 
@@ -419,9 +419,9 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                             type="email" 
                             value={email} 
                             disabled
-                            className="mt-2 bg-gray-50" 
+                            className="mt-2 bg-muted" 
                           />
-                          <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                          <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
                         </div>
 
                         {/* Role-specific fields */}
@@ -532,7 +532,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         <Button 
                           onClick={handleSaveProfile}
                           disabled={saving}
-                          className="bg-[#4CAF50] hover:bg-[#45a049]"
+                          className="bg-primary hover:bg-primary/90"
                         >
                           {saving ? (
                             <>
@@ -561,12 +561,12 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                     <CardContent className="space-y-6">
                       {/* Channels */}
                       <div className="space-y-4">
-                        <h3 className="font-medium text-gray-900">Notification Channels</h3>
+                        <h3 className="font-medium text-foreground">Notification Channels</h3>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">Email Notifications</p>
-                              <p className="text-sm text-gray-500">Receive notifications via email</p>
+                              <p className="font-medium text-foreground">Email Notifications</p>
+                              <p className="text-sm text-muted-foreground">Receive notifications via email</p>
                             </div>
                             <Switch 
                               checked={emailNotifications}
@@ -575,8 +575,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">Push Notifications</p>
-                              <p className="text-sm text-gray-500">Receive push notifications in the app</p>
+                              <p className="font-medium text-foreground">Push Notifications</p>
+                              <p className="text-sm text-muted-foreground">Receive push notifications in the app</p>
                             </div>
                             <Switch 
                               checked={pushNotifications}
@@ -585,8 +585,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">SMS Notifications</p>
-                              <p className="text-sm text-gray-500">Receive text message notifications</p>
+                              <p className="font-medium text-foreground">SMS Notifications</p>
+                              <p className="text-sm text-muted-foreground">Receive text message notifications</p>
                             </div>
                             <Switch 
                               checked={smsNotifications}
@@ -598,12 +598,12 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                       {/* Notification Types */}
                       <div className="space-y-4 pt-4 border-t">
-                        <h3 className="font-medium text-gray-900">Notification Types</h3>
+                        <h3 className="font-medium text-foreground">Notification Types</h3>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">Evaluation Updates</p>
-                              <p className="text-sm text-gray-500">Get notified about evaluation changes</p>
+                              <p className="font-medium text-foreground">Evaluation Updates</p>
+                              <p className="text-sm text-muted-foreground">Get notified about evaluation changes</p>
                             </div>
                             <Switch 
                               checked={notifyEvaluations}
@@ -612,8 +612,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">Report Submissions</p>
-                              <p className="text-sm text-gray-500">Notifications for report activities</p>
+                              <p className="font-medium text-foreground">Report Submissions</p>
+                              <p className="text-sm text-muted-foreground">Notifications for report activities</p>
                             </div>
                             <Switch 
                               checked={notifyReports}
@@ -622,8 +622,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           </div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">New Messages</p>
-                              <p className="text-sm text-gray-500">Get notified when you receive messages</p>
+                              <p className="font-medium text-foreground">New Messages</p>
+                              <p className="text-sm text-muted-foreground">Get notified when you receive messages</p>
                             </div>
                             <Switch 
                               checked={notifyMessages}
@@ -635,8 +635,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           {userType === 'student' && (
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="font-medium text-gray-900">Internship Updates</p>
-                                <p className="text-sm text-gray-500">Updates about your internship status</p>
+                                <p className="font-medium text-foreground">Internship Updates</p>
+                                <p className="text-sm text-muted-foreground">Updates about your internship status</p>
                               </div>
                               <Switch 
                                 checked={notifyInternship}
@@ -649,8 +649,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           {userType === 'advisor' && (
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="font-medium text-gray-900">Student Activities</p>
-                                <p className="text-sm text-gray-500">Updates about your students</p>
+                                <p className="font-medium text-foreground">Student Activities</p>
+                                <p className="text-sm text-muted-foreground">Updates about your students</p>
                               </div>
                               <Switch 
                                 checked={notifyStudents}
@@ -661,8 +661,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">System Announcements</p>
-                              <p className="text-sm text-gray-500">Important platform updates</p>
+                              <p className="font-medium text-foreground">System Announcements</p>
+                              <p className="text-sm text-muted-foreground">Important platform updates</p>
                             </div>
                             <Switch 
                               checked={notifySystem}
@@ -676,7 +676,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         <Button 
                           onClick={handleSaveNotifications}
                           disabled={saving}
-                          className="bg-[#4CAF50] hover:bg-[#45a049]"
+                          className="bg-primary hover:bg-primary/90"
                         >
                           {saving ? (
                             <>
@@ -750,7 +750,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                             )}
                           </Button>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters</p>
+                        <p className="text-xs text-muted-foreground mt-1">Must be at least 8 characters</p>
                       </div>
                       <div>
                         <Label>Confirm New Password</Label>
@@ -780,7 +780,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         <Button 
                           onClick={handleChangePassword}
                           disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-                          className="bg-[#4CAF50] hover:bg-[#45a049]"
+                          className="bg-primary hover:bg-primary/90"
                         >
                           {saving ? (
                             <>
@@ -806,8 +806,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                     <CardContent>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">Enable 2FA</p>
-                          <p className="text-sm text-gray-500">
+                          <p className="font-medium text-foreground">Enable 2FA</p>
+                          <p className="text-sm text-muted-foreground">
                             Secure your account with two-factor authentication
                           </p>
                         </div>
@@ -868,7 +868,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex flex-col items-center gap-4">
                     <Avatar className="w-20 h-20">
-                      <AvatarFallback className="bg-[#4CAF50] text-white text-xl">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xl">
                         {getInitials()}
                       </AvatarFallback>
                     </Avatar>
@@ -898,7 +898,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         type="email" 
                         value={email} 
                         disabled
-                        className="mt-1 bg-gray-50" 
+                        className="mt-1 bg-muted" 
                       />
                     </div>
 
@@ -969,7 +969,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                   <Button 
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                    className="w-full bg-primary hover:bg-primary/90"
                   >
                     {saving ? (
                       <>
@@ -995,7 +995,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-medium">Email</p>
-                        <p className="text-xs text-gray-500">Via email</p>
+                        <p className="text-xs text-muted-foreground">Via email</p>
                       </div>
                       <Switch 
                         checked={emailNotifications}
@@ -1005,7 +1005,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-medium">Push</p>
-                        <p className="text-xs text-gray-500">In-app</p>
+                        <p className="text-xs text-muted-foreground">In-app</p>
                       </div>
                       <Switch 
                         checked={pushNotifications}
@@ -1044,7 +1044,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                   <Button 
                     onClick={handleSaveNotifications}
                     disabled={saving}
-                    className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                    className="w-full bg-primary hover:bg-primary/90"
                   >
                     {saving ? (
                       <>
@@ -1099,7 +1099,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                   <Button 
                     onClick={handleChangePassword}
                     disabled={saving || !currentPassword || !newPassword}
-                    className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                    className="w-full bg-primary hover:bg-primary/90"
                   >
                     {saving ? 'Changing...' : 'Change Password'}
                   </Button>
@@ -1108,7 +1108,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-medium">Two-Factor Auth</p>
-                        <p className="text-xs text-gray-500">Extra security</p>
+                        <p className="text-xs text-muted-foreground">Extra security</p>
                       </div>
                       <Switch 
                         checked={twoFactorEnabled}

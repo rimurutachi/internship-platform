@@ -622,18 +622,18 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {header}
           
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
             {/* WebSocket Status */}
             <div className="mb-6 flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-[#4CAF50]' : 'bg-gray-400'}`} />
-              <span className="text-base text-gray-600">
+              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-primary' : 'bg-muted-foreground'}`} />
+              <span className="text-base text-muted-foreground">
                 {wsConnected ? 'Real-time updates enabled' : 'Connecting...'}
               </span>
             </div>
 
             {loading && (
               <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-10 h-10 animate-spin text-[#4CAF50]" />
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
               </div>
             )}
 
@@ -651,12 +651,12 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
               <div className="space-y-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-4xl font-bold text-gray-900">Documents</h1>
-                    <p className="text-gray-600 mt-2 text-lg">Manage and share your internship documents</p>
+                    <h1 className="text-4xl font-bold text-foreground">Documents</h1>
+                    <p className="text-muted-foreground mt-2 text-lg">Manage and share your internship documents</p>
                   </div>
                   
                   <Button 
-                    className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-base px-6 py-6"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-base px-6 py-6"
                     onClick={() => setUploadDialogOpen(true)}
                   >
                     <Upload className="w-5 h-5 mr-2" />
@@ -685,7 +685,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                         {/* File Drop Zone */}
                         <div
                           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                            dragActive ? 'border-[#4CAF50] bg-[#4CAF50]/5' : uploadFile ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-[#4CAF50]'
+                            dragActive ? 'border-primary bg-primary/5' : uploadFile ? 'border-green-500 bg-green-500/10' : 'border-border hover:border-primary'
                           }`}
                           onDragEnter={handleDrag}
                           onDragLeave={handleDrag}
@@ -703,9 +703,9 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                           />
                           {uploadFile ? (
                             <div className="space-y-2">
-                              <CheckCircle className="w-12 h-12 mx-auto text-[#4CAF50]" />
-                              <p className="text-gray-900 font-medium">{uploadFile.name}</p>
-                              <p className="text-sm text-gray-500">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                              <CheckCircle className="w-12 h-12 mx-auto text-primary" />
+                              <p className="text-foreground font-medium">{uploadFile.name}</p>
+                              <p className="text-sm text-muted-foreground">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
                               <Button 
                                 variant="outline" 
                                 size="sm" 
@@ -721,10 +721,10 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                             </div>
                           ) : (
                             <>
-                              <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                              <p className="text-gray-600">Drag and drop your file here</p>
-                              <p className="text-sm text-gray-500 mt-1">or click to browse</p>
-                              <p className="text-xs text-gray-500 mt-2">Supported: PDF, DOCX, Images, ZIP</p>
+                              <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                              <p className="text-muted-foreground">Drag and drop your file here</p>
+                              <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
+                              <p className="text-xs text-muted-foreground mt-2">Supported: PDF, DOCX, Images, ZIP</p>
                             </>
                           )}
                         </div>
@@ -739,19 +739,19 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                             className="mt-2"
                             disabled={uploading}
                           />
-                          <p className="text-xs text-gray-500 mt-1">The file type will be automatically detected</p>
+                          <p className="text-xs text-muted-foreground mt-1">The file type will be automatically detected</p>
                         </div>
 
                         {/* Progress */}
                         {uploading && (
                           <div className="space-y-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="w-full bg-muted rounded-full h-2">
                               <div 
-                                className="bg-[#4CAF50] h-2 rounded-full transition-all duration-300"
+                                className="bg-primary h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${uploadProgress}%` }}
                               />
                             </div>
-                            <p className="text-sm text-gray-600 text-center">Uploading... {uploadProgress}%</p>
+                            <p className="text-sm text-muted-foreground text-center">Uploading... {uploadProgress}%</p>
                           </div>
                         )}
 
@@ -759,7 +759,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                         <Button
                           onClick={handleUpload}
                           disabled={uploading || !uploadFile || !uploadTitle.trim()}
-                          className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+                          className="w-full bg-primary hover:bg-primary/90"
                         >
                           {uploading ? (
                             <>
@@ -779,46 +779,46 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
 
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <Card className="bg-white border border-gray-200">
+                  <Card className="bg-card border border-border">
                     <CardContent className="p-6">
-                      <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-                      <div className="text-base text-gray-600 mt-1">Total Documents</div>
+                      <div className="text-3xl font-bold text-foreground">{stats.total}</div>
+                      <div className="text-base text-muted-foreground mt-1">Total Documents</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-white border border-gray-200">
+                  <Card className="bg-card border border-border">
                     <CardContent className="p-6">
                       <div className="text-3xl font-bold text-blue-600">{stats.shared}</div>
-                      <div className="text-base text-gray-600 mt-1">Shared</div>
+                      <div className="text-base text-muted-foreground mt-1">Shared</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-white border border-gray-200">
+                  <Card className="bg-card border border-border">
                     <CardContent className="p-6">
                       <div className="text-3xl font-bold text-purple-600">{stats.categories}</div>
-                      <div className="text-base text-gray-600 mt-1">Categories</div>
+                      <div className="text-base text-muted-foreground mt-1">Categories</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-white border border-gray-200">
+                  <Card className="bg-card border border-border">
                     <CardContent className="p-6">
-                      <div className="text-3xl font-bold text-[#4CAF50]">{stats.versions}</div>
-                      <div className="text-base text-gray-600 mt-1">Total Versions</div>
+                      <div className="text-3xl font-bold text-primary">{stats.versions}</div>
+                      <div className="text-base text-muted-foreground mt-1">Total Versions</div>
                     </CardContent>
                   </Card>
                 </div>
 
                 {/* Search and Filter */}
-                <Card className="bg-white border border-gray-200">
+                <Card className="bg-card border border-border">
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       <Input
                         placeholder="Search documents..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="text-base h-11 border-gray-300"
+                        className="text-base h-11 border-border"
                       />
                       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <TabsList className="w-full justify-start overflow-x-auto bg-gray-100 p-1">
+                        <TabsList className="w-full justify-start overflow-x-auto bg-muted p-1">
                           {categories.map((cat) => (
-                            <TabsTrigger key={cat} value={cat} className="capitalize data-[state=active]:bg-white text-base px-6 py-2">
+                            <TabsTrigger key={cat} value={cat} className="capitalize data-[state=active]:bg-background text-base px-6 py-2">
                               {cat}
                             </TabsTrigger>
                           ))}
@@ -831,27 +831,27 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                 {/* Documents List */}
                 <div className="space-y-4">
                   {filteredDocuments.length === 0 ? (
-                    <Card className="bg-white border border-gray-200">
+                    <Card className="bg-card border border-border">
                       <CardContent className="py-16 text-center">
-                        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600 text-lg">No documents found</p>
+                        <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground text-lg">No documents found</p>
                       </CardContent>
                     </Card>
                   ) : (
                     filteredDocuments.map((doc) => (
-                      <Card key={doc.id} className="hover:shadow-md transition-shadow bg-white border border-gray-200">
+                      <Card key={doc.id} className="hover:shadow-md transition-shadow bg-card border border-border">
                         <CardContent className="p-6">
                           <div className="flex items-center gap-5">
-                            <div className="p-4 bg-gray-100 rounded-lg">
+                            <div className="p-4 bg-muted rounded-lg">
                               {getFileIcon(doc.type)}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-3">
-                                <h3 className="font-semibold text-gray-900 text-lg">{doc.title}</h3>
-                                <Badge variant="outline" className="text-sm border-gray-300">v{doc.version}</Badge>
+                                <h3 className="font-semibold text-foreground text-lg">{doc.title}</h3>
+                                <Badge variant="outline" className="text-sm border-border">v{doc.version}</Badge>
                                 <Badge className="capitalize text-sm">{doc.status}</Badge>
                               </div>
-                              <div className="flex items-center gap-3 mt-2 text-base text-gray-600">
+                              <div className="flex items-center gap-3 mt-2 text-base text-muted-foreground">
                                 <span>Created {new Date(doc.created_at).toLocaleDateString()}</span>
                                 {doc.owner && (
                                   <>
@@ -863,7 +863,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                                 <span className="capitalize">{doc.type}</span>
                               </div>
                               {doc.updated_at !== doc.created_at && (
-                                <div className="text-sm text-gray-500 mt-1">
+                                <div className="text-sm text-muted-foreground mt-1">
                                   Last modified: {new Date(doc.updated_at).toLocaleDateString()}
                                 </div>
                               )}
@@ -925,7 +925,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
         
         <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
           <Button 
-            className="w-full bg-[#4CAF50] hover:bg-[#45a049]"
+            className="w-full bg-primary hover:bg-primary/90"
             onClick={() => setUploadDialogOpen(true)}
           >
             <Upload className="w-4 h-4 mr-2" />
@@ -969,7 +969,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
             {loading ? (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <Loader2 className="w-10 h-10 text-[#4CAF50] mx-auto animate-spin" />
+                  <Loader2 className="w-10 h-10 text-primary mx-auto animate-spin" />
                 </CardContent>
               </Card>
             ) : filteredDocuments.length === 0 ? (
@@ -1091,7 +1091,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setEditDialogOpen(false)} disabled={editing}>Cancel</Button>
-              <Button className="flex-1 bg-[#4CAF50] hover:bg-[#45a049]" onClick={handleSubmitEdit} disabled={editing || !editTitle.trim()}>
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleSubmitEdit} disabled={editing || !editTitle.trim()}>
                 {editing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
               </Button>
             </div>
@@ -1158,12 +1158,12 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                 {shareSearchResults.map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center justify-between p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                    className="flex items-center justify-between p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
                     onClick={() => setSelectedShareUser(u)}
                   >
                     <div>
                       <div className="font-medium text-sm">{u.first_name} {u.last_name}</div>
-                      <div className="text-xs text-gray-500">{u.email}</div>
+                      <div className="text-xs text-muted-foreground">{u.email}</div>
                     </div>
                     <Badge variant="outline" className="capitalize text-xs">{u.role}</Badge>
                   </div>
@@ -1179,7 +1179,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                     <UserPlus className="w-5 h-5 text-blue-600" />
                     <div>
                       <div className="font-medium text-sm">{selectedShareUser.first_name} {selectedShareUser.last_name}</div>
-                      <div className="text-xs text-gray-500">{selectedShareUser.email}</div>
+                      <div className="text-xs text-muted-foreground">{selectedShareUser.email}</div>
                     </div>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setSelectedShareUser(null)}>
@@ -1202,7 +1202,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                   </select>
                   <Button 
                     size="sm" 
-                    className="bg-[#4CAF50] hover:bg-[#45a049]"
+                    className="bg-primary hover:bg-primary/90"
                     onClick={handleGrantAccess}
                     disabled={sharing}
                   >
@@ -1234,7 +1234,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                         <div className="font-medium text-sm">
                           {access.users?.first_name} {access.users?.last_name}
                         </div>
-                        <div className="text-xs text-gray-500">{access.users?.email}</div>
+                        <div className="text-xs text-muted-foreground">{access.users?.email}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs capitalize">

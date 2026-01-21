@@ -176,7 +176,7 @@ const StudentDashboard = () => {
   }
 
   return (
-      <div className="h-screen bg-[#f5f5f5] overflow-hidden">
+      <div className="h-screen bg-muted overflow-hidden">
         {/* Desktop View */}
         <div className="hidden lg:flex h-full">
           {/* Left Sidebar */}
@@ -188,14 +188,14 @@ const StudentDashboard = () => {
           <StudentHeader />
           
           {/* Dashboard Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
             <div className="max-w-[1800px] mx-auto">
             {/* Welcome Banner */}
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">
+              <h1 className="text-3xl font-bold text-foreground mb-1">
                 Welcome back, {user?.first_name}!
               </h1>
-              <p className="text-base text-gray-600">
+              <p className="text-base text-muted-foreground">
                 {user?.profile_data?.education || 'CvSU Student'}
               </p>
             </div>
@@ -236,7 +236,7 @@ const StudentDashboard = () => {
       </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden bg-[#f5f5f5]">
+      <div className="lg:hidden h-screen flex flex-col overflow-hidden bg-muted">
         {/* Mobile Header */}
         <MobileHeader 
           title="Intern-Galing"
@@ -245,19 +245,19 @@ const StudentDashboard = () => {
         {/* Mobile Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
           {/* Welcome Card */}
-          <Card className="bg-white border-gray-200 shadow-sm">
+          <Card className="bg-card border-border shadow-sm">
             <CardContent className="p-4 flex items-center space-x-4">
-              <Avatar className="w-16 h-16 border-2 border-[#4CAF50]">
+              <Avatar className="w-16 h-16 border-2 border-primary">
                 <AvatarImage src={user?.profile_data?.avatar_url} />
-                <AvatarFallback className="bg-[#4CAF50] text-white font-bold text-lg">
+                <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-foreground">
                   Welcome, {user?.first_name}!
                 </h2>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {user?.profile_data?.education || 'CvSU Student'}
                 </p>
               </div>

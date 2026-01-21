@@ -147,65 +147,65 @@ export default function MyStudents() {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <AdvisorHeader />
           
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
             <div className="space-y-8">
               {/* Header */}
               <div>
-                <h1 className="text-4xl font-bold text-gray-900">My Students</h1>
-                <p className="text-gray-600 mt-2 text-lg">Monitor and manage your advisee students</p>
+                <h1 className="text-4xl font-bold text-foreground">My Students</h1>
+                <p className="text-muted-foreground mt-2 text-lg">Monitor and manage your advisee students</p>
               </div>
 
               {/* Error Alert */}
               {error && (
-                <Alert className="border-red-500 bg-red-50">
+                <Alert className="border-red-500 bg-red-500/10">
                   <AlertCircle className="h-4 w-4 text-red-500" />
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                  <AlertDescription className="text-red-600 dark:text-red-400">{error}</AlertDescription>
                 </Alert>
               )}
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="bg-white border border-gray-200">
+                <Card className="bg-card border border-border">
                   <CardContent className="p-6">
-                    <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-                    <div className="text-base text-gray-600 mt-1">Total Students</div>
+                    <div className="text-3xl font-bold text-foreground">{stats.total}</div>
+                    <div className="text-base text-muted-foreground mt-1">Total Students</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border border-gray-200">
+                <Card className="bg-card border border-border">
                   <CardContent className="p-6">
-                    <div className="text-3xl font-bold text-[#4CAF50]">{stats.active}</div>
-                    <div className="text-base text-gray-600 mt-1">Active Internships</div>
+                    <div className="text-3xl font-bold text-primary">{stats.active}</div>
+                    <div className="text-base text-muted-foreground mt-1">Active Internships</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border border-gray-200">
+                <Card className="bg-card border border-border">
                   <CardContent className="p-6">
                     <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
-                    <div className="text-base text-gray-600 mt-1">Pending</div>
+                    <div className="text-base text-muted-foreground mt-1">Pending</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border border-gray-200">
+                <Card className="bg-card border border-border">
                   <CardContent className="p-6">
                     <div className="text-3xl font-bold text-blue-600">{stats.completed}</div>
-                    <div className="text-base text-gray-600 mt-1">Completed</div>
+                    <div className="text-base text-muted-foreground mt-1">Completed</div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Filters */}
-              <Card className="bg-white border border-gray-200">
+              <Card className="bg-card border border-border">
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
                       <Input
                         placeholder="Search students..."
-                        className="pl-10 h-11 text-base border-gray-300"
+                        className="pl-10 h-11 text-base border-border"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-11 text-base border-gray-300">
+                      <SelectTrigger className="h-11 text-base border-border">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -232,15 +232,15 @@ export default function MyStudents() {
 
               {/* Students List */}
               {filteredStudents.length === 0 ? (
-                <Card className="bg-white border border-gray-200">
+                <Card className="bg-card border border-border">
                   <CardContent className="p-12 text-center">
-                    <p className="text-gray-500 text-lg">No students found</p>
+                    <p className="text-muted-foreground text-lg">No students found</p>
                   </CardContent>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 gap-6">
                   {filteredStudents.map((student) => (
-                    <Card key={student.id} className="bg-white border border-gray-200 hover:border-[#4CAF50]/30 transition-colors">
+                    <Card key={student.id} className="bg-card border border-border hover:border-primary/30 transition-colors">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-4 flex-1">
@@ -248,7 +248,7 @@ export default function MyStudents() {
                               {student.avatar_url ? (
                                 <AvatarImage src={student.avatar_url} alt={student.name} />
                               ) : (
-                                <AvatarFallback className="bg-[#4CAF50]/10 text-[#4CAF50] text-xl font-semibold">
+                                <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
                                   {getInitials(student.name)}
                                 </AvatarFallback>
                               )}
@@ -256,7 +256,7 @@ export default function MyStudents() {
                             
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-xl font-bold text-gray-900">{student.name}</h3>
+                                <h3 className="text-xl font-bold text-foreground">{student.name}</h3>
                                 {student.internship && (
                                   <Badge className={`${getStatusColor(student.internship.status)} text-sm px-3 py-1 border`}>
                                     {student.internship.status.charAt(0).toUpperCase() + student.internship.status.slice(1)}
@@ -265,25 +265,25 @@ export default function MyStudents() {
                               </div>
                               
                               <div className="space-y-2 mb-4">
-                                <div className="flex items-center gap-2 text-base text-gray-600">
+                                <div className="flex items-center gap-2 text-base text-muted-foreground">
                                   <Mail className="h-4 w-4" />
                                   {student.email}
                                 </div>
-                                <div className="flex items-center gap-2 text-base text-gray-600">
+                                <div className="flex items-center gap-2 text-base text-muted-foreground">
                                   <Award className="h-4 w-4" />
                                   {student.program} - Year {student.year}
                                   </div>
                               </div>
 
                               {student.internship && (
-                                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                                <div className="bg-muted rounded-lg p-4 space-y-3">
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <p className="font-semibold text-gray-900 text-base">{student.internship.company}</p>
-                                      <p className="text-sm text-gray-600">{student.internship.position}</p>
+                                      <p className="font-semibold text-foreground text-base">{student.internship.company}</p>
+                                      <p className="text-sm text-muted-foreground">{student.internship.position}</p>
                                     </div>
                                     <div className="text-right">
-                                      <p className="text-sm text-gray-600">
+                                      <p className="text-sm text-muted-foreground">
                                         {new Date(student.internship.startDate).toLocaleDateString()} - {new Date(student.internship.endDate).toLocaleDateString()}
                                       </p>
                                     </div>
@@ -291,8 +291,8 @@ export default function MyStudents() {
                                   
                                   <div>
                                     <div className="flex justify-between text-sm mb-1">
-                                      <span className="text-gray-600">Progress</span>
-                                      <span className="font-semibold text-gray-900">{student.internship.progress}%</span>
+                                      <span className="text-muted-foreground">Progress</span>
+                                      <span className="font-semibold text-foreground">{student.internship.progress}%</span>
                                     </div>
                                     <Progress value={student.internship.progress} className="h-2" />
                                   </div>
@@ -300,26 +300,26 @@ export default function MyStudents() {
                                   {student.performance.overall > 0 && (
                                     <div className="grid grid-cols-4 gap-3 pt-2 border-t">
                                       <div>
-                                        <p className="text-xs text-gray-500">Overall</p>
-                                        <p className="text-lg font-bold text-[#4CAF50]">{student.performance.overall.toFixed(1)}</p>
+                                        <p className="text-xs text-muted-foreground">Overall</p>
+                                        <p className="text-lg font-bold text-primary">{student.performance.overall.toFixed(1)}</p>
                                       </div>
                                       <div>
-                                        <p className="text-xs text-gray-500">Technical</p>
-                                        <p className="text-lg font-bold text-gray-900">{student.performance.technical.toFixed(1)}</p>
+                                        <p className="text-xs text-muted-foreground">Technical</p>
+                                        <p className="text-lg font-bold text-foreground">{student.performance.technical.toFixed(1)}</p>
                                       </div>
                                       <div>
-                                        <p className="text-xs text-gray-500">Communication</p>
-                                        <p className="text-lg font-bold text-gray-900">{student.performance.communication.toFixed(1)}</p>
+                                        <p className="text-xs text-muted-foreground">Communication</p>
+                                        <p className="text-lg font-bold text-foreground">{student.performance.communication.toFixed(1)}</p>
                                       </div>
                                       <div>
-                                        <p className="text-xs text-gray-500">Work Ethic</p>
-                                        <p className="text-lg font-bold text-gray-900">{student.performance.workEthic.toFixed(1)}</p>
+                                        <p className="text-xs text-muted-foreground">Work Ethic</p>
+                                        <p className="text-lg font-bold text-foreground">{student.performance.workEthic.toFixed(1)}</p>
                                       </div>
                                     </div>
                                   )}
 
                                   {student.lastEvaluation && (
-                                    <p className="text-xs text-gray-500 pt-2">
+                                    <p className="text-xs text-muted-foreground pt-2">
                                       Last evaluation: {new Date(student.lastEvaluation).toLocaleDateString()} ({student.evaluationCount} total)
                                     </p>
                                   )}
@@ -333,7 +333,7 @@ export default function MyStudents() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleViewDetails(student.id)}
-                              className="border-gray-300"
+                              className="border-border"
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
@@ -342,7 +342,7 @@ export default function MyStudents() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleSendMessage(student.id)}
-                              className="border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white"
+                              className="border-primary text-primary hover:bg-primary hover:text-white"
                             >
                               <MessageSquare className="h-4 w-4 mr-2" />
                               Message
@@ -494,17 +494,14 @@ export default function MyStudents() {
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Student Details</span>
-              <Button variant="ghost" size="sm" onClick={() => setShowDetails(false)}>
-                <X className="h-4 w-4" />
-              </Button>
+            <DialogTitle>
+              Student Details
             </DialogTitle>
           </DialogHeader>
 
           {detailsLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#4CAF50]" />
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : selectedStudent ? (
             <div className="space-y-6">
@@ -514,14 +511,14 @@ export default function MyStudents() {
                   {selectedStudent.avatar_url ? (
                     <AvatarImage src={selectedStudent.avatar_url} alt={selectedStudent.name} />
                   ) : (
-                    <AvatarFallback className="bg-[#4CAF50]/10 text-[#4CAF50] text-2xl font-semibold">
+                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
                       {getInitials(selectedStudent.name)}
                     </AvatarFallback>
                   )}
                 </Avatar>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedStudent.name}</h2>
-                  <p className="text-gray-600">{selectedStudent.email}</p>
+                  <h2 className="text-2xl font-bold text-foreground">{selectedStudent.name}</h2>
+                  <p className="text-muted-foreground">{selectedStudent.email}</p>
                   <div className="flex gap-2 mt-2">
                     <Badge variant="outline">{selectedStudent.program}</Badge>
                     <Badge variant="outline">Year {selectedStudent.year}</Badge>

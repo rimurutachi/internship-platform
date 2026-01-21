@@ -386,16 +386,16 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {header}
           
-          <div className="flex-1 flex overflow-hidden bg-gray-50">
+          <div className="flex-1 flex overflow-hidden bg-muted">
             {/* Conversations List */}
-            <div className="w-96 bg-white border-r flex flex-col">
+            <div className="w-96 bg-card border-r border-border flex flex-col">
               {/* Header */}
               <div className="p-4 border-b">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold">Messages</h2>
                   <Button 
                     size="sm" 
-                    className="bg-[#4CAF50] hover:bg-[#45a049]"
+                    className="bg-primary hover:bg-primary/90"
                     onClick={() => setShowNewMessageModal(true)}
                   >
                     <PenSquare className="w-4 h-4 mr-2" />
@@ -416,9 +416,9 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               {/* Conversations */}
               <ScrollArea className="flex-1">
                 {loading ? (
-                  <div className="p-8 text-center text-gray-500">Loading conversations...</div>
+                  <div className="p-8 text-center text-muted-foreground">Loading conversations...</div>
                 ) : filteredConversations.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
+                  <div className="p-8 text-center text-muted-foreground">
                     {searchQuery ? 'No conversations found' : 'No conversations yet'}
                   </div>
                 ) : (
@@ -426,22 +426,22 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                     <div
                       key={conv.id}
                       onClick={() => handleSelectConversation(conv.id)}
-                      className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-                        selectedConversation === conv.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                      className={`p-4 border-b border-border cursor-pointer hover:bg-muted transition-colors ${
+                        selectedConversation === conv.id ? 'bg-primary/10 border-l-4 border-l-primary' : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <Avatar className="w-12 h-12">
-                          <AvatarFallback className="bg-[#4CAF50] text-white">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
                             {getConversationAvatar(conv)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-gray-900 truncate">
+                            <h3 className="font-semibold text-foreground truncate">
                               {getConversationName(conv)}
                             </h3>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                               {new Date(conv.last_message_at).toLocaleTimeString([], { 
                                 hour: '2-digit', 
                                 minute: '2-digit' 
@@ -449,11 +449,11 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-600 truncate flex-1">
+                            <p className="text-sm text-muted-foreground truncate flex-1">
                               {conv.type === 'group' ? `Group • ${conv.participants?.length || 0} members` : 'Direct message'}
                             </p>
                             {(conv.unread_count || 0) > 0 && (
-                              <Badge className="bg-[#4CAF50] text-white text-xs">
+                              <Badge className="bg-primary text-primary-foreground text-xs">
                                 {conv.unread_count}
                               </Badge>
                             )}
@@ -466,10 +466,10 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               </ScrollArea>
 
               {/* WebSocket Status */}
-              <div className="p-3 border-t bg-gray-50">
+              <div className="p-3 border-t border-border bg-muted">
                 <div className="flex items-center gap-2 text-xs">
-                  <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
-                  <span className="text-gray-600">
+                  <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+                  <span className="text-muted-foreground">
                     {socketConnected ? 'Connected' : 'Connecting...'}
                   </span>
                 </div>
@@ -481,20 +481,20 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               {selectedConversation && currentConversation ? (
                 <>
                   {/* Chat Header */}
-                  <div className="p-4 bg-white border-b flex items-center justify-between">
+                  <div className="p-4 bg-card border-b border-border flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-[#4CAF50] text-white">
+                        <AvatarFallback className="bg-primary text-primary-foreground">
                           {getConversationAvatar(currentConversation)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-foreground">
                           {getConversationName(currentConversation)}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {typingUsers.size > 0 ? (
-                            <span className="text-[#4CAF50]">typing...</span>
+                            <span className="text-primary">typing...</span>
                           ) : (
                             `${currentConversation.participants?.length || 0} ${currentConversation.type === 'group' ? 'members' : 'participant'}`
                           )}
@@ -526,12 +526,12 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                               <div
                                 className={`rounded-lg p-3 ${
                                   isOwn
-                                    ? 'bg-[#4CAF50] text-white'
-                                    : 'bg-white border border-gray-200'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-card border border-border'
                                 }`}
                               >
                                 {!isOwn && msg.sender && (
-                                  <p className="text-xs font-semibold text-gray-900 mb-1">
+                                  <p className="text-xs font-semibold text-foreground mb-1">
                                     {msg.sender.first_name} {msg.sender.last_name}
                                   </p>
                                 )}
@@ -577,11 +577,11 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                                         </a>
                                       </div>
                                     )}
-                                    <p className={`text-sm ${isOwn ? 'text-white' : 'text-gray-900'}`}>
+                                    <p className={`text-sm ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
                                       {msg.content}
                                     </p>
                                     {msg.is_edited && (
-                                      <p className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                                      <p className={`text-xs mt-1 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                                         (edited)
                                       </p>
                                     )}
@@ -591,7 +591,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
 
                               {/* Timestamp and Actions */}
                               <div className={`flex items-center gap-2 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   {new Date(msg.created_at).toLocaleTimeString([], {
                                     hour: '2-digit',
                                     minute: '2-digit',
@@ -635,16 +635,16 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                   </ScrollArea>
 
                   {/* Message Input */}
-                  <div className="p-4 bg-white border-t">
+                  <div className="p-4 bg-card border-t border-border">
                     {selectedFile && (
-                      <div className="mb-2 p-2 bg-gray-100 rounded flex items-center justify-between">
+                      <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {filePreview ? (
                             <img src={filePreview} alt="Preview" className="w-10 h-10 object-cover rounded" />
                           ) : (
                             getFileIcon(selectedFile.name)
                           )}
-                          <span className="text-sm text-gray-700">{selectedFile.name}</span>
+                          <span className="text-sm text-muted-foreground">{selectedFile.name}</span>
                         </div>
                         <Button
                           variant="ghost"
@@ -706,7 +706,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                       <Button
                         onClick={handleSendMessage}
                         disabled={sending || (!messageInput.trim() && !selectedFile)}
-                        className="bg-[#4CAF50] hover:bg-[#45a049]"
+                        className="bg-primary hover:bg-primary/90"
                       >
                         <Send className="w-4 h-4" />
                       </Button>
@@ -720,13 +720,13 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center bg-gray-50">
+                <div className="flex-1 flex items-center justify-center bg-muted">
                   <div className="text-center">
-                    <div className="w-24 h-24 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
-                      <Send className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 mx-auto mb-4 bg-muted-foreground/20 rounded-full flex items-center justify-center">
+                      <Send className="w-12 h-12 text-muted-foreground" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Select a conversation</h3>
-                    <p className="text-gray-600">Choose a conversation from the list to start messaging</p>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Select a conversation</h3>
+                    <p className="text-muted-foreground">Choose a conversation from the list to start messaging</p>
                   </div>
                 </div>
               )}
@@ -743,10 +743,10 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
           <>
             {/* Conversations List - Mobile */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 bg-white border-b">
+              <div className="p-4 bg-card border-b border-border">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       placeholder="Search..."
                       value={searchQuery}
@@ -756,7 +756,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                   </div>
                   <Button
                     size="icon"
-                    className="bg-[#4CAF50] hover:bg-[#45a049]"
+                    className="bg-primary hover:bg-primary/90"
                     onClick={() => setShowNewMessageModal(true)}
                   >
                     <PenSquare className="w-4 h-4" />
@@ -766,9 +766,9 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
 
               <ScrollArea className="flex-1">
                 {loading ? (
-                  <div className="p-8 text-center text-gray-500">Loading...</div>
+                  <div className="p-8 text-center text-muted-foreground">Loading...</div>
                 ) : filteredConversations.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">No conversations</div>
+                  <div className="p-8 text-center text-muted-foreground">No conversations</div>
                 ) : (
                   filteredConversations.map((conv) => (
                     <Card
@@ -779,7 +779,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                       <CardContent className="p-3">
                         <div className="flex items-start gap-3">
                           <Avatar className="w-10 h-10">
-                            <AvatarFallback className="bg-[#4CAF50] text-white text-sm">
+                            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                               {getConversationAvatar(conv)}
                             </AvatarFallback>
                           </Avatar>
@@ -788,7 +788,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                               <h3 className="font-semibold text-sm truncate">
                                 {getConversationName(conv)}
                               </h3>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {new Date(conv.last_message_at).toLocaleTimeString([], {
                                   hour: '2-digit',
                                   minute: '2-digit',
@@ -796,11 +796,11 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <p className="text-xs text-gray-600 truncate flex-1">
+                              <p className="text-xs text-muted-foreground truncate flex-1">
                                 {conv.type === 'group' ? `${conv.participants?.length || 0} members` : 'Direct'}
                               </p>
                               {(conv.unread_count || 0) > 0 && (
-                                <Badge className="bg-[#4CAF50] text-white text-xs h-5">
+                                <Badge className="bg-primary text-primary-foreground text-xs h-5">
                                   {conv.unread_count}
                                 </Badge>
                               )}
@@ -819,12 +819,12 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
             {/* Chat View - Mobile */}
             <div className="flex-1 flex flex-col">
               {/* Mobile Chat Header */}
-              <div className="p-3 bg-white border-b flex items-center gap-3">
+              <div className="p-3 bg-card border-b border-border flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={handleBackToList}>
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-[#4CAF50] text-white text-xs">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {currentConversation && getConversationAvatar(currentConversation)}
                   </AvatarFallback>
                 </Avatar>
@@ -832,9 +832,9 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                   <h3 className="font-semibold text-sm">
                     {currentConversation && getConversationName(currentConversation)}
                   </h3>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-muted-foreground">
                     {typingUsers.size > 0 ? (
-                      <span className="text-[#4CAF50]">typing...</span>
+                      <span className="text-primary">typing...</span>
                     ) : (
                       'Active'
                     )}
@@ -856,8 +856,8 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                           <div
                             className={`rounded-lg p-2 text-sm ${
                               isOwn
-                                ? 'bg-[#4CAF50] text-white'
-                                : 'bg-white border'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-card border border-border'
                             }`}
                           >
                             {!isOwn && msg.sender && (
@@ -867,7 +867,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                             )}
                             <p>{msg.content}</p>
                           </div>
-                          <span className="text-xs text-gray-500 mt-1 block">
+                          <span className="text-xs text-muted-foreground mt-1 block">
                             {new Date(msg.created_at).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -882,7 +882,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               </ScrollArea>
 
               {/* Mobile Input */}
-              <div className="p-3 bg-white border-t">
+              <div className="p-3 bg-card border-t border-border">
                 <div className="flex items-center gap-2">
                   <Input
                     value={messageInput}
@@ -904,7 +904,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                     size="icon"
                     onClick={handleSendMessage}
                     disabled={sending || !messageInput.trim()}
-                    className="bg-[#4CAF50] hover:bg-[#45a049] h-9 w-9"
+                    className="bg-primary hover:bg-primary/90 h-9 w-9"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
