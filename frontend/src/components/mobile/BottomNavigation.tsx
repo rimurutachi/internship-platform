@@ -67,7 +67,7 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
   const minWidth = itemCount <= 5 ? `${100 / itemCount}%` : 'auto';
 
   return (
-    <nav className="lg:hidden bg-white border-t border-gray-200 z-50 safe-area-inset-bottom shadow-lg">
+    <nav className="lg:hidden bg-background border-t border-border z-50 safe-area-inset-bottom shadow-lg">
       <div className="flex h-16 overflow-x-auto scrollbar-hide">
         {navItems.map((item) => {
           // For Home/dashboard base path, only match exact path. For others, match exact or child paths
@@ -88,12 +88,12 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
                 'flex flex-col items-center justify-center space-y-1 transition-colors px-2 flex-1',
                 itemCount > 5 && 'min-w-[16.666%]',
                 isActive 
-                  ? 'text-[#4CAF50]' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               style={itemCount <= 5 ? { minWidth } : undefined}
             >
-              <Icon className={cn('w-5 h-5', isActive && 'fill-[#4CAF50]/10')} />
+              <Icon className={cn('w-5 h-5', isActive && 'fill-primary/10')} />
               <span className="text-xs font-medium whitespace-nowrap">{item.label}</span>
             </Link>
           );

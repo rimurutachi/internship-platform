@@ -592,18 +592,18 @@ export default function WeeklyReportsPage() {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <StudentHeader />
           
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
             <div className="space-y-8">
               {/* Page Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-900">Weekly Reports</h1>
-                  <p className="text-gray-600 mt-2 text-lg">
+                  <h1 className="text-4xl font-bold text-foreground">Weekly Reports</h1>
+                  <p className="text-muted-foreground mt-2 text-lg">
                     {internship.position} at {internship.company_name}
                   </p>
                 </div>
                 <Button 
-                  className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-base px-6 py-6"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-base px-6 py-6"
                   onClick={openCreateDialog}
                   disabled={getNextWeekNumber() > getTotalWeeks()}
                 >
@@ -615,40 +615,40 @@ export default function WeeklyReportsPage() {
               {/* Progress Section */}
               <div className="grid grid-cols-1 gap-8">
                 {/* Internship Progress */}
-                <Card className="bg-white border border-gray-200">
-                  <CardHeader className="border-b border-gray-200 pb-4">
-                    <CardTitle className="text-2xl text-gray-900">Internship Progress</CardTitle>
-                    <CardDescription className="text-base text-gray-600">Track your weekly report submissions</CardDescription>
+                <Card className="bg-card border border-border">
+                  <CardHeader className="border-b border-border pb-4">
+                    <CardTitle className="text-2xl text-foreground">Internship Progress</CardTitle>
+                    <CardDescription className="text-base text-muted-foreground">Track your weekly report submissions</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6">
                     <div className="grid grid-cols-2 gap-6">
                       <div>
-                        <div className="text-base text-gray-600">Progress</div>
-                        <div className="text-3xl font-bold text-gray-900 mt-1">
+                        <div className="text-base text-muted-foreground">Progress</div>
+                        <div className="text-3xl font-bold text-foreground mt-1">
                           {reports.length} / {getTotalWeeks()}
                         </div>
-                        <div className="text-sm text-gray-500 mt-1">weeks completed</div>
+                        <div className="text-sm text-muted-foreground mt-1">weeks completed</div>
                       </div>
                       <div>
-                        <div className="text-base text-gray-600">Approved</div>
-                        <div className="text-3xl font-bold text-[#4CAF50] mt-1">
+                        <div className="text-base text-muted-foreground">Approved</div>
+                        <div className="text-3xl font-bold text-primary mt-1">
                           {reports.filter(r => r.status === 'approved').length}
                         </div>
-                        <div className="text-sm text-gray-500 mt-1">reports</div>
+                        <div className="text-sm text-muted-foreground mt-1">reports</div>
                       </div>
                       <div>
-                        <div className="text-base text-gray-600">Pending</div>
+                        <div className="text-base text-muted-foreground">Pending</div>
                         <div className="text-3xl font-bold text-yellow-600 mt-1">
                           {reports.filter(r => r.status === 'pending_approval').length}
                         </div>
-                        <div className="text-sm text-gray-500 mt-1">reports</div>
+                        <div className="text-sm text-muted-foreground mt-1">reports</div>
                       </div>
                       <div>
-                        <div className="text-base text-gray-600">Total Hours</div>
-                        <div className="text-3xl font-bold text-gray-900 mt-1">
+                        <div className="text-base text-muted-foreground">Total Hours</div>
+                        <div className="text-3xl font-bold text-foreground mt-1">
                           {reports.reduce((sum, r) => sum + r.hours_rendered, 0)}
                         </div>
-                        <div className="text-sm text-gray-500 mt-1">hours logged</div>
+                        <div className="text-sm text-muted-foreground mt-1">hours logged</div>
                       </div>
                     </div>
                   </CardContent>
@@ -656,20 +656,20 @@ export default function WeeklyReportsPage() {
               </div>
 
               {/* Reports List */}
-              <Card className="bg-white border border-gray-200">
-                <CardHeader className="border-b border-gray-200 pb-6">
-                  <CardTitle className="text-2xl text-gray-900">Submitted Reports</CardTitle>
-                  <CardDescription className="text-base text-gray-600">
+              <Card className="bg-card border border-border">
+                <CardHeader className="border-b border-border pb-6">
+                  <CardTitle className="text-2xl text-foreground">Submitted Reports</CardTitle>
+                  <CardDescription className="text-base text-muted-foreground">
                     View and edit your weekly accomplishment reports
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
                   {reports.length === 0 ? (
                     <div className="text-center py-16">
-                      <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400 opacity-50" />
-                      <p className="text-gray-600 text-lg mb-6">No reports submitted yet</p>
+                      <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground text-lg mb-6">No reports submitted yet</p>
                       <Button 
-                        className="bg-[#4CAF50] hover:bg-[#45a049] text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                         variant="outline"
                         onClick={openCreateDialog}
                       >
@@ -679,12 +679,12 @@ export default function WeeklyReportsPage() {
                   ) : (
                     <div className="space-y-4">
                       {reports.map((report) => (
-                        <Card key={report.id} className="hover:shadow-md transition-shadow border border-gray-200">
+                        <Card key={report.id} className="hover:shadow-md transition-shadow border border-border bg-card">
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-3">
-                                  <h3 className="font-semibold text-gray-900 text-xl">
+                                  <h3 className="font-semibold text-foreground text-xl">
                                     Week {report.week_number}
                                   </h3>
                                   <Badge className={getStatusColor(report.status) + " text-base px-3 py-1"}>
@@ -694,7 +694,7 @@ export default function WeeklyReportsPage() {
                                     </div>
                                   </Badge>
                                 </div>
-                                <div className="flex items-center gap-4 text-base text-gray-600 mb-3">
+                                <div className="flex items-center gap-4 text-base text-muted-foreground mb-3">
                                   <div className="flex items-center gap-2">
                                     <Calendar className="w-5 h-5" />
                                     {formatDate(report.week_start_date)} - {formatDate(report.week_end_date)}
@@ -704,7 +704,7 @@ export default function WeeklyReportsPage() {
                                     {report.hours_rendered} hours
                                   </div>
                                 </div>
-                                <p className="text-base text-gray-600 line-clamp-2">
+                                <p className="text-base text-muted-foreground line-clamp-2">
                                   {report.accomplishments}
                                 </p>
                                 {report.status === 'rejected' && report.rejection_reason && (

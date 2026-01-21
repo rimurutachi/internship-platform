@@ -47,17 +47,17 @@ export const AdminSidebar = () => {
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col overflow-y-auto">
+    <div className="w-64 bg-background border-r border-border h-screen flex flex-col overflow-y-auto">
       {/* User Profile Section */}
-      <div className="p-6 bg-white">
+      <div className="p-6 bg-background">
         <div className="flex items-center space-x-3">
-          <Avatar className="w-14 h-14 border-2 border-[#4CAF50]">
+          <Avatar className="w-14 h-14 border-2 border-primary">
             <AvatarImage src={user?.profile_data?.avatar_url} alt={getDisplayName()} />
-            <AvatarFallback className="bg-[#4CAF50] text-white font-bold text-lg">{getInitials()}</AvatarFallback>
+            <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">{getInitials()}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="font-bold text-gray-900 text-base">{getDisplayName()}</h3>
-            <p className="text-xs text-gray-600">admin</p>
+            <h3 className="font-bold text-foreground text-base">{getDisplayName()}</h3>
+            <p className="text-xs text-muted-foreground">admin</p>
           </div>
         </div>
       </div>
@@ -77,8 +77,8 @@ export const AdminSidebar = () => {
                   className={cn(
                     'flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium transition-all',
                     isActive
-                      ? 'bg-[#4CAF50] text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'text-foreground hover:bg-muted'
                   )}
                 >
                   <Icon className="w-5 h-5" />

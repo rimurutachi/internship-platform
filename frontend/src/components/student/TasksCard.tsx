@@ -10,20 +10,20 @@ interface TasksCardProps {
 
 export const TasksCard = ({ pendingCount = 0, completedCount = 0 }: TasksCardProps) => {
   return (
-    <Card className="bg-white border-gray-200 shadow-sm">
+    <Card className="bg-card border-border shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900">Tasks</CardTitle>
+        <CardTitle className="text-xl font-bold text-foreground">Tasks</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-base text-gray-600">
-            <div>Pending: <span className="font-semibold text-gray-900">{pendingCount}</span></div>
-            <div>Completed: <span className="font-semibold text-gray-900">{completedCount}</span></div>
+          <div className="text-base text-muted-foreground">
+            <div>Pending: <span className="font-semibold text-foreground">{pendingCount}</span></div>
+            <div>Completed: <span className="font-semibold text-foreground">{completedCount}</span></div>
           </div>
-          <ListCheck className="w-10 h-10 text-[#4CAF50]" />
+          <ListCheck className="w-10 h-10 text-primary" />
         </div>
         <Link href="/dashboard/student/tasks" className="block w-full">
-          <Button className="w-full bg-white border-2 border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white font-semibold py-3 rounded-lg transition-colors">
+          <Button className="w-full bg-background border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground font-semibold py-3 rounded-lg transition-colors">
             Open Task Lists
           </Button>
         </Link>
