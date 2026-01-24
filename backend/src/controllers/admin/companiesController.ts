@@ -439,15 +439,38 @@ export async function getCompanySupervisors(req: Request, res: Response) {
 
     const { data: supervisors, error } = await supabase
       .from('users')
-      .select('id, email, name, first_name, last_name, status')
+      .select('id, email, name, first_name, last_name, status, last_login')
       .eq('company_id', id)
-      .eq('role', 'supervisor');
+      .eq('role', 'supervisor')
+      .order('name', { ascending: true });
 
     if (error) throw error;
 
+    // Get active internships count for each supervisor
+    const supervisorsWithCounts = await Promise.all(
+      (supervisors || []).map(async (supervisor) => {
+        const { count, error: countError } = await supabase
+          .from('internships')
+          .select('id', { count: 'exact', head: true })
+          .eq('supervisor_id', supervisor.id)
+          .in('status', ['active', 'pending']);
+
+        return {
+          id: supervisor.id,
+          name: supervisor.name || `${supervisor.first_name || ''} ${supervisor.last_name || ''}`.trim(),
+          email: supervisor.email,
+          status: supervisor.status,
+          last_login: supervisor.last_login,
+          active_internships: countError ? 0 : (count || 0),
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: supervisors || [],
+      data: {
+        supervisors: supervisorsWithCounts,
+      },
     });
   } catch (error: any) {
     console.error('Get company supervisors error:', error);
@@ -625,6 +648,199 @@ export async function updateCompanyStudentsCount(req: Request, res: Response) {
     res.status(500).json({
       success: false,
       error: 'Failed to update students count',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Assign a supervisor to a company
+ * POST /admin/companies/:id/supervisors
+ * Body: { supervisor_id: string }
+ */
+export async function assignSupervisorToCompany(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { supervisor_id } = req.body;
+
+    if (!supervisor_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'Supervisor ID is required',
+      });
+    }
+
+    // Check if company exists
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('id, name')
+      .eq('id', id)
+      .single();
+
+    if (companyError || !company) {
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found',
+      });
+    }
+
+    // Check if user exists and is a supervisor
+    const { data: supervisor, error: supervisorError } = await supabase
+      .from('users')
+      .select('id, name, email, role, company_id')
+      .eq('id', supervisor_id)
+      .single();
+
+    if (supervisorError || !supervisor) {
+      return res.status(404).json({
+        success: false,
+        error: 'Supervisor not found',
+      });
+    }
+
+    if (supervisor.role !== 'supervisor') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid user role',
+        message: 'Only users with supervisor role can be assigned to companies',
+      });
+    }
+
+    // Check if supervisor is already assigned to this company
+    if (supervisor.company_id === id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Already assigned',
+        message: 'This supervisor is already assigned to this company',
+      });
+    }
+
+    // Update supervisor's company_id
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ company_id: id, updated_at: new Date().toISOString() })
+      .eq('id', supervisor_id);
+
+    if (updateError) throw updateError;
+
+    console.log(`🔵 Supervisor ${supervisor.name} assigned to company ${company.name}`);
+
+    res.json({
+      success: true,
+      message: `Supervisor ${supervisor.name} assigned to ${company.name} successfully`,
+      data: {
+        supervisor_id,
+        company_id: id,
+        supervisor_name: supervisor.name,
+        company_name: company.name,
+      },
+    });
+  } catch (error: any) {
+    console.error('Assign supervisor to company error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to assign supervisor',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Remove a supervisor from a company
+ * DELETE /admin/companies/:id/supervisors/:supervisor_id
+ */
+export async function removeSupervisorFromCompany(req: Request, res: Response) {
+  try {
+    const { id, supervisor_id } = req.params;
+
+    // Check if supervisor exists and belongs to this company
+    const { data: supervisor, error: supervisorError } = await supabase
+      .from('users')
+      .select('id, name, email, company_id')
+      .eq('id', supervisor_id)
+      .eq('company_id', id)
+      .single();
+
+    if (supervisorError || !supervisor) {
+      return res.status(404).json({
+        success: false,
+        error: 'Supervisor not found in this company',
+      });
+    }
+
+    // Check if supervisor has active internships
+    const { count: activeInternships, error: countError } = await supabase
+      .from('internships')
+      .select('id', { count: 'exact', head: true })
+      .eq('supervisor_id', supervisor_id)
+      .in('status', ['active', 'ongoing']);
+
+    if (!countError && activeInternships && activeInternships > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot remove supervisor',
+        message: `This supervisor has ${activeInternships} active internship(s). Please reassign them first.`,
+      });
+    }
+
+    // Remove supervisor from company (set company_id to null)
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ company_id: null, updated_at: new Date().toISOString() })
+      .eq('id', supervisor_id);
+
+    if (updateError) throw updateError;
+
+    console.log(`🔵 Supervisor ${supervisor.name} removed from company`);
+
+    res.json({
+      success: true,
+      message: `Supervisor ${supervisor.name} removed from company successfully`,
+    });
+  } catch (error: any) {
+    console.error('Remove supervisor from company error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to remove supervisor',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get all supervisors (optionally filter by unassigned)
+ * GET /admin/companies/all-supervisors
+ * Query params: unassigned (boolean) - if true, only return supervisors without a company
+ */
+export async function getAllSupervisors(req: Request, res: Response) {
+  try {
+    const { unassigned } = req.query;
+
+    let query = supabase
+      .from('users')
+      .select('id, name, email, company_id, status')
+      .eq('role', 'supervisor')
+      .or('is_archived.is.null,is_archived.eq.false');
+
+    // Filter by unassigned if requested
+    if (unassigned === 'true') {
+      query = query.is('company_id', null);
+    }
+
+    const { data: supervisors, error } = await query.order('name', { ascending: true });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: { supervisors: supervisors || [] },
+    });
+  } catch (error: any) {
+    console.error('Get all supervisors error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch supervisors',
       message: error.message,
     });
   }

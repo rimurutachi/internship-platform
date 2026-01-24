@@ -782,59 +782,225 @@ export default function AdminRubricsPage() {
 
       {/* Edit Rubric Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Rubric - {selectedRubric?.rubric_name}</DialogTitle>
             <DialogDescription>
-              Editing will create version {selectedRubric ? selectedRubric.version + 1 : ''}
+              Editing will create version {selectedRubric ? selectedRubric.version + 1 : ''}. You can modify criteria and grading scale based on official evaluation forms.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
-              <Label>Rubric Name <span className="text-destructive">*</span></Label>
-              <Input
-                placeholder="e.g., CvSU Final Evaluation Rubric"
-                value={rubricName}
-                onChange={(e) => setRubricName(e.target.value)}
-                className="mt-2"
-              />
-            </div>
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="basic">Basic Info</TabsTrigger>
+              <TabsTrigger value="criteria">Criteria</TabsTrigger>
+              <TabsTrigger value="grading">Grading Scale</TabsTrigger>
+            </TabsList>
 
-            <div>
-              <Label>Description <span className="text-destructive">*</span></Label>
-              <Textarea
-                placeholder="Describe the purpose and usage of this rubric..."
-                value={rubricDescription}
-                onChange={(e) => setRubricDescription(e.target.value)}
-                rows={3}
-                className="mt-2"
-              />
-            </div>
+            <TabsContent value="basic" className="space-y-4 mt-4">
+              <div>
+                <Label>Rubric Name <span className="text-destructive">*</span></Label>
+                <Input
+                  placeholder="e.g., CvSU Final Evaluation Rubric"
+                  value={rubricName}
+                  onChange={(e) => setRubricName(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
 
-            <div>
-              <Label>Change Reason <span className="text-destructive">*</span></Label>
-              <Textarea
-                placeholder="Explain what changes you made and why (minimum 10 characters)..."
-                value={changeReason}
-                onChange={(e) => setChangeReason(e.target.value)}
-                rows={3}
-                className="mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {changeReason.length} / 10 characters minimum
-              </p>
-            </div>
+              <div>
+                <Label>Description <span className="text-destructive">*</span></Label>
+                <Textarea
+                  placeholder="Describe the purpose and usage of this rubric..."
+                  value={rubricDescription}
+                  onChange={(e) => setRubricDescription(e.target.value)}
+                  rows={3}
+                  className="mt-2"
+                />
+              </div>
 
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
-              <p className="text-sm text-blue-600 dark:text-blue-400">
-                <AlertCircle className="w-4 h-4 inline mr-1" />
-                This will create a new version and save the change to history
-              </p>
-            </div>
-          </div>
+              <div>
+                <Label>Change Reason <span className="text-destructive">*</span></Label>
+                <Textarea
+                  placeholder="Explain what changes you made and why (minimum 10 characters)..."
+                  value={changeReason}
+                  onChange={(e) => setChangeReason(e.target.value)}
+                  rows={3}
+                  className="mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {changeReason.length} / 10 characters minimum
+                </p>
+              </div>
 
-          <DialogFooter>
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  This will create a new version and save the change to history
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="criteria" className="space-y-4 mt-4">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md mb-4">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  Modify criteria based on official university evaluation forms. Each criterion should have a code (A-G), name, description, and score descriptions for each rating level.
+                </p>
+              </div>
+              
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {criteria.map((criterion, index) => (
+                  <Card key={criterion.code} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{criterion.code}</Badge>
+                        <Input
+                          value={criterion.name}
+                          onChange={(e) => {
+                            const newCriteria = [...criteria];
+                            newCriteria[index] = { ...criterion, name: e.target.value };
+                            setCriteria(newCriteria);
+                          }}
+                          placeholder="Criterion name"
+                          className="flex-1"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs">Description</Label>
+                        <Input
+                          value={criterion.description}
+                          onChange={(e) => {
+                            const newCriteria = [...criteria];
+                            newCriteria[index] = { ...criterion, description: e.target.value };
+                            setCriteria(newCriteria);
+                          }}
+                          placeholder="Brief description"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Max Score</Label>
+                          <Input
+                            type="number"
+                            value={criterion.max_score}
+                            onChange={(e) => {
+                              const newCriteria = [...criteria];
+                              newCriteria[index] = { ...criterion, max_score: parseInt(e.target.value) || 10 };
+                              setCriteria(newCriteria);
+                            }}
+                            min={1}
+                            max={100}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Performance Level Descriptions</Label>
+                        <div className="grid gap-2">
+                          {(['1-2', '3-4', '5-6', '7-8', '9-10'] as const).map((range) => (
+                            <div key={range} className="flex items-center gap-2">
+                              <Badge variant="secondary" className="w-12 justify-center text-xs">{range}</Badge>
+                              <Input
+                                value={criterion.scale_descriptions[range]}
+                                onChange={(e) => {
+                                  const newCriteria = [...criteria];
+                                  newCriteria[index] = {
+                                    ...criterion,
+                                    scale_descriptions: {
+                                      ...criterion.scale_descriptions,
+                                      [range]: e.target.value
+                                    }
+                                  };
+                                  setCriteria(newCriteria);
+                                }}
+                                placeholder={`Description for score ${range}`}
+                                className="flex-1 text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="grading" className="space-y-4 mt-4">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md mb-4">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  Adjust the grading scale based on university standards. Ensure score ranges don't overlap and cover 0-100%.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-muted-foreground px-2">
+                  <span>Grade</span>
+                  <span>Min Score (%)</span>
+                  <span>Max Score (%)</span>
+                  <span></span>
+                </div>
+                
+                {gradingScale.map((scale, index) => (
+                  <div key={index} className="grid grid-cols-4 gap-2 items-center">
+                    <Input
+                      type="number"
+                      step="0.25"
+                      value={scale.grade}
+                      onChange={(e) => {
+                        const newScale = [...gradingScale];
+                        newScale[index] = { ...scale, grade: parseFloat(e.target.value) || 1.0 };
+                        setCriteria([...criteria]); // Trigger re-render
+                        setGradingScale(newScale);
+                      }}
+                      className="text-center"
+                    />
+                    <Input
+                      type="number"
+                      value={scale.min_score}
+                      onChange={(e) => {
+                        const newScale = [...gradingScale];
+                        newScale[index] = { ...scale, min_score: parseInt(e.target.value) || 0 };
+                        setGradingScale(newScale);
+                      }}
+                      min={0}
+                      max={100}
+                      className="text-center"
+                    />
+                    <Input
+                      type="number"
+                      value={scale.max_score}
+                      onChange={(e) => {
+                        const newScale = [...gradingScale];
+                        newScale[index] = { ...scale, max_score: parseInt(e.target.value) || 100 };
+                        setGradingScale(newScale);
+                      }}
+                      min={0}
+                      max={100}
+                      className="text-center"
+                    />
+                    <span className="text-xs text-muted-foreground text-center">
+                      {scale.min_score === scale.max_score ? `${scale.min_score}%` : `${scale.min_score}-${scale.max_score}%`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-xs text-muted-foreground">
+                  <strong>CvSU Standard Scale:</strong> 1.0 (97-100%), 1.25 (94-96%), 1.5 (91-93%), 1.75 (88-90%), 2.0 (85-87%), 2.25 (82-84%), 2.5 (79-81%), 2.75 (76-78%), 3.0 (75%), 4.0 (70-74%), 5.0 (below 70%)
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>

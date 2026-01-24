@@ -18,7 +18,6 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Calendar, User, Building2, Briefcase } from 'lucide-react';
-import DocumentChecklist from './DocumentChecklist';
 import RemindersManagement from './RemindersManagement';
 
 interface ViewInternshipModalProps {
@@ -108,9 +107,8 @@ export function ViewInternshipModal({
           </div>
         ) : internship ? (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="reminders">Reminders</TabsTrigger>
             </TabsList>
 
@@ -256,10 +254,6 @@ export function ViewInternshipModal({
                 </div>
               )}
             </div>
-            </TabsContent>
-
-            <TabsContent value="documents" className="mt-6">
-              <DocumentChecklist internshipId={internshipId} />
             </TabsContent>
 
             <TabsContent value="reminders" className="mt-6">
