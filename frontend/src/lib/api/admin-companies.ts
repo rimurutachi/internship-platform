@@ -288,4 +288,63 @@ export const adminCompaniesAPI = {
   }> => {
     return fetchAPI(`/admin/companies/${companyId}/supervisors`);
   },
+
+  /**
+   * Assign a supervisor to a company
+   */
+  assignSupervisor: async (
+    companyId: string,
+    supervisorId: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      supervisor_id: string;
+      company_id: string;
+      supervisor_name: string;
+      company_name: string;
+    };
+  }> => {
+    return fetchAPI(`/admin/companies/${companyId}/supervisors`, {
+      method: 'POST',
+      body: JSON.stringify({ supervisor_id: supervisorId }),
+    });
+  },
+
+  /**
+   * Remove a supervisor from a company
+   */
+  removeSupervisor: async (
+    companyId: string,
+    supervisorId: string
+  ): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return fetchAPI(`/admin/companies/${companyId}/supervisors/${supervisorId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Get all supervisors (optionally filter by unassigned)
+   */
+  getAllSupervisors: async (
+    unassignedOnly?: boolean
+  ): Promise<{
+    success: boolean;
+    data: {
+      supervisors: Array<{
+        id: string;
+        name: string;
+        email: string;
+        company_id: string | null;
+        status: string;
+      }>;
+    };
+  }> => {
+    const params = new URLSearchParams();
+    if (unassignedOnly) params.append('unassigned', 'true');
+    return fetchAPI(`/admin/companies/all-supervisors?${params.toString()}`);
+  },
 };

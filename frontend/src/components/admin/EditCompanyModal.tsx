@@ -14,8 +14,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserPlus, X, Users } from 'lucide-react';
+
+interface Supervisor {
+  id: string;
+  name: string;
+  email: string;
+  company_id?: string | null;
+  status?: string;
+}
 
 interface EditCompanyModalProps {
   open: boolean;
@@ -32,6 +43,12 @@ export function EditCompanyModal({
 }: EditCompanyModalProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [supervisorLoading, setSupervisorLoading] = useState(false);
+  
+  // Supervisors state
+  const [assignedSupervisors, setAssignedSupervisors] = useState<Supervisor[]>([]);
+  const [availableSupervisors, setAvailableSupervisors] = useState<Supervisor[]>([]);
+  const [selectedSupervisorId, setSelectedSupervisorId] = useState<string>('');
 
   const [formData, setFormData] = useState<CompanyUpdateInput>({
     name: company.name,
@@ -56,8 +73,106 @@ export function EditCompanyModal({
         is_moa_standardized: company.is_moa_standardized,
         contact_info: company.contact_info || {},
       });
+      // Reset supervisor selection
+      setSelectedSupervisorId('');
+      // Fetch supervisors when modal opens
+      fetchSupervisors();
     }
   }, [open, company]);
+
+  const fetchSupervisors = async () => {
+    try {
+      setSupervisorLoading(true);
+      
+      console.log('🔵 Fetching supervisors for company:', company.id, company.name);
+      
+      // Fetch assigned supervisors for this company
+      const assignedResponse = await adminCompaniesAPI.getSupervisors(company.id);
+      console.log('📋 Assigned supervisors response:', assignedResponse);
+      
+      if (assignedResponse.success) {
+        const assigned = assignedResponse.data.supervisors || [];
+        console.log(`✅ Found ${assigned.length} assigned supervisors:`, assigned);
+        setAssignedSupervisors(assigned);
+      }
+      
+      // Fetch all unassigned supervisors
+      const availableResponse = await adminCompaniesAPI.getAllSupervisors(true);
+      console.log('📋 Available supervisors response:', availableResponse);
+      
+      if (availableResponse.success) {
+        const available = availableResponse.data.supervisors || [];
+        console.log(`✅ Found ${available.length} unassigned supervisors:`, available);
+        setAvailableSupervisors(available);
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to fetch supervisors:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load supervisors. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSupervisorLoading(false);
+    }
+  };
+
+  const handleAssignSupervisor = async () => {
+    if (!selectedSupervisorId) return;
+
+    try {
+      setSupervisorLoading(true);
+      console.log('🔵 Assigning supervisor:', selectedSupervisorId, 'to company:', company.id);
+      
+      const response = await adminCompaniesAPI.assignSupervisor(company.id, selectedSupervisorId);
+      console.log('✅ Assign response:', response);
+      
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: response.message,
+        });
+        setSelectedSupervisorId('');
+        await fetchSupervisors(); // Refresh lists
+      }
+    } catch (error: any) {
+      console.error('❌ Assign supervisor error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to assign supervisor',
+        variant: 'destructive',
+      });
+    } finally {
+      setSupervisorLoading(false);
+    }
+  };
+
+  const handleRemoveSupervisor = async (supervisorId: string, supervisorName: string) => {
+    try {
+      setSupervisorLoading(true);
+      console.log('🔵 Removing supervisor:', supervisorId, supervisorName);
+      
+      const response = await adminCompaniesAPI.removeSupervisor(company.id, supervisorId);
+      console.log('✅ Remove response:', response);
+      
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: response.message,
+        });
+        await fetchSupervisors(); // Refresh lists
+      }
+    } catch (error: any) {
+      console.error('❌ Remove supervisor error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to remove supervisor',
+        variant: 'destructive',
+      });
+    } finally {
+      setSupervisorLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +330,93 @@ export function EditCompanyModal({
               />
             </div>
           </div>
+
+          <Separator />
+
+          {/* Supervisors Management */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <Label className="text-base font-semibold">Assigned Supervisors</Label>
+              {supervisorLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+            
+            {/* List of assigned supervisors */}
+            {assignedSupervisors.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No supervisors assigned to this company yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {assignedSupervisors.map((supervisor) => (
+                  <div
+                    key={supervisor.id}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{supervisor.name}</p>
+                      <p className="text-xs text-muted-foreground">{supervisor.email}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveSupervisor(supervisor.id, supervisor.name)}
+                      disabled={supervisorLoading}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add supervisor section */}
+            <div className="space-y-2">
+              <Label className="text-sm">Add Supervisor</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={selectedSupervisorId}
+                  onValueChange={setSelectedSupervisorId}
+                  disabled={supervisorLoading || availableSupervisors.length === 0}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={
+                      availableSupervisors.length === 0 
+                        ? "No available supervisors" 
+                        : "Select a supervisor to add"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSupervisors.map((supervisor) => (
+                      <SelectItem key={supervisor.id} value={supervisor.id}>
+                        <div className="flex flex-col">
+                          <span>{supervisor.name}</span>
+                          <span className="text-xs text-muted-foreground">{supervisor.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  onClick={handleAssignSupervisor}
+                  disabled={!selectedSupervisorId || supervisorLoading}
+                  size="icon"
+                >
+                  {supervisorLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Only unassigned supervisors are shown. Supervisors can be reassigned from other companies via the Users page.
+              </p>
+            </div>
+          </div>
+
+          <Separator />
 
           {/* Checkboxes */}
           <div className="space-y-3">

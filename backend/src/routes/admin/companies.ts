@@ -11,6 +11,9 @@ import {
   archiveCompany,
   updateCompanyStudentsCount,
   unarchiveCompany,
+  assignSupervisorToCompany,
+  removeSupervisorFromCompany,
+  getAllSupervisors,
 } from '../../controllers/admin/companiesController';
 
 const router = Router();
@@ -33,6 +36,13 @@ router.get('/', getCompanies);
 router.get('/stats', getCompanyStats);
 
 /**
+ * GET /api/admin/companies/all-supervisors
+ * Get all supervisors (optionally filter by unassigned)
+ * Query params: unassigned (boolean) - if true, only return supervisors without a company
+ */
+router.get('/all-supervisors', getAllSupervisors);
+
+/**
  * GET /api/admin/companies/:id
  * Get single company by ID
  */
@@ -43,6 +53,19 @@ router.get('/:id', getCompany);
  * Get supervisors for a specific company
  */
 router.get('/:id/supervisors', getCompanySupervisors);
+
+/**
+ * POST /api/admin/companies/:id/supervisors
+ * Assign a supervisor to a company
+ * Body: { supervisor_id: string }
+ */
+router.post('/:id/supervisors', assignSupervisorToCompany);
+
+/**
+ * DELETE /api/admin/companies/:id/supervisors/:supervisor_id
+ * Remove a supervisor from a company
+ */
+router.delete('/:id/supervisors/:supervisor_id', removeSupervisorFromCompany);
 
 /**
  * POST /api/admin/companies
