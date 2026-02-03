@@ -17,8 +17,9 @@ lerna-debug.log*
 pm2.log
 
 # dependencies
+node_modules/
 /node_modules
-/.pnp
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
