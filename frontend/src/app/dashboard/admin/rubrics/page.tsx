@@ -137,17 +137,17 @@ const DEFAULT_CRITERIA: RubricCriterion[] = [
 ];
 
 const DEFAULT_GRADING_SCALE: GradingScale[] = [
-  { min_score: 97, max_score: 100, grade: 1.0 },
-  { min_score: 94, max_score: 96, grade: 1.25 },
-  { min_score: 91, max_score: 93, grade: 1.5 },
-  { min_score: 88, max_score: 90, grade: 1.75 },
-  { min_score: 85, max_score: 87, grade: 2.0 },
-  { min_score: 82, max_score: 84, grade: 2.25 },
-  { min_score: 79, max_score: 81, grade: 2.5 },
-  { min_score: 76, max_score: 78, grade: 2.75 },
-  { min_score: 75, max_score: 75, grade: 3.0 },
-  { min_score: 70, max_score: 74, grade: 4.0 },
-  { min_score: 0, max_score: 69, grade: 5.0 },
+  { min_score: 67, max_score: 70, grade: 1.0 },
+  { min_score: 63, max_score: 66, grade: 1.25 },
+  { min_score: 59, max_score: 62, grade: 1.5 },
+  { min_score: 54, max_score: 58, grade: 1.75 },
+  { min_score: 50, max_score: 53, grade: 2.0 },
+  { min_score: 45, max_score: 49, grade: 2.25 },
+  { min_score: 41, max_score: 44, grade: 2.5 },
+  { min_score: 36, max_score: 40, grade: 2.75 },
+  { min_score: 32, max_score: 35, grade: 3.0 },
+  { min_score: 18, max_score: 31, grade: 4.0 },
+  { min_score: 7, max_score: 17, grade: 5.0 },
 ];
 
 export default function AdminRubricsPage() {
@@ -753,14 +753,14 @@ export default function AdminRubricsPage() {
             <div>
               <Label>Criteria ({criteria.length})</Label>
               <div className="mt-2 p-3 bg-muted rounded-md text-xs text-muted-foreground">
-                Using CvSU default 7 criteria (A-G): Quality of Work, Attitude, Judgment, Cooperation, Dependability, Comprehension, Safety. Each criterion has 5 performance levels (Poor to Excellent) with 1-10 scale.
+                Using CvSU default 7 criteria (A-G): Quality of Work, Attitude, Judgment, Cooperation, Dependability, Comprehension, Safety. Each criterion has 5 performance levels (Poor to Outstanding) with 1-10 point scale. Maximum total score: 70 points.
               </div>
             </div>
 
             <div>
               <Label>Grading Scale</Label>
               <div className="mt-2 p-3 bg-muted rounded-md text-xs text-muted-foreground">
-                Using CvSU default grading scale: 1.0 (97-100%), 1.25 (94-96%), 1.5 (91-93%), ..., 5.0 (&lt;70%)
+                Using CvSU default grading scale (based on 70-point maximum): 1.0 (67-70), 1.25 (63-66), 1.5 (59-62), 1.75 (54-58), 2.0 (50-53), 2.25 (45-49), 2.5 (41-44), 2.75 (36-40), 3.0 (32-35), 4.0 (18-31), 5.0 (7-17)
               </div>
             </div>
           </div>
@@ -994,7 +994,7 @@ export default function AdminRubricsPage() {
 
               <div className="p-3 bg-muted rounded-md">
                 <p className="text-xs text-muted-foreground">
-                  <strong>CvSU Standard Scale:</strong> 1.0 (97-100%), 1.25 (94-96%), 1.5 (91-93%), 1.75 (88-90%), 2.0 (85-87%), 2.25 (82-84%), 2.5 (79-81%), 2.75 (76-78%), 3.0 (75%), 4.0 (70-74%), 5.0 (below 70%)
+                  <strong>CvSU Standard Scale (70-point max):</strong> 1.0 (67-70), 1.25 (63-66), 1.5 (59-62), 1.75 (54-58), 2.0 (50-53), 2.25 (45-49), 2.5 (41-44), 2.75 (36-40), 3.0 (32-35), 4.0 (18-31), 5.0 (7-17)
                 </p>
               </div>
             </TabsContent>

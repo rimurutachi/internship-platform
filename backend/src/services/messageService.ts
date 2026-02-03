@@ -7,6 +7,7 @@ import {
   emitConversationUpdate,
 } from "../socket/emitters";
 import { v4 as uuidv4 } from "uuid";
+import notificationService from "./notificationService";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -119,6 +120,22 @@ export class MessageService {
           last_message_at: new Date().toISOString(),
           last_message: message.content,
         });
+
+        // Send notification to participants (except sender)
+        if (participant.user_id !== senderId) {
+          notificationService
+            .createNotification({
+              user_id: participant.user_id,
+              type: "message_received",
+              title: "New Message",
+              message: message.content.substring(0, 100) + (message.content.length > 100 ? "..." : ""),
+              action_url: `/dashboard/messages?conversation=${data.conversation_id}`,
+              reference_type: "message",
+            })
+            .catch((notifError) => {
+              console.error("⚠️ Failed to send message notification:", notifError);
+            });
+        }
       });
     }
 

@@ -1,9 +1,9 @@
 'use client';
 
-import { Bell, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import { NotificationsDropdown } from '@/components/ui/NotificationsDropdown';
 import { logout } from '@/lib/auth';
 import { useUserContext } from '@/components/providers/UserProvider';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
@@ -22,7 +22,6 @@ import {
  */
 export const SupervisorHeader = () => {
   const { user, loading } = useUserContext();
-  const notificationCount = 8;
 
   const handleLogout = async () => {
     try {
@@ -57,14 +56,7 @@ export const SupervisorHeader = () => {
           <ThemeToggle />
 
           {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative" aria-label="Notifications">
-            <Bell className="w-5 h-5 text-muted-foreground" />
-            {notificationCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs p-0 flex items-center justify-center">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </Badge>
-            )}
-          </Button>
+          <NotificationsDropdown />
 
           {/* Profile Dropdown */}
           <DropdownMenu>

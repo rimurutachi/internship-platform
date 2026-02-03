@@ -14,6 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Parser } from 'json2csv';
+import notificationService from './notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -258,20 +259,20 @@ export class InternshipsEnhancedService {
         break;
     }
 
-    // Insert notifications for each recipient
-    const notifications = recipients.map(user_id => ({
-      user_id,
-      type: 'internship_reminder',
-      title: notificationTitle,
-      message: notificationMessage,
-      action_url: `/internships/${internship.id}`,
-      reference_id: internship.id,
-      reference_type: 'internship',
-      created_at: new Date().toISOString()
-    }));
-
-    if (notifications.length > 0) {
-      await supabase.from('notifications').insert(notifications);
+    // Send notifications using notificationService (with real-time socket delivery)
+    for (const userId of recipients) {
+      try {
+        await notificationService.createNotification({
+          user_id: userId,
+          type: 'internship_reminder',
+          title: notificationTitle,
+          message: notificationMessage,
+          action_url: `/dashboard/student/internship`,
+          reference_type: 'internship',
+        });
+      } catch (notifError) {
+        console.error(`Failed to send notification to ${userId}:`, notifError);
+      }
     }
 
     // TODO: Integrate with email service if notification_channel includes 'email'

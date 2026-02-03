@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { internshipService } from '../../services/internship.service';
+import notificationService from '../../services/notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -271,22 +272,21 @@ export class InternshipsEnhancedController {
       // Filter out null/undefined recipients
       const validRecipients = recipients.filter(Boolean);
 
-      // Insert notifications
-      const notifications = validRecipients.map(user_id => ({
-        user_id,
-        type: 'system',
-        title: notificationTitle,
-        message: notificationMessage,
-        action_url: `/admin/internships/${internship_id}`,
-        reference_id: internship_id,
-        reference_type: 'internship',
-        created_at: new Date().toISOString()
-      }));
-
-      if (notifications.length > 0) {
-        const { error: notifError } = await supabase.from('notifications').insert(notifications);
-        if (notifError) {
-          console.error('Failed to insert notifications:', notifError);
+      // Send notifications using notificationService (with real-time socket delivery)
+      let notificationCount = 0;
+      for (const userId of validRecipients) {
+        try {
+          await notificationService.createNotification({
+            user_id: userId,
+            type: reminder_type || 'system',
+            title: notificationTitle,
+            message: notificationMessage,
+            action_url: `/dashboard/student/internship`,
+            reference_type: 'internship',
+          });
+          notificationCount++;
+        } catch (notifError) {
+          console.error(`Failed to send notification to ${userId}:`, notifError);
         }
       }
 
@@ -305,7 +305,7 @@ export class InternshipsEnhancedController {
 
       res.json({
         success: true,
-        message: `Reminder sent to ${validRecipients.length} recipients`
+        message: `Reminder sent to ${notificationCount} recipients`
       });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

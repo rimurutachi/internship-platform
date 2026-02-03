@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { adminInternshipsAPI } from '@/lib/api/admin-internships';
+import { hoursApi } from '@/lib/api/hours';
 import type {
   InternshipCreateInput,
   User,
 } from '@/lib/api/admin-internships';
+import type { ProgramHours } from '@/types/hours';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Clock, Calendar, Info } from 'lucide-react';
 import { createSupabaseClient } from '@/lib/supabase';
 import CompanyStatusCard from './CompanyStatusCard';
 import adminInternshipsEnhancedAPI from '@/lib/api/admin-internships-enhanced';
@@ -51,8 +53,13 @@ export function CreateInternshipModal({
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const [companyCapacity, setCompanyCapacity] = useState<CompanyCapacityInfo | null>(null);
   const [loadingCapacity, setLoadingCapacity] = useState(false);
+  
+  // Program hours state
+  const [programs, setPrograms] = useState<ProgramHours[]>([]);
+  const [selectedProgram, setSelectedProgram] = useState<ProgramHours | null>(null);
+  const [useCustomHours, setUseCustomHours] = useState(false);
 
-  const [formData, setFormData] = useState<InternshipCreateInput>({
+  const [formData, setFormData] = useState<InternshipCreateInput & { required_hours?: number; program_code?: string }>({
     student_id: '',
     company_id: '',
     position: '',
@@ -60,8 +67,10 @@ export function CreateInternshipModal({
     advisor_id: '',
     supervisor_id: '',
     start_date: '',
-    end_date: '',
+    end_date: '', // Will be calculated from required_hours
     status: 'pending',
+    required_hours: 0,
+    program_code: '',
   });
 
   // Helper function to fetch CVSU-BC advisors
@@ -111,10 +120,51 @@ export function CreateInternshipModal({
     if (open) {
       fetchAvailableStudents();
       fetchCompanies();
+      fetchPrograms();
       // Auto-fetch CVSU-BC advisors since all advisors belong to this university
       fetchCVSUAdvisors();
     }
   }, [open]);
+
+  // Fetch programs for hours selection
+  const fetchPrograms = async () => {
+    try {
+      const result = await hoursApi.getAllPrograms();
+      if (result.success && result.data) {
+        setPrograms(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch programs:', error);
+    }
+  };
+
+  // Calculate projected end date when start_date or required_hours changes
+  useEffect(() => {
+    if (formData.start_date && formData.required_hours && formData.required_hours > 0) {
+      const projectedEndDate = calculateProjectedEndDate(formData.start_date, formData.required_hours);
+      setFormData(prev => ({ ...prev, end_date: projectedEndDate }));
+    }
+  }, [formData.start_date, formData.required_hours]);
+
+  // Helper function to calculate projected end date
+  const calculateProjectedEndDate = (startDate: string, requiredHours: number): string => {
+    const HOURS_PER_DAY = 8;
+    const requiredDays = Math.ceil(requiredHours / HOURS_PER_DAY);
+    
+    const start = new Date(startDate);
+    let businessDaysAdded = 0;
+    const current = new Date(start);
+    
+    while (businessDaysAdded < requiredDays) {
+      current.setDate(current.getDate() + 1);
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Mon-Fri
+        businessDaysAdded++;
+      }
+    }
+    
+    return current.toISOString().split('T')[0];
+  };
 
   // Fetch advisors when student is selected (for legacy support)
   useEffect(() => {
@@ -242,20 +292,12 @@ export function CreateInternshipModal({
       !formData.advisor_id ||
       !formData.supervisor_id ||
       !formData.start_date ||
-      !formData.end_date
+      !formData.required_hours ||
+      formData.required_hours < 40
     ) {
       toast({
         title: 'Validation Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (new Date(formData.start_date) >= new Date(formData.end_date)) {
-      toast({
-        title: 'Validation Error',
-        description: 'Start date must be before end date',
+        description: 'Please fill in all required fields. Required hours must be at least 40.',
         variant: 'destructive',
       });
       return;
@@ -273,7 +315,23 @@ export function CreateInternshipModal({
 
     try {
       setLoading(true);
-      await adminInternshipsAPI.createInternship(formData);
+      
+      // Create internship with required_hours and calculated end_date
+      const internshipData = {
+        student_id: formData.student_id,
+        company_id: formData.company_id,
+        position: formData.position,
+        department: formData.department,
+        advisor_id: formData.advisor_id,
+        supervisor_id: formData.supervisor_id,
+        start_date: formData.start_date,
+        end_date: formData.end_date, // Calculated projected end date
+        status: formData.status,
+        // Note: required_hours and program_code will be handled by backend
+      };
+      
+      await adminInternshipsAPI.createInternship(internshipData);
+      
       toast({
         title: 'Success',
         description: 'Internship created successfully',
@@ -302,11 +360,33 @@ export function CreateInternshipModal({
       start_date: '',
       end_date: '',
       status: 'pending',
+      required_hours: 0,
+      program_code: '',
     });
     setSelectedStudent(null);
+    setSelectedProgram(null);
+    setUseCustomHours(false);
     setAdvisors([]);
     setSupervisors([]);
     onClose();
+  };
+
+  // Handle program selection
+  const handleProgramChange = (programCode: string) => {
+    if (programCode === 'custom') {
+      setUseCustomHours(true);
+      setSelectedProgram(null);
+      setFormData(prev => ({ ...prev, program_code: '', required_hours: prev.required_hours || 240 }));
+    } else {
+      const program = programs.find(p => p.program_code === programCode);
+      setUseCustomHours(false);
+      setSelectedProgram(program || null);
+      setFormData(prev => ({ 
+        ...prev, 
+        program_code: programCode,
+        required_hours: program?.required_hours || 240 
+      }));
+    }
   };
 
   return (
@@ -506,18 +586,89 @@ export function CreateInternshipModal({
                 required
               />
             </div>
+            
+            {/* Program / Required Hours Selection */}
             <div className="space-y-2">
-              <Label htmlFor="end_date">End Date *</Label>
-              <Input
-                id="end_date"
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              <Label htmlFor="program">Program / Required Hours *</Label>
+              <Select
+                value={useCustomHours ? 'custom' : formData.program_code}
+                onValueChange={handleProgramChange}
                 disabled={loading}
-                required
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select program" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.map((program) => (
+                    <SelectItem key={program.program_code} value={program.program_code}>
+                      {program.program_code} - {program.required_hours} hours
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom hours...</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* Custom Hours Input (when custom is selected) */}
+          {useCustomHours && (
+            <div className="space-y-2">
+              <Label htmlFor="required_hours">Custom Required Hours *</Label>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="required_hours"
+                  type="number"
+                  min={40}
+                  max={2000}
+                  value={formData.required_hours || ''}
+                  onChange={(e) => setFormData({ ...formData, required_hours: parseInt(e.target.value) || 0 })}
+                  placeholder="e.g., 240, 486, 500"
+                  disabled={loading}
+                  required
+                />
+                <span className="text-sm text-muted-foreground">hours</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Enter total required internship hours (40-2000)
+              </p>
+            </div>
+          )}
+
+          {/* Hours Summary Card */}
+          {formData.required_hours && formData.required_hours > 0 && formData.start_date && (
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Info className="h-4 w-4 text-primary" />
+                Hours Summary
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Required Hours:</span>
+                  <span className="ml-2 font-medium">{formData.required_hours} hours</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Working Days:</span>
+                  <span className="ml-2 font-medium">{Math.ceil(formData.required_hours / 8)} days</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Approx. Weeks:</span>
+                  <span className="ml-2 font-medium">{Math.ceil(formData.required_hours / 40)} weeks</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Projected End:</span>
+                  <span className="ml-1 font-medium">
+                    {formData.end_date ? new Date(formData.end_date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    }) : '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Status */}
           <div className="space-y-2">

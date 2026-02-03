@@ -21,6 +21,8 @@ import studentRoutes from "./routes/student";
 import advisorRoutes from "./routes/advisor";
 import supervisorRoutes from "./routes/supervisor";
 import publicRoutes from "./routes/public";
+import hoursRoutes from "./routes/hours";
+import { startArchiveJob } from "./jobs/archiveJob";
 
 const app = express();
 
@@ -196,6 +198,9 @@ app.use("/api/supervisor", supervisorRoutes);
 // Supervisor APIs
 app.use("/api/supervisor", supervisorRoutes);
 
+// Hours Tracking APIs
+app.use("/api/hours", hoursRoutes);
+
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes);
 
@@ -210,6 +215,10 @@ if (process.env.NODE_ENV !== "test") {
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log("Socket.io initialized and ready.");
+    
+    // Start archive job (runs every hour)
+    startArchiveJob();
+    console.log("✅ Archive job scheduler started");
   });
 }
 

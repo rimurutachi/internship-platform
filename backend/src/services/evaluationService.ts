@@ -16,6 +16,8 @@ import {
   EvaluationAIAnalysis,
 } from "../models/evaluation";
 import { emitEvaluationUpdate } from "../socket/emitters";
+import notificationService from './notificationService';
+import { archiveService } from './archiveService';
 // NOTE: aiService is now used only for admin trend analysis (admin dashboard/analytics)
 // Individual evaluation analysis removed in v2.0.0
 
@@ -189,7 +191,7 @@ export class EvaluationService {
   }
 
   async submit(evaluationId: string): Promise<any> {
-    // Step 1: Fetch existing evaluation record
+    // Step 1: Fetch existing evaluation record with full relationships
     const evaluation = await this.getById(evaluationId);
     if (!evaluation) {
       throw new Error('Evaluation not found');
@@ -220,7 +222,39 @@ export class EvaluationService {
       evaluation: updatedEvaluation,
     });
 
+    // Step 4: Notify advisor that evaluation was submitted (using getById result which has relationships)
+    const advisorId = (evaluation as any).internship?.advisor_id;
+    if (advisorId) {
+      try {
+        const student = (evaluation as any).internship?.student;
+        const studentName = student 
+          ? `${student.first_name} ${student.last_name}`
+          : 'A student';
+        
+        await notificationService.createNotification({
+          user_id: advisorId,
+          type: 'evaluation_submitted',
+          title: 'New Evaluation Submitted',
+          message: `An evaluation for ${studentName} has been submitted by the supervisor and is awaiting your approval.`,
+          action_url: `/dashboard/advisor/evaluations`,
+          reference_type: 'evaluation',
+        });
+      } catch (notifError) {
+        console.error('⚠️ Failed to send evaluation notification:', notifError);
+      }
+    }
+
     console.log(`✅ Evaluation ${evaluationId} submitted successfully`);
+
+    // Step 5: Check if supervisor has completed all evaluations (for auto-archive)
+    if (evaluation.evaluation_type === 'final' && evaluation.supervisor_id) {
+      try {
+        await archiveService.checkSupervisorEvaluationCompletion(evaluation.supervisor_id);
+      } catch (archiveError) {
+        console.error('⚠️ Failed to check supervisor evaluation completion:', archiveError);
+        // Don't throw - this shouldn't block evaluation submission
+      }
+    }
 
     return {
       evaluation: updatedEvaluation,
@@ -228,6 +262,9 @@ export class EvaluationService {
   }
 
   async approve(evaluationId: string, finalGrade: number): Promise<Evaluation> {
+    // First get evaluation with internship info (getById includes full relationships)
+    const evaluation = await this.getById(evaluationId);
+    
     const { data, error } = await supabase
       .from("evaluations")
       .update({
@@ -246,6 +283,24 @@ export class EvaluationService {
       evaluation: data,
       finalGrade,
     });
+
+    // Notify student that their evaluation has been approved (using getById result which has relationships)
+    const studentId = (evaluation as any)?.internship?.student?.id;
+    if (studentId) {
+      try {
+        await notificationService.createNotification({
+          user_id: studentId,
+          type: 'evaluation_approved',
+          title: 'Evaluation Approved',
+          message: `Your internship evaluation has been approved with a final grade of ${finalGrade}.`,
+          action_url: `/dashboard/student/evaluations`,
+          reference_type: 'evaluation',
+        });
+      } catch (notifError) {
+        console.error('⚠️ Failed to send approval notification:', notifError);
+      }
+    }
+
     return data;
   }
 

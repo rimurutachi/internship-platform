@@ -33,10 +33,23 @@ export interface SupervisorStudent {
   } | null;
   latest_evaluation?: {
     id: string;
+    created_at: string;
+    total_score?: number;
+    final_grade?: number;
+    attendance?: string;
+    punctuality?: string;
+    rubric_id?: string;
+    status?: string;
+    supervisor_comments?: string;
+    criterion_scores?: Array<{
+      criterion_code: string;
+      criterion_name: string;
+      score: number;
+    }>;
+    // Legacy fields for backward compatibility
     overall_rating?: number;
     skills_rating?: number;
     attitude_rating?: number;
-    created_at: string;
   } | null;
 }
 
@@ -121,11 +134,23 @@ export class SupervisorStudentService {
       return [];
     }
 
-    // Fetch latest evaluations per internship for this supervisor
+    // Fetch latest evaluations per internship for this supervisor (include criterion scores)
     const internshipIds = list.map((i: any) => i.id);
     const { data: evaluations, error: evaluationsError } = await supabase
       .from('evaluations')
-      .select('id, internship_id, total_score, final_grade, attendance, punctuality, rubric_id, created_at, status')
+      .select(`
+        id, 
+        internship_id, 
+        total_score, 
+        final_grade, 
+        attendance, 
+        punctuality, 
+        rubric_id, 
+        supervisor_comments,
+        created_at, 
+        status,
+        evaluation_criterion_scores(criterion_code, criterion_name, score)
+      `)
       .in('internship_id', internshipIds)
       .eq('supervisor_id', supervisorId)
       .order('created_at', { ascending: false });
@@ -134,12 +159,32 @@ export class SupervisorStudentService {
       throw new Error(evaluationsError.message);
     }
 
+    console.log('🔍 Fetched evaluations for supervisor:', {
+      supervisorId,
+      internshipIds,
+      totalEvaluations: evaluations?.length || 0,
+      evaluations: evaluations?.map(e => ({
+        id: e.id,
+        internship_id: e.internship_id,
+        status: e.status,
+        created_at: e.created_at,
+        has_criterion_scores: e.evaluation_criterion_scores?.length || 0
+      }))
+    });
+
     const evalsByInternship: Record<string, any> = {};
     evaluations?.forEach((evaluation: any) => {
       if (!evalsByInternship[evaluation.internship_id]) {
         evalsByInternship[evaluation.internship_id] = evaluation;
       }
     });
+    
+    console.log('📊 Evaluations by internship:', Object.entries(evalsByInternship).map(([internship_id, evalData]) => ({
+      internship_id,
+      evaluation_id: evalData.id,
+      status: evalData.status,
+      criterion_scores_count: evalData.evaluation_criterion_scores?.length || 0
+    })));
 
     const result: SupervisorStudent[] = list.map((internship: any) => {
       const student = Array.isArray(internship.student) ? internship.student[0] : internship.student;
@@ -173,6 +218,8 @@ export class SupervisorStudentService {
               punctuality: latestEval.punctuality,
               rubric_id: latestEval.rubric_id,
               status: latestEval.status,
+              supervisor_comments: latestEval.supervisor_comments,
+              criterion_scores: latestEval.evaluation_criterion_scores || [],
             }
           : null,
       } as SupervisorStudent;

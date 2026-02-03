@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { internshipService } from '../../services/internship.service';
 import { ensureString } from '../../utils/typeGuards';
+import notificationService from '../../services/notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -397,6 +398,31 @@ export class InternshipsController {
         );
       }
 
+      // Send notifications for status changes
+      if (status && status !== currentInternship.status) {
+        const statusMessages: { [key: string]: { title: string; message: string } } = {
+          active: { title: 'Internship Approved', message: 'Your internship has been approved and is now active.' },
+          completed: { title: 'Internship Completed', message: 'Congratulations! Your internship has been marked as completed.' },
+          cancelled: { title: 'Internship Cancelled', message: 'Your internship has been cancelled. Please contact your advisor for more information.' },
+        };
+
+        const notifInfo = statusMessages[status];
+        if (notifInfo && currentInternship.student_id) {
+          try {
+            await notificationService.createNotification({
+              user_id: currentInternship.student_id,
+              type: `internship_${status}`,
+              title: notifInfo.title,
+              message: notifInfo.message,
+              action_url: `/dashboard/student/internship`,
+              reference_type: 'internship',
+            });
+          } catch (notifError) {
+            console.error('⚠️ Failed to send internship status notification:', notifError);
+          }
+        }
+      }
+
       res.json({
         success: true,
         data: {
@@ -456,6 +482,22 @@ export class InternshipsController {
         'Admin cancelled internship',
         { previous_status: internship.status }
       );
+
+      // Notify student about cancellation
+      if (internship.student_id) {
+        try {
+          await notificationService.createNotification({
+            user_id: internship.student_id,
+            type: 'internship_cancelled',
+            title: 'Internship Cancelled',
+            message: 'Your internship has been cancelled by an administrator. Please contact your advisor for more information.',
+            action_url: `/dashboard/student/internship`,
+            reference_type: 'internship',
+          });
+        } catch (notifError) {
+          console.error('⚠️ Failed to send cancellation notification:', notifError);
+        }
+      }
 
       res.json({
         success: true,
