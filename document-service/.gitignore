@@ -26,3 +26,6 @@ lerna-debug.log*
 # PM2 logs
 .pm2
 pm2.log
+
+# build outputs
+dist/
