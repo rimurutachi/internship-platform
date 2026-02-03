@@ -12,7 +12,8 @@ import {
     User,
     Building2,
     ArrowLeft,
-    Info
+    Info,
+    AlertTriangle
   } from 'lucide-react';
   import { SupervisorSidebar } from '@/components/supervisor/SupervisorSidebar';
   import { SupervisorHeader } from '@/components/supervisor/SupervisorHeader';
@@ -24,6 +25,7 @@ import {
   import { Textarea } from '@/components/ui/textarea';
   import { Slider } from '@/components/ui/slider';
   import { Alert, AlertDescription } from '@/components/ui/alert';
+  import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
   import { useToast } from '@/hooks/use-toast';
   import { createSupabaseClient } from '@/lib/supabase';
   import supervisorStudentsAPI from '@/lib/api/supervisor-students';
@@ -39,6 +41,14 @@ import { post, put } from '@/lib/api/client';
     company_name: string;
     start_date: string;
     end_date: string;
+    latest_evaluation?: {
+      id: string;
+      status?: string;
+      attendance?: string;
+      punctuality?: string;
+      supervisor_comments?: string;
+      criterion_scores?: CriterionScore[];
+    } | null;
   }
 
   interface CriterionScore {
@@ -54,6 +64,7 @@ import { post, put } from '@/lib/api/client';
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
     // Data state
     const [rubric, setRubric] = useState<EvaluationRubric | null>(null);
@@ -74,16 +85,19 @@ import { post, put } from '@/lib/api/client';
         .finally(() => setLoading(false));
     }, []);
 
-    // When an internship is selected and rubric is loaded, pull the latest draft
+    // When rubric is loaded after initial mount, load draft if not already loaded
     useEffect(() => {
-      if (!selectedInternshipId || !rubric) return;
-
-      createSupabaseClient().auth.getUser().then(async ({ data }) => {
-        const userId = data.user?.id;
-        if (!userId) return;
-        await fetchExistingDraft(selectedInternshipId, userId);
-      });
-    }, [selectedInternshipId, rubric]);
+      if (!rubric || !internship) return;
+      
+      // Only load draft if we haven't loaded one yet (status is still 'draft' initial state)
+      if (status === 'draft' && Object.keys(criterionScores).length === rubric.criteria.length) {
+        // Already loaded from initial rubric setup, don't override
+        return;
+      }
+      
+      // Load draft from current internship
+      loadDraftFromInternship(internship);
+    }, [rubric]);
 
     const fetchRubric = async () => {
       try {
@@ -133,6 +147,12 @@ import { post, put } from '@/lib/api/client';
           // Fallback to backend API which handles joins and RLS properly
           const studentsData = await supervisorStudentsAPI.getMyStudents();
           console.log('Backend students data:', studentsData);
+          console.log('Backend students with evaluations:', studentsData.map(s => ({
+            name: `${s.first_name} ${s.last_name}`,
+            internship_id: s.internship?.id,
+            has_evaluation: !!s.latest_evaluation,
+            evaluation_status: s.latest_evaluation?.status
+          })));
           
           const formattedFromBackend: Internship[] = studentsData
             .filter(student => student.internship)
@@ -145,12 +165,27 @@ import { post, put } from '@/lib/api/client';
               company_name: student.internship!.company?.name || 'Unknown Company',
               start_date: student.internship!.start_date || '',
               end_date: student.internship!.end_date || '',
+              latest_evaluation: student.latest_evaluation,
             }));
+          
+          console.log('Formatted internships:', formattedFromBackend.map(i => ({
+            student: i.student_name,
+            has_draft: i.latest_evaluation?.status === 'draft',
+            eval_status: i.latest_evaluation?.status
+          })));
           
           setInternships(formattedFromBackend);
           if (formattedFromBackend.length > 0) {
-            setSelectedInternshipId(formattedFromBackend[0].id);
-            setInternship(formattedFromBackend[0]);
+            const firstInternship = formattedFromBackend[0];
+            setSelectedInternshipId(firstInternship.id);
+            setInternship(firstInternship);
+            console.log('Loading draft for first internship:', {
+              student: firstInternship.student_name,
+              has_evaluation: !!firstInternship.latest_evaluation,
+              status: firstInternship.latest_evaluation?.status
+            });
+            // Load draft if exists
+            loadDraftFromInternship(firstInternship);
           }
           return;
         }
@@ -179,15 +214,18 @@ import { post, put } from '@/lib/api/client';
             company_name: int.companies?.name || 'Unknown Company',
             start_date: int.start_date,
             end_date: int.end_date,
+            latest_evaluation: int.latest_evaluation,
           };
         });
 
         setInternships(formattedInternships);
       
         if (formattedInternships.length > 0) {
-          setSelectedInternshipId(formattedInternships[0].id);
-          setInternship(formattedInternships[0]);
-          await fetchExistingDraft(formattedInternships[0].id, currentUserId);
+          const firstInternship = formattedInternships[0];
+          setSelectedInternshipId(firstInternship.id);
+          setInternship(firstInternship);
+          // Load draft if exists
+          loadDraftFromInternship(firstInternship);
         }
       } catch (error: any) {
         toast({
@@ -203,56 +241,53 @@ import { post, put } from '@/lib/api/client';
       const selected = internships.find(i => i.id === internshipId);
       if (selected) {
         setInternship(selected);
-        // Load latest draft for this internship so supervisor resumes where they left off
-        createSupabaseClient().auth.getUser().then(async ({ data }) => {
-          const userId = data.user?.id;
-          if (!userId) return;
-          await fetchExistingDraft(internshipId, userId);
-        });
+        // Load draft from selected internship data (already fetched from backend)
+        loadDraftFromInternship(selected);
       }
     };
 
-    const fetchExistingDraft = async (internshipId: string, supervisorId: string) => {
-      try {
-        const supabase = createSupabaseClient();
-        const { data: draft, error } = await supabase
-          .from('evaluations')
-          .select(`id, attendance, punctuality, supervisor_comments, total_score, final_grade, rubric_id,
-            evaluation_criterion_scores (criterion_code, criterion_name, score)`)
-          .eq('internship_id', internshipId)
-          .eq('supervisor_id', supervisorId)
-          .eq('evaluation_type', 'final')
-          .eq('status', 'draft')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error || !draft) {
-          return;
-        }
-
-        // Restore form state from draft
-        const draftScores: Record<string, CriterionScore> = {};
-        (draft.evaluation_criterion_scores || []).forEach((s: any, index: number) => {
-          const key = s.criterion_code || `criterion-${index}`;
-          draftScores[key] = {
-            criterion_code: s.criterion_code,
-            criterion_name: s.criterion_name,
-            score: s.score,
-          };
-        });
-
-        if (Object.keys(draftScores).length > 0) {
-          setCriterionScores(draftScores);
-        }
-
-        setAttendance((draft.attendance as any) || 'regular');
-        setPunctuality((draft.punctuality as any) || 'regular');
-        setComments(draft.supervisor_comments || '');
-        setStatus('draft');
-      } catch (err: any) {
-        console.warn('⚠️ Failed to load existing draft:', err.message || err);
+    // Load draft evaluation data from internship object (fetched from backend API)
+    const loadDraftFromInternship = (internship: Internship) => {
+      console.log('🔍 loadDraftFromInternship called:', {
+        internship_id: internship.id,
+        student: internship.student_name,
+        has_evaluation: !!internship.latest_evaluation,
+        evaluation_data: internship.latest_evaluation
+      });
+      
+      const evaluation = internship.latest_evaluation;
+      
+      // Only load if it's a draft
+      if (!evaluation || evaluation.status !== 'draft') {
+        console.log('ℹ️ No draft found for this internship - status:', evaluation?.status || 'no evaluation');
+        return;
       }
+
+      console.log('✅ Loading draft evaluation:', evaluation);
+
+      // Restore criterion scores
+      const draftScores: Record<string, CriterionScore> = {};
+      (evaluation.criterion_scores || []).forEach((s: CriterionScore, index: number) => {
+        const key = s.criterion_code || `criterion-${index}`;
+        draftScores[key] = {
+          criterion_code: s.criterion_code,
+          criterion_name: s.criterion_name,
+          score: s.score,
+        };
+      });
+
+      if (Object.keys(draftScores).length > 0) {
+        setCriterionScores(draftScores);
+        console.log('✅ Restored criterion scores:', draftScores);
+      }
+
+      // Restore other fields
+      setAttendance((evaluation.attendance as any) || 'regular');
+      setPunctuality((evaluation.punctuality as any) || 'regular');
+      setComments(evaluation.supervisor_comments || '');
+      setStatus('draft');
+      
+      console.log('✅ Draft loaded successfully');
     };
 
     const handleCriterionScoreChange = (criterionCode: string, score: number) => {
@@ -313,8 +348,9 @@ import { post, put } from '@/lib/api/client';
       };
     };
 
-    const handleSubmitEvaluation = async () => {
-      if (!internship || !rubric) return;
+    // Validate evaluation before showing confirmation
+    const validateEvaluation = () => {
+      if (!internship || !rubric) return false;
 
       // Comprehensive validation
       const allCriteriaScored = rubric.criteria.every((c, i) => {
@@ -327,7 +363,7 @@ import { post, put } from '@/lib/api/client';
           description: 'Please rate all performance criteria before submitting',
           variant: 'destructive',
         });
-        return;
+        return false;
       }
 
       if (!attendance || !punctuality) {
@@ -336,7 +372,7 @@ import { post, put } from '@/lib/api/client';
           description: 'Attendance and punctuality are required',
           variant: 'destructive',
         });
-        return;
+        return false;
       }
 
       // Validation
@@ -346,8 +382,23 @@ import { post, put } from '@/lib/api/client';
           description: 'Comments must be at least 50 characters',
           variant: 'destructive',
         });
-        return;
+        return false;
       }
+
+      return true;
+    };
+
+    // Show confirmation dialog before submitting
+    const handleShowConfirmation = () => {
+      if (validateEvaluation()) {
+        setShowConfirmDialog(true);
+      }
+    };
+
+    const handleSubmitEvaluation = async () => {
+      if (!internship || !rubric) return;
+      
+      setShowConfirmDialog(false);
 
       try {
         setSubmitting(true);
@@ -723,7 +774,7 @@ import { post, put } from '@/lib/api/client';
                     )}
                   </Button>
                   <Button
-                    onClick={handleSubmitEvaluation}
+                    onClick={handleShowConfirmation}
                     disabled={submitting || saving || status === 'submitted'}
                     className="min-w-[180px]"
                   >
@@ -744,6 +795,63 @@ import { post, put } from '@/lib/api/client';
             </div>
           </div>
         </div>
+
+        {/* Confirmation Dialog */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                Confirm Submission
+              </DialogTitle>
+              <DialogDescription asChild>
+                <div className="space-y-3 pt-4">
+                  <div>
+                    You are about to submit the final evaluation for <strong>{internship?.student_name}</strong>.
+                  </div>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm">
+                    <div className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
+                      ⚠️ Important Notice:
+                    </div>
+                    <div className="text-yellow-700 dark:text-yellow-300">
+                      Once submitted, this evaluation <strong>cannot be edited or changed</strong>. 
+                      Please make sure all scores and comments are correct before proceeding.
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground">
+                    The evaluation will be immediately visible to the advisor and admin.
+                  </div>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirmDialog(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitEvaluation}
+                disabled={submitting}
+                className="bg-primary"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Yes, Submit Evaluation
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Mobile View */}
         <div className="lg:hidden flex flex-col h-full">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
-import { Send, Search, Paperclip, Smile, ArrowLeft, Edit, Trash2, Check, X, FileText, Image as ImageIcon, File, Download, PenSquare } from 'lucide-react';
+import { Send, Search, Paperclip, Smile, ArrowLeft, Edit, Trash2, Check, X, FileText, Image as ImageIcon, File, Download, PenSquare, MessageSquare, Users, Circle } from 'lucide-react';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { messagesAPI, Message, Conversation } from '@/lib/api/messages';
 import { connectBackendSocket, disconnectBackendSocket } from '@/lib/backendSocket';
 import { useUser } from '@/hooks/use-user';
@@ -386,29 +387,29 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {header}
           
-          <div className="flex-1 flex overflow-hidden bg-muted">
+          <div className="flex-1 flex overflow-hidden bg-muted/30">
             {/* Conversations List */}
-            <div className="w-96 bg-card border-r border-border flex flex-col">
+            <div className="w-80 xl:w-96 bg-card border-r flex flex-col">
               {/* Header */}
-              <div className="p-4 border-b">
+              <div className="p-4 border-b bg-card/50 backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold">Messages</h2>
+                  <h2 className="text-xl font-bold text-foreground">Messages</h2>
                   <Button 
                     size="sm" 
-                    className="bg-primary hover:bg-primary/90"
+                    className="gap-2 shadow-sm"
                     onClick={() => setShowNewMessageModal(true)}
                   >
-                    <PenSquare className="w-4 h-4 mr-2" />
-                    New
+                    <PenSquare className="w-4 h-4" />
+                    <span className="hidden xl:inline">New</span>
                   </Button>
                 </div>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     placeholder="Search conversations..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-muted/50 border-0 focus-visible:ring-1"
                   />
                 </div>
               </div>
@@ -416,59 +417,91 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               {/* Conversations */}
               <ScrollArea className="flex-1">
                 {loading ? (
-                  <div className="p-8 text-center text-muted-foreground">Loading conversations...</div>
-                ) : filteredConversations.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    {searchQuery ? 'No conversations found' : 'No conversations yet'}
+                    <div className="animate-pulse space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex gap-3 p-4">
+                          <div className="w-12 h-12 rounded-full bg-muted" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-muted rounded w-3/4" />
+                            <div className="h-3 bg-muted rounded w-1/2" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground">
+                      {searchQuery ? 'No conversations found' : 'No conversations yet'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Start a new conversation
+                    </p>
                   </div>
                 ) : (
-                  filteredConversations.map((conv) => (
-                    <div
-                      key={conv.id}
-                      onClick={() => handleSelectConversation(conv.id)}
-                      className={`p-4 border-b border-border cursor-pointer hover:bg-muted transition-colors ${
-                        selectedConversation === conv.id ? 'bg-primary/10 border-l-4 border-l-primary' : ''
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Avatar className="w-12 h-12">
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            {getConversationAvatar(conv)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-foreground truncate">
-                              {getConversationName(conv)}
-                            </h3>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(conv.last_message_at).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted-foreground truncate flex-1">
-                              {conv.type === 'group' ? `Group • ${conv.participants?.length || 0} members` : 'Direct message'}
-                            </p>
+                  <div className="py-2">
+                    {filteredConversations.map((conv) => (
+                      <div
+                        key={conv.id}
+                        onClick={() => handleSelectConversation(conv.id)}
+                        className={`mx-2 mb-1 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                          selectedConversation === conv.id 
+                            ? 'bg-primary/10 border-l-4 border-l-primary shadow-sm' 
+                            : 'hover:bg-muted/80'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="relative">
+                            <Avatar className="w-11 h-11 ring-2 ring-background shadow-sm">
+                              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                                {getConversationAvatar(conv)}
+                              </AvatarFallback>
+                            </Avatar>
                             {(conv.unread_count || 0) > 0 && (
-                              <Badge className="bg-primary text-primary-foreground text-xs">
-                                {conv.unread_count}
-                              </Badge>
+                              <Circle className="absolute -top-0.5 -right-0.5 w-3 h-3 fill-primary text-primary" />
                             )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <h3 className={`font-semibold text-sm truncate ${(conv.unread_count || 0) > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
+                                {getConversationName(conv)}
+                              </h3>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {new Date(conv.last_message_at).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-xs truncate flex-1 ${(conv.unread_count || 0) > 0 ? 'text-foreground/70 font-medium' : 'text-muted-foreground'}`}>
+                                {conv.type === 'group' ? (
+                                  <span className="flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    {conv.participants?.length || 0} members
+                                  </span>
+                                ) : 'Direct message'}
+                              </p>
+                              {(conv.unread_count || 0) > 0 && (
+                                <Badge className="bg-primary text-primary-foreground text-[10px] h-5 px-1.5 min-w-[20px] justify-center">
+                                  {conv.unread_count}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </ScrollArea>
 
               {/* WebSocket Status */}
-              <div className="p-3 border-t border-border bg-muted">
+              <div className="p-3 border-t bg-muted/30">
                 <div className="flex items-center gap-2 text-xs">
-                  <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+                  <div className={`w-2 h-2 rounded-full transition-colors ${socketConnected ? 'bg-green-500' : 'bg-muted-foreground animate-pulse'}`} />
                   <span className="text-muted-foreground">
                     {socketConnected ? 'Connected' : 'Connecting...'}
                   </span>
@@ -477,14 +510,14 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col bg-background">
               {selectedConversation && currentConversation ? (
                 <>
                   {/* Chat Header */}
-                  <div className="p-4 bg-card border-b border-border flex items-center justify-between">
+                  <div className="p-4 bg-card/80 backdrop-blur-sm border-b flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
+                      <Avatar className="w-10 h-10 ring-2 ring-background shadow-sm">
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                           {getConversationAvatar(currentConversation)}
                         </AvatarFallback>
                       </Avatar>
@@ -492,11 +525,20 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                         <h3 className="font-semibold text-foreground">
                           {getConversationName(currentConversation)}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {typingUsers.size > 0 ? (
-                            <span className="text-primary">typing...</span>
+                            <span className="text-primary font-medium animate-pulse">typing...</span>
                           ) : (
-                            `${currentConversation.participants?.length || 0} ${currentConversation.type === 'group' ? 'members' : 'participant'}`
+                            <span className="flex items-center gap-1">
+                              {currentConversation.type === 'group' ? (
+                                <>
+                                  <Users className="w-3 h-3" />
+                                  {currentConversation.participants?.length || 0} members
+                                </>
+                              ) : (
+                                'Active now'
+                              )}
+                            </span>
                           )}
                         </p>
                       </div>
@@ -511,120 +553,136 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                       </Alert>
                     )}
 
-                    <div className="space-y-4">
-                      {messages.map((msg) => {
+                    <div className="space-y-4 max-w-4xl mx-auto">
+                      {messages.map((msg, index) => {
                         const isOwn = msg.sender_id === user?.id;
                         const isEditing = editingMessageId === msg.id;
+                        const showAvatar = index === 0 || messages[index - 1]?.sender_id !== msg.sender_id;
 
                         return (
                           <div
                             key={msg.id}
-                            className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                            className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${!showAvatar ? 'mt-1' : ''}`}
                           >
-                            <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
-                              {/* Message Bubble */}
-                              <div
-                                className={`rounded-lg p-3 ${
-                                  isOwn
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-card border border-border'
-                                }`}
-                              >
-                                {!isOwn && msg.sender && (
-                                  <p className="text-xs font-semibold text-foreground mb-1">
+                            <div className={`flex gap-2 max-w-[75%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                              {/* Avatar (only show for first message in sequence) */}
+                              {!isOwn && showAvatar && (
+                                <Avatar className="w-8 h-8 mt-auto ring-1 ring-background shadow-sm shrink-0">
+                                  <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                                    {msg.sender?.first_name?.[0]}{msg.sender?.last_name?.[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              {!isOwn && !showAvatar && <div className="w-8 shrink-0" />}
+
+                              <div className="space-y-1">
+                                {/* Sender name for non-own messages */}
+                                {!isOwn && msg.sender && showAvatar && (
+                                  <p className="text-xs font-medium text-muted-foreground ml-1">
                                     {msg.sender.first_name} {msg.sender.last_name}
                                   </p>
                                 )}
 
-                                {isEditing ? (
-                                  <div className="space-y-2">
-                                    <Input
-                                      value={editContent}
-                                      onChange={(e) => setEditContent(e.target.value)}
-                                      className="bg-white text-black"
-                                      autoFocus
-                                    />
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleEditMessage(msg.id)}
-                                        className="bg-green-600 hover:bg-green-700"
-                                      >
-                                        <Check className="w-3 h-3" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setEditingMessageId(null);
-                                          setEditContent('');
-                                        }}
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    {msg.message_type === 'file' && msg.file_url && (
-                                      <div className="mb-2 flex items-center gap-2 p-2 bg-white/10 rounded">
-                                        {getFileIcon(msg.file_url)}
-                                        <span className="text-sm flex-1 truncate">
-                                          {msg.file_url.split('/').pop()}
-                                        </span>
-                                        <a href={msg.file_url} download>
-                                          <Download className="w-4 h-4" />
-                                        </a>
+                                {/* Message Bubble */}
+                                <div
+                                  className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+                                    isOwn
+                                      ? 'bg-primary text-primary-foreground rounded-br-md'
+                                      : 'bg-card border rounded-bl-md'
+                                  }`}
+                                >
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      <Input
+                                        value={editContent}
+                                        onChange={(e) => setEditContent(e.target.value)}
+                                        className="bg-white text-black h-9"
+                                        autoFocus
+                                      />
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleEditMessage(msg.id)}
+                                          className="h-7 bg-green-600 hover:bg-green-700"
+                                        >
+                                          <Check className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7"
+                                          onClick={() => {
+                                            setEditingMessageId(null);
+                                            setEditContent('');
+                                          }}
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </Button>
                                       </div>
-                                    )}
-                                    <p className={`text-sm ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
-                                      {msg.content}
-                                    </p>
-                                    {msg.is_edited && (
-                                      <p className={`text-xs mt-1 ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                        (edited)
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {msg.message_type === 'file' && msg.file_url && (
+                                        <div className="mb-2 flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                                          {getFileIcon(msg.file_url)}
+                                          <span className="text-sm flex-1 truncate">
+                                            {msg.file_url.split('/').pop()}
+                                          </span>
+                                          <a href={msg.file_url} download className="hover:opacity-80 transition-opacity">
+                                            <Download className="w-4 h-4" />
+                                          </a>
+                                        </div>
+                                      )}
+                                      <p className={`text-sm leading-relaxed ${isOwn ? 'text-primary-foreground' : 'text-foreground'}`}>
+                                        {msg.content}
                                       </p>
-                                    )}
-                                  </>
-                                )}
-                              </div>
+                                      {msg.is_edited && (
+                                        <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                                          (edited)
+                                        </p>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
 
-                              {/* Timestamp and Actions */}
-                              <div className={`flex items-center gap-2 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(msg.created_at).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
-                                </span>
+                                {/* Timestamp and Actions */}
+                                <div className={`flex items-center gap-2 px-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {new Date(msg.created_at).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
 
                                 {isOwn && !msg.is_deleted && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                        <span className="text-xs">⋯</span>
+                                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0 hover:bg-muted rounded-full">
+                                        <span className="text-xs text-muted-foreground">⋯</span>
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
+                                    <DropdownMenuContent align="end" className="w-32">
                                       <DropdownMenuItem
                                         onClick={() => {
                                           setEditingMessageId(msg.id);
                                           setEditContent(msg.content);
                                         }}
+                                        className="text-sm"
                                       >
-                                        <Edit className="w-4 h-4 mr-2" />
+                                        <Edit className="w-3.5 h-3.5 mr-2" />
                                         Edit
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
                                         onClick={() => handleDeleteMessage(msg.id)}
-                                        className="text-red-600"
+                                        className="text-red-600 text-sm"
                                       >
-                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        <Trash2 className="w-3.5 h-3.5 mr-2" />
                                         Delete
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -635,16 +693,23 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                   </ScrollArea>
 
                   {/* Message Input */}
-                  <div className="p-4 bg-card border-t border-border">
+                  <div className="p-4 bg-card/80 backdrop-blur-sm border-t">
                     {selectedFile && (
-                      <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="mb-3 p-3 bg-muted rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-3">
                           {filePreview ? (
-                            <img src={filePreview} alt="Preview" className="w-10 h-10 object-cover rounded" />
+                            <img src={filePreview} alt="Preview" className="w-12 h-12 object-cover rounded-lg shadow-sm" />
                           ) : (
-                            getFileIcon(selectedFile.name)
+                            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                              {getFileIcon(selectedFile.name)}
+                            </div>
                           )}
-                          <span className="text-sm text-muted-foreground">{selectedFile.name}</span>
+                          <div>
+                            <span className="text-sm font-medium text-foreground">{selectedFile.name}</span>
+                            <p className="text-xs text-muted-foreground">
+                              {(selectedFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
                         </div>
                         <Button
                           variant="ghost"
@@ -653,6 +718,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                             setSelectedFile(null);
                             setFilePreview(null);
                           }}
+                          className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -668,12 +734,13 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                         accept="image/*,.pdf,.doc,.docx,.txt"
                       />
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={sending}
+                        className="shrink-0 h-10 w-10 hover:bg-muted"
                       >
-                        <Paperclip className="w-4 h-4" />
+                        <Paperclip className="w-5 h-5 text-muted-foreground" />
                       </Button>
 
                       <div className="relative flex-1">
@@ -691,42 +758,54 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                           }}
                           placeholder="Type a message..."
                           disabled={sending}
+                          className="pr-10 h-11 bg-muted/50 border-0 focus-visible:ring-1 rounded-full"
                         />
                       </div>
 
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                         disabled={sending}
+                        className="shrink-0 h-10 w-10 hover:bg-muted"
                       >
-                        <Smile className="w-4 h-4" />
+                        <Smile className="w-5 h-5 text-muted-foreground" />
                       </Button>
 
                       <Button
                         onClick={handleSendMessage}
                         disabled={sending || (!messageInput.trim() && !selectedFile)}
-                        className="bg-primary hover:bg-primary/90"
+                        size="icon"
+                        className="shrink-0 h-10 w-10 rounded-full shadow-sm"
                       >
                         <Send className="w-4 h-4" />
                       </Button>
                     </div>
 
                     {showEmojiPicker && (
-                      <div className="absolute bottom-20 right-4 z-50">
+                      <div className="absolute bottom-24 right-8 z-50 shadow-xl rounded-lg overflow-hidden">
                         <EmojiPicker onEmojiClick={handleEmojiClick} />
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center bg-muted">
-                  <div className="text-center">
-                    <div className="w-24 h-24 mx-auto mb-4 bg-muted-foreground/20 rounded-full flex items-center justify-center">
-                      <Send className="w-12 h-12 text-muted-foreground" />
+                <div className="flex-1 flex items-center justify-center bg-muted/20">
+                  <div className="text-center max-w-sm px-4">
+                    <div className="w-20 h-20 mx-auto mb-6 bg-primary/10 rounded-full flex items-center justify-center">
+                      <MessageSquare className="w-10 h-10 text-primary" />
                     </div>
-                    <h3 className="text-xl font-semibold text-foreground mb-2">Select a conversation</h3>
-                    <p className="text-muted-foreground">Choose a conversation from the list to start messaging</p>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">Your Messages</h3>
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Select a conversation from the list or start a new one to begin messaging
+                    </p>
+                    <Button 
+                      onClick={() => setShowNewMessageModal(true)}
+                      className="gap-2"
+                    >
+                      <PenSquare className="w-4 h-4" />
+                      New Message
+                    </Button>
                   </div>
                 </div>
               )}
@@ -736,14 +815,14 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
       </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col">
+      <div className="lg:hidden h-screen flex flex-col bg-background">
         <MobileHeader title="Messages" subtitle="Stay connected" />
 
         {!showMobileChat ? (
           <>
             {/* Conversations List - Mobile */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 bg-card border-b border-border">
+              <div className="p-3 bg-card border-b">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -751,13 +830,13 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                       placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 h-10 bg-muted/50 border-0"
                     />
                   </div>
                   <Button
                     size="icon"
-                    className="bg-primary hover:bg-primary/90"
                     onClick={() => setShowNewMessageModal(true)}
+                    className="h-10 w-10 shrink-0"
                   >
                     <PenSquare className="w-4 h-4" />
                   </Button>
@@ -766,50 +845,68 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
 
               <ScrollArea className="flex-1">
                 {loading ? (
-                  <div className="p-8 text-center text-muted-foreground">Loading...</div>
+                  <div className="p-4 space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex gap-3 p-3 animate-pulse">
+                        <div className="w-12 h-12 rounded-full bg-muted" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-muted rounded w-3/4" />
+                          <div className="h-3 bg-muted rounded w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : filteredConversations.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">No conversations</div>
+                  <div className="p-8 text-center">
+                    <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground text-sm">No conversations</p>
+                  </div>
                 ) : (
-                  filteredConversations.map((conv) => (
-                    <Card
-                      key={conv.id}
-                      className="m-2 cursor-pointer"
-                      onClick={() => handleSelectConversation(conv.id)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                              {getConversationAvatar(conv)}
-                            </AvatarFallback>
-                          </Avatar>
+                  <div className="p-2 space-y-1">
+                    {filteredConversations.map((conv) => (
+                      <div
+                        key={conv.id}
+                        className="p-3 rounded-xl bg-card border cursor-pointer active:scale-[0.98] transition-all"
+                        onClick={() => handleSelectConversation(conv.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Avatar className="w-12 h-12 ring-2 ring-background shadow-sm">
+                              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                                {getConversationAvatar(conv)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {(conv.unread_count || 0) > 0 && (
+                              <Circle className="absolute -top-0.5 -right-0.5 w-3 h-3 fill-primary text-primary" />
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="font-semibold text-sm truncate">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <h3 className={`font-semibold text-sm truncate ${(conv.unread_count || 0) > 0 ? 'text-foreground' : 'text-foreground/80'}`}>
                                 {getConversationName(conv)}
                               </h3>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-[10px] text-muted-foreground shrink-0">
                                 {new Date(conv.last_message_at).toLocaleTimeString([], {
                                   hour: '2-digit',
                                   minute: '2-digit',
                                 })}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-muted-foreground truncate flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-xs truncate ${(conv.unread_count || 0) > 0 ? 'text-foreground/70 font-medium' : 'text-muted-foreground'}`}>
                                 {conv.type === 'group' ? `${conv.participants?.length || 0} members` : 'Direct'}
                               </p>
                               {(conv.unread_count || 0) > 0 && (
-                                <Badge className="bg-primary text-primary-foreground text-xs h-5">
+                                <Badge className="bg-primary text-primary-foreground text-[10px] h-5 px-1.5">
                                   {conv.unread_count}
                                 </Badge>
                               )}
                             </div>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                      </div>
+                    ))}
+                  </div>
                 )}
               </ScrollArea>
             </div>
@@ -819,22 +916,22 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
             {/* Chat View - Mobile */}
             <div className="flex-1 flex flex-col">
               {/* Mobile Chat Header */}
-              <div className="p-3 bg-card border-b border-border flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={handleBackToList}>
+              <div className="p-3 bg-card border-b flex items-center gap-3 shadow-sm">
+                <Button variant="ghost" size="icon" onClick={handleBackToList} className="shrink-0 h-9 w-9">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                <Avatar className="w-9 h-9 ring-2 ring-background shadow-sm">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
                     {currentConversation && getConversationAvatar(currentConversation)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm truncate">
                     {currentConversation && getConversationName(currentConversation)}
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     {typingUsers.size > 0 ? (
-                      <span className="text-primary">typing...</span>
+                      <span className="text-primary font-medium animate-pulse">typing...</span>
                     ) : (
                       'Active'
                     )}
@@ -843,36 +940,49 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               </div>
 
               {/* Mobile Messages */}
-              <ScrollArea className="flex-1 p-3">
-                <div className="space-y-3">
-                  {messages.map((msg) => {
+              <ScrollArea className="flex-1 p-3 bg-muted/20">
+                <div className="space-y-2">
+                  {messages.map((msg, index) => {
                     const isOwn = msg.sender_id === user?.id;
+                    const showAvatar = index === 0 || messages[index - 1]?.sender_id !== msg.sender_id;
+                    
                     return (
                       <div
                         key={msg.id}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} ${!showAvatar ? 'mt-0.5' : ''}`}
                       >
-                        <div className={`max-w-[80%]`}>
-                          <div
-                            className={`rounded-lg p-2 text-sm ${
-                              isOwn
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-card border border-border'
-                            }`}
-                          >
-                            {!isOwn && msg.sender && (
-                              <p className="text-xs font-semibold mb-1">
+                        <div className={`flex gap-2 max-w-[85%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {!isOwn && showAvatar && (
+                            <Avatar className="w-7 h-7 mt-auto shrink-0">
+                              <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                                {msg.sender?.first_name?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          {!isOwn && !showAvatar && <div className="w-7 shrink-0" />}
+                          
+                          <div className="space-y-0.5">
+                            {!isOwn && msg.sender && showAvatar && (
+                              <p className="text-[10px] font-medium text-muted-foreground ml-1">
                                 {msg.sender.first_name}
                               </p>
                             )}
-                            <p>{msg.content}</p>
+                            <div
+                              className={`rounded-2xl px-3 py-2 shadow-sm ${
+                                isOwn
+                                  ? 'bg-primary text-primary-foreground rounded-br-md'
+                                  : 'bg-card border rounded-bl-md'
+                              }`}
+                            >
+                              <p className="text-sm">{msg.content}</p>
+                            </div>
+                            <span className={`text-[9px] text-muted-foreground px-1 ${isOwn ? 'text-right block' : ''}`}>
+                              {new Date(msg.created_at).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
                           </div>
-                          <span className="text-xs text-muted-foreground mt-1 block">
-                            {new Date(msg.created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
                         </div>
                       </div>
                     );
@@ -882,7 +992,7 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
               </ScrollArea>
 
               {/* Mobile Input */}
-              <div className="p-3 bg-card border-t border-border">
+              <div className="p-3 bg-card border-t">
                 <div className="flex items-center gap-2">
                   <Input
                     value={messageInput}
@@ -898,13 +1008,13 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
                     }}
                     placeholder="Message..."
                     disabled={sending}
-                    className="flex-1 text-sm"
+                    className="flex-1 h-10 text-sm bg-muted/50 border-0 rounded-full"
                   />
                   <Button
                     size="icon"
                     onClick={handleSendMessage}
                     disabled={sending || !messageInput.trim()}
-                    className="bg-primary hover:bg-primary/90 h-9 w-9"
+                    className="h-10 w-10 rounded-full shrink-0"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
@@ -924,7 +1034,10 @@ export function MessagesPage({ sidebar, header, userType }: MessagesPageProps) {
           onClose={() => setShowNewMessageModal(false)}
           onConversationCreated={(conversationId) => {
             setShowNewMessageModal(false);
-            handleSelectConversation(conversationId);
+            // Reload conversations to include the new one
+            loadConversations().then(() => {
+              handleSelectConversation(conversationId);
+            });
           }}
         />
       )}

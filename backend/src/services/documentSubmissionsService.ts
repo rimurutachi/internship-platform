@@ -1,0 +1,545 @@
+import { createClient } from '@supabase/supabase-js';
+import notificationService from './notificationService';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
+
+// ============================================================================
+// Interfaces
+// ============================================================================
+
+export interface DocumentSubmission {
+  id: string;
+  requirement_id: string;
+  student_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  version: number;
+  status: 'pending' | 'approved' | 'rejected' | 'revision_requested';
+  reviewed_by: string | null;
+  feedback: string | null;
+  reviewed_at: string | null;
+  submitted_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSubmissionDTO {
+  requirement_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+}
+
+export interface ReviewSubmissionDTO {
+  status: 'approved' | 'rejected' | 'revision_requested';
+  feedback?: string;
+}
+
+export interface SubmissionFilters {
+  requirement_id?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+// ============================================================================
+// Document Submissions Service
+// ============================================================================
+
+export class DocumentSubmissionsService {
+  /**
+   * Submit a document for a requirement
+   */
+  async submitDocument(
+    studentId: string,
+    data: CreateSubmissionDTO
+  ): Promise<DocumentSubmission> {
+    // 1. Verify the requirement exists and is active
+    const { data: requirement, error: reqError } = await supabase
+      .from('document_requirements')
+      .select('id, title, created_by, target_audience, metadata, due_date, status')
+      .eq('id', data.requirement_id)
+      .eq('status', 'active')
+      .single();
+
+    if (reqError || !requirement) {
+      throw new Error('Document requirement not found or inactive');
+    }
+
+    // 2. Check if student is targeted by this requirement
+    const isTargeted = this.isStudentTargeted(studentId, requirement.target_audience, requirement.metadata);
+    if (!isTargeted) {
+      throw new Error('You are not assigned to this document requirement');
+    }
+
+    // 3. Check if due date has passed
+    if (requirement.due_date && new Date(requirement.due_date) < new Date()) {
+      throw new Error('The due date for this requirement has passed');
+    }
+
+    // 4. Get the current version number (for resubmissions)
+    const { data: existingSubmissions } = await supabase
+      .from('document_submissions')
+      .select('version')
+      .eq('requirement_id', data.requirement_id)
+      .eq('student_id', studentId)
+      .order('version', { ascending: false })
+      .limit(1);
+
+    const currentVersion = existingSubmissions?.[0]?.version || 0;
+
+    // 5. Create the submission
+    const { data: submission, error: submitError } = await supabase
+      .from('document_submissions')
+      .insert({
+        requirement_id: data.requirement_id,
+        student_id: studentId,
+        file_url: data.file_url,
+        file_name: data.file_name,
+        file_size: data.file_size,
+        mime_type: data.mime_type,
+        version: currentVersion + 1,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (submitError) {
+      console.error('Error creating submission:', submitError);
+      throw new Error('Failed to create submission');
+    }
+
+    // 6. Notify the advisor about the new submission
+    await this.notifyAdvisorAboutSubmission(requirement.created_by, submission, requirement.title);
+
+    console.log(`📄 Document submitted: ${submission.id} by student ${studentId}`);
+    return submission;
+  }
+
+  /**
+   * Resubmit a document after revision request
+   */
+  async resubmitDocument(
+    submissionId: string,
+    studentId: string,
+    data: Omit<CreateSubmissionDTO, 'requirement_id'>
+  ): Promise<DocumentSubmission> {
+    // 1. Get the original submission
+    const { data: original, error: origError } = await supabase
+      .from('document_submissions')
+      .select(`
+        id, requirement_id, student_id, version, status,
+        requirement:document_requirements(id, title, created_by, due_date, status)
+      `)
+      .eq('id', submissionId)
+      .eq('student_id', studentId)
+      .single();
+
+    if (origError || !original) {
+      throw new Error('Original submission not found');
+    }
+
+    // 2. Can only resubmit if status is revision_requested
+    if (original.status !== 'revision_requested') {
+      throw new Error('Resubmission is only allowed for documents with revision requested');
+    }
+
+    // 3. Check if requirement is still active
+    const requirement = original.requirement as any;
+    if (!requirement || requirement.status !== 'active') {
+      throw new Error('The document requirement is no longer active');
+    }
+
+    // 4. Create new submission with incremented version
+    const { data: submission, error: submitError } = await supabase
+      .from('document_submissions')
+      .insert({
+        requirement_id: original.requirement_id,
+        student_id: studentId,
+        file_url: data.file_url,
+        file_name: data.file_name,
+        file_size: data.file_size,
+        mime_type: data.mime_type,
+        version: original.version + 1,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (submitError) {
+      console.error('Error creating resubmission:', submitError);
+      throw new Error('Failed to create resubmission');
+    }
+
+    // 5. Notify the advisor
+    await this.notifyAdvisorAboutSubmission(
+      requirement.created_by,
+      submission,
+      requirement.title,
+      true
+    );
+
+    console.log(`📄 Document resubmitted: ${submission.id} (v${submission.version}) by student ${studentId}`);
+    return submission;
+  }
+
+  /**
+   * Get submissions for a student
+   */
+  async getStudentSubmissions(
+    studentId: string,
+    filters: SubmissionFilters = {}
+  ): Promise<{ submissions: any[]; total: number }> {
+    const { requirement_id, status, page = 1, limit = 20 } = filters;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('document_submissions')
+      .select(`
+        id, file_url, file_name, file_size, mime_type, version,
+        status, feedback, reviewed_at, submitted_at, created_at,
+        requirement:document_requirements(
+          id, title, description, due_date
+        )
+      `, { count: 'exact' })
+      .eq('student_id', studentId)
+      .order('submitted_at', { ascending: false });
+
+    if (requirement_id) {
+      query = query.eq('requirement_id', requirement_id);
+    }
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: submissions, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching student submissions:', error);
+      throw new Error('Failed to fetch submissions');
+    }
+
+    return {
+      submissions: submissions || [],
+      total: count || 0,
+    };
+  }
+
+  /**
+   * Get submissions for a requirement (advisor view)
+   */
+  async getRequirementSubmissions(
+    requirementId: string,
+    advisorId: string,
+    filters: SubmissionFilters = {}
+  ): Promise<{ submissions: any[]; total: number }> {
+    const { status, page = 1, limit = 20 } = filters;
+    const offset = (page - 1) * limit;
+
+    // 1. Verify advisor owns this requirement
+    const { data: requirements, error: reqError } = await supabase
+      .from('document_requirements')
+      .select('id')
+      .eq('id', requirementId)
+      .eq('created_by', advisorId);
+
+    if (reqError) {
+      console.error('Error verifying requirement ownership:', reqError);
+      throw new Error('Failed to verify requirement access');
+    }
+
+    if (!requirements || requirements.length === 0) {
+      console.log(`Requirement ${requirementId} not found or not owned by advisor ${advisorId}`);
+      throw new Error('Requirement not found or access denied');
+    }
+
+    // 2. Fetch submissions with student info
+    let query = supabase
+      .from('document_submissions')
+      .select(`
+        id, file_url, file_name, file_size, mime_type, version,
+        status, reviewed_by, feedback, reviewed_at, submitted_at, created_at,
+        student:users!document_submissions_student_id_fkey(
+          id, first_name, last_name, email
+        )
+      `, { count: 'exact' })
+      .eq('requirement_id', requirementId)
+      .order('submitted_at', { ascending: false });
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: submissions, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching requirement submissions:', error);
+      throw new Error('Failed to fetch submissions');
+    }
+
+    return {
+      submissions: submissions || [],
+      total: count || 0,
+    };
+  }
+
+  /**
+   * Get a single submission by ID
+   */
+  async getSubmissionById(
+    submissionId: string,
+    userId: string,
+    role: string
+  ): Promise<any> {
+    const { data: submission, error } = await supabase
+      .from('document_submissions')
+      .select(`
+        id, file_url, file_name, file_size, mime_type, version,
+        status, reviewed_by, feedback, reviewed_at, submitted_at, created_at, student_id,
+        student:users!document_submissions_student_id_fkey(
+          id, first_name, last_name, email
+        ),
+        requirement:document_requirements(
+          id, title, description, due_date, created_by
+        )
+      `)
+      .eq('id', submissionId)
+      .single();
+
+    if (error || !submission) {
+      throw new Error('Submission not found');
+    }
+
+    // Access control - using student_id directly since student relation may be array
+    const requirement = submission.requirement as any;
+    const studentData = submission.student as any;
+    const studentId = studentData?.id || submission.student_id;
+
+    if (role === 'student' && studentId !== userId) {
+      throw new Error('Access denied');
+    }
+
+    if (role === 'advisor' && requirement?.created_by !== userId) {
+      throw new Error('Access denied');
+    }
+
+    return submission;
+  }
+
+  /**
+   * Review a submission (advisor only)
+   */
+  async reviewSubmission(
+    submissionId: string,
+    advisorId: string,
+    review: ReviewSubmissionDTO
+  ): Promise<DocumentSubmission> {
+    // 1. Get the submission and verify ownership
+    const { data: submission, error: subError } = await supabase
+      .from('document_submissions')
+      .select(`
+        id, student_id, status,
+        requirement:document_requirements(id, title, created_by)
+      `)
+      .eq('id', submissionId)
+      .single();
+
+    if (subError || !submission) {
+      throw new Error('Submission not found');
+    }
+
+    const requirement = submission.requirement as any;
+    if (!requirement || requirement.created_by !== advisorId) {
+      throw new Error('Access denied - you do not own this requirement');
+    }
+
+    // 2. Can only review pending submissions
+    if (submission.status !== 'pending') {
+      throw new Error('Only pending submissions can be reviewed');
+    }
+
+    // 3. Update the submission
+    const { data: updated, error: updateError } = await supabase
+      .from('document_submissions')
+      .update({
+        status: review.status,
+        reviewed_by: advisorId,
+        feedback: review.feedback || null,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', submissionId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error reviewing submission:', updateError);
+      throw new Error('Failed to update submission status');
+    }
+
+    // 4. Notify the student about the review result
+    await this.notifyStudentAboutReview(submission.student_id, updated, requirement.title);
+
+    console.log(`📝 Submission ${submissionId} reviewed: ${review.status}`);
+    return updated;
+  }
+
+  /**
+   * Get submission history for a student + requirement (all versions)
+   */
+  async getSubmissionHistory(
+    requirementId: string,
+    studentId: string
+  ): Promise<DocumentSubmission[]> {
+    const { data: submissions, error } = await supabase
+      .from('document_submissions')
+      .select('*')
+      .eq('requirement_id', requirementId)
+      .eq('student_id', studentId)
+      .order('version', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching submission history:', error);
+      throw new Error('Failed to fetch submission history');
+    }
+
+    return submissions || [];
+  }
+
+  // ============================================================================
+  // Private Helper Methods
+  // ============================================================================
+
+  /**
+   * Notify advisor about a new/resubmitted document
+   */
+  private async notifyAdvisorAboutSubmission(
+    advisorId: string,
+    submission: DocumentSubmission,
+    requirementTitle: string,
+    isResubmission: boolean = false
+  ): Promise<void> {
+    try {
+      // Get student name
+      const { data: student } = await supabase
+        .from('users')
+        .select('first_name, last_name')
+        .eq('id', submission.student_id)
+        .single();
+
+      const studentName = student
+        ? `${student.first_name} ${student.last_name}`
+        : 'A student';
+
+      const title = isResubmission
+        ? 'Document Resubmitted'
+        : 'New Document Submission';
+
+      const message = isResubmission
+        ? `${studentName} has resubmitted "${requirementTitle}" (Version ${submission.version})`
+        : `${studentName} has submitted "${requirementTitle}"`;
+
+      await notificationService.createNotification({
+        user_id: advisorId,
+        type: 'document_submitted',
+        title,
+        message,
+        action_url: `/dashboard/advisor/document-requirements/${submission.requirement_id}/submissions`,
+        reference_type: 'document_submission',
+      });
+    } catch (error) {
+      console.error('Error notifying advisor about submission:', error);
+      // Don't throw - notification failure shouldn't break the flow
+    }
+  }
+
+  /**
+   * Notify student about review result
+   */
+  private async notifyStudentAboutReview(
+    studentId: string,
+    submission: DocumentSubmission,
+    requirementTitle: string
+  ): Promise<void> {
+    try {
+      let title: string;
+      let message: string;
+
+      switch (submission.status) {
+        case 'approved':
+          title = 'Document Approved';
+          message = `Your submission for "${requirementTitle}" has been approved`;
+          break;
+        case 'rejected':
+          title = 'Document Rejected';
+          message = `Your submission for "${requirementTitle}" has been rejected`;
+          break;
+        case 'revision_requested':
+          title = 'Revision Requested';
+          message = `Please revise and resubmit "${requirementTitle}"`;
+          break;
+        default:
+          return;
+      }
+
+      if (submission.feedback) {
+        message += `. Feedback: ${submission.feedback}`;
+      }
+
+      await notificationService.createNotification({
+        user_id: studentId,
+        type: 'document_reviewed',
+        title,
+        message,
+        action_url: `/dashboard/student/document-requirements/${submission.requirement_id}`,
+        reference_type: 'document_submission',
+      });
+    } catch (error) {
+      console.error('Error notifying student about review:', error);
+      // Don't throw - notification failure shouldn't break the flow
+    }
+  }
+
+  /**
+   * Helper method to check if a student is targeted by a requirement
+   */
+  private isStudentTargeted(
+    studentId: string,
+    targetAudience: string,
+    metadata: any
+  ): boolean {
+    // If targeting all students, always return true
+    if (targetAudience === 'all_students') {
+      return true;
+    }
+
+    // If targeting specific students, check the student_ids array
+    if (targetAudience === 'specific_student') {
+      const studentIds = metadata?.student_ids || [];
+      return studentIds.includes(studentId);
+    }
+
+    // If targeting specific internship, we'd need to query internships table
+    // For now, assume true (this check is done in getStudentRequirements)
+    if (targetAudience === 'specific_internship') {
+      return true;
+    }
+
+    return false;
+  }
+}
+
+// Export singleton instance
+export const documentSubmissionsService = new DocumentSubmissionsService();

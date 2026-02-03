@@ -69,14 +69,14 @@ export const MobileHeader = ({
   const paths = getRolePaths();
 
   return (
-    <header className="lg:hidden bg-background border-b border-border z-40 px-4 py-3 flex-shrink-0 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+    <header className="lg:hidden bg-background border-b border-border z-40 px-3 sm:px-4 py-2 sm:py-3 flex-shrink-0 shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
           {onMenuClick && (
             <Button 
               variant="ghost" 
               size="icon" 
-              className="lg:hidden"
+              className="lg:hidden flex-shrink-0 h-9 w-9"
               onClick={onMenuClick}
             >
               <Menu className="w-5 h-5 text-muted-foreground" />
@@ -89,18 +89,18 @@ export const MobileHeader = ({
             alt="Intern-Galing Logo" 
             width={32} 
             height={32}
-            className="object-contain"
+            className="object-contain flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8"
           />
           
-          <div>
-            <h1 className="text-base font-bold text-foreground">{title}</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-sm sm:text-base font-bold text-foreground truncate">{title}</h1>
             {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{subtitle}</p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Theme Toggle */}
           <ThemeToggle />
 
@@ -113,7 +113,7 @@ export const MobileHeader = ({
             alt="CvSU Logo" 
             width={28} 
             height={28}
-            className="object-contain"
+            className="object-contain hidden xs:block w-6 h-6 sm:w-7 sm:h-7"
           />
         </div>
       </div>

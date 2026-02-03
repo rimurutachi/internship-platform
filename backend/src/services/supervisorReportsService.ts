@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import notificationService from './notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -204,32 +205,30 @@ export async function approveWeeklyReport(
       throw new Error(`Failed to approve report: ${updateError.message}`);
     }
 
-    // Notify student
-    await supabase.from('notifications').insert({
-      user_id: report.student_id,
-      type: 'weekly_report_approved',
-      title: 'Weekly Report Approved',
-      message: `Your weekly report for week ${report.week_number} has been approved${comments ? ': ' + comments : '.'}`,
-      data: {
-        report_id: reportId,
-        week_number: report.week_number,
-        comments: comments || null,
-      },
-    });
-
-    // Optionally notify advisor
-    if (report.internship.advisor_id) {
-      await supabase.from('notifications').insert({
-        user_id: report.internship.advisor_id,
+    // Notify student using notification service (triggers socket emit)
+    try {
+      await notificationService.createNotification({
+        user_id: report.student_id,
         type: 'weekly_report_approved',
         title: 'Weekly Report Approved',
-        message: `A weekly report for week ${report.week_number} has been approved by the supervisor`,
-        data: {
-          report_id: reportId,
-          week_number: report.week_number,
-          student_id: report.student_id,
-        },
+        message: `Your weekly report for week ${report.week_number} has been approved${comments ? ': ' + comments : '.'}`,
+        action_url: `/dashboard/student/weekly-reports`,
+        reference_type: 'weekly_report',
       });
+
+      // Optionally notify advisor
+      if (report.internship.advisor_id) {
+        await notificationService.createNotification({
+          user_id: report.internship.advisor_id,
+          type: 'weekly_report_approved',
+          title: 'Weekly Report Approved',
+          message: `A weekly report for week ${report.week_number} has been approved by the supervisor`,
+          action_url: `/dashboard/advisor/students`,
+          reference_type: 'weekly_report',
+        });
+      }
+    } catch (notifError) {
+      console.error('⚠️ [SupervisorReportsService] Failed to send notification:', notifError);
     }
 
     return {
@@ -304,18 +303,19 @@ export async function rejectWeeklyReport(
       throw new Error(`Failed to reject report: ${updateError.message}`);
     }
 
-    // Notify student with rejection reason
-    await supabase.from('notifications').insert({
-      user_id: report.student_id,
-      type: 'weekly_report_rejected',
-      title: 'Weekly Report Needs Revision',
-      message: `Your weekly report for week ${report.week_number} needs revision: ${rejectionReason}`,
-      data: {
-        report_id: reportId,
-        week_number: report.week_number,
-        rejection_reason: rejectionReason,
-      },
-    });
+    // Notify student with rejection reason using notification service
+    try {
+      await notificationService.createNotification({
+        user_id: report.student_id,
+        type: 'weekly_report_rejected',
+        title: 'Weekly Report Needs Revision',
+        message: `Your weekly report for week ${report.week_number} needs revision: ${rejectionReason}`,
+        action_url: `/dashboard/student/weekly-reports`,
+        reference_type: 'weekly_report',
+      });
+    } catch (notifError) {
+      console.error('⚠️ [SupervisorReportsService] Failed to send rejection notification:', notifError);
+    }
 
     return {
       success: true,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Award, MessageSquare, Eye, X, MapPin, Calendar, Building2, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Mail, Award, MessageSquare, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -15,13 +15,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { advisorStudentsAPI, type StudentListItem, type StudentDetails } from '@/lib/api/advisor-students';
+import { hoursApi } from '@/lib/api/hours';
+import type { InternshipHoursSummary } from '@/types/hours';
 
 export default function MyStudents() {
   const router = useRouter();
@@ -36,6 +33,12 @@ export default function MyStudents() {
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  
+  // Hours data for selected student
+  const [studentHoursSummary, setStudentHoursSummary] = useState<InternshipHoursSummary | null>(null);
+  
+  // Hours data map for all students (internshipId -> progress)
+  const [hoursProgressMap, setHoursProgressMap] = useState<Record<string, number>>({});
 
   // Load students
   useEffect(() => {
@@ -46,14 +49,28 @@ export default function MyStudents() {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('🔵 [MyStudents] Starting to load students...');
       const { students: fetchedStudents } = await advisorStudentsAPI.getMyStudents();
-      console.log('🔵 [MyStudents] Fetched students:', fetchedStudents);
-      console.log('🔵 [MyStudents] Students count:', fetchedStudents?.length || 0);
       setStudents(fetchedStudents);
+      
+      // Fetch hours data for all students with internships
+      const progressMap: Record<string, number> = {};
+      await Promise.all(
+        fetchedStudents
+          .filter(s => s.internship?.id)
+          .map(async (student) => {
+            try {
+              const hoursResult = await hoursApi.getInternshipHoursSummary(student.internship!.id);
+              if (hoursResult.success && hoursResult.data) {
+                progressMap[student.internship!.id] = hoursResult.data.progress_percentage;
+              }
+            } catch (e) {
+              console.error(`Failed to fetch hours for student ${student.id}:`, e);
+            }
+          })
+      );
+      setHoursProgressMap(progressMap);
     } catch (err: any) {
-      console.error('❌ [MyStudents] Error loading students:', err);
+      console.error('Error loading students:', err);
       setError(err.message || 'Failed to load students');
     } finally {
       setLoading(false);
@@ -65,9 +82,22 @@ export default function MyStudents() {
       setDetailsLoading(true);
       setShowDetails(true);
       setError(null);
+      setStudentHoursSummary(null);
       
       const { student } = await advisorStudentsAPI.getStudentDetails(studentId);
       setSelectedStudent(student);
+      
+      // Fetch hours data if student has internship
+      if (student.internship?.id) {
+        try {
+          const hoursResult = await hoursApi.getInternshipHoursSummary(student.internship.id);
+          if (hoursResult.success && hoursResult.data) {
+            setStudentHoursSummary(hoursResult.data);
+          }
+        } catch (e) {
+          console.error('Failed to fetch hours:', e);
+        }
+      }
     } catch (err: any) {
       console.error('Error loading student details:', err);
       setError(err.message || 'Failed to load student details');
@@ -88,13 +118,8 @@ export default function MyStudents() {
       student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.program.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      student.internship?.status === statusFilter;
-    
-    const matchesProgram = 
-      programFilter === 'all' || 
-      student.program === programFilter;
+    const matchesStatus = statusFilter === 'all' || student.internship?.status === statusFilter;
+    const matchesProgram = programFilter === 'all' || student.program === programFilter;
     
     return matchesSearch && matchesStatus && matchesProgram;
   });
@@ -112,10 +137,10 @@ export default function MyStudents() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-[#4CAF50]/10 text-[#4CAF50] border-[#4CAF50]/20';
-      case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'completed': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'active': return 'bg-primary/10 text-primary border-primary/20';
+      case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'completed': return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -131,7 +156,7 @@ export default function MyStudents() {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#4CAF50] mx-auto mb-4" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Loading students...</p>
         </div>
       </div>
@@ -147,65 +172,65 @@ export default function MyStudents() {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <AdvisorHeader />
           
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
-            <div className="space-y-8">
+          <div className="flex-1 overflow-y-auto p-8 bg-muted">
+            <div className="space-y-6">
               {/* Header */}
               <div>
-                <h1 className="text-4xl font-bold text-foreground">My Students</h1>
-                <p className="text-muted-foreground mt-2 text-lg">Monitor and manage your advisee students</p>
+                <h1 className="text-3xl font-bold text-foreground">My Students</h1>
+                <p className="text-muted-foreground mt-1">Monitor and manage your advisee students</p>
               </div>
 
               {/* Error Alert */}
               {error && (
-                <Alert className="border-red-500 bg-red-500/10">
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  <AlertDescription className="text-red-600 dark:text-red-400">{error}</AlertDescription>
+                <Alert className="border-destructive bg-destructive/10">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <AlertDescription className="text-destructive">{error}</AlertDescription>
                 </Alert>
               )}
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="bg-card border border-border">
-                  <CardContent className="p-6">
-                    <div className="text-3xl font-bold text-foreground">{stats.total}</div>
-                    <div className="text-base text-muted-foreground mt-1">Total Students</div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+                    <div className="text-sm text-muted-foreground mt-1">Total Students</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-card border border-border">
-                  <CardContent className="p-6">
-                    <div className="text-3xl font-bold text-primary">{stats.active}</div>
-                    <div className="text-base text-muted-foreground mt-1">Active Internships</div>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="text-2xl font-bold text-primary">{stats.active}</div>
+                    <div className="text-sm text-muted-foreground mt-1">Active Internships</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-card border border-border">
-                  <CardContent className="p-6">
-                    <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
-                    <div className="text-base text-muted-foreground mt-1">Pending</div>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+                    <div className="text-sm text-muted-foreground mt-1">Pending</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-card border border-border">
-                  <CardContent className="p-6">
-                    <div className="text-3xl font-bold text-blue-600">{stats.completed}</div>
-                    <div className="text-base text-muted-foreground mt-1">Completed</div>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
+                    <div className="text-sm text-muted-foreground mt-1">Completed</div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Filters */}
-              <Card className="bg-card border border-border">
-                <CardContent className="p-6">
+              <Card>
+                <CardContent className="p-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       <Input
                         placeholder="Search students..."
-                        className="pl-10 h-11 text-base border-border"
+                        className="pl-10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-11 text-base border-border">
+                      <SelectTrigger>
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -216,7 +241,7 @@ export default function MyStudents() {
                       </SelectContent>
                     </Select>
                     <Select value={programFilter} onValueChange={setProgramFilter}>
-                      <SelectTrigger className="h-11 text-base border-gray-300">
+                      <SelectTrigger>
                         <SelectValue placeholder="Program" />
                       </SelectTrigger>
                       <SelectContent>
@@ -232,111 +257,90 @@ export default function MyStudents() {
 
               {/* Students List */}
               {filteredStudents.length === 0 ? (
-                <Card className="bg-card border border-border">
+                <Card>
                   <CardContent className="p-12 text-center">
-                    <p className="text-muted-foreground text-lg">No students found</p>
+                    <p className="text-muted-foreground">No students found</p>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 gap-6">
+                <div className="space-y-4">
                   {filteredStudents.map((student) => (
-                    <Card key={student.id} className="bg-card border border-border hover:border-primary/30 transition-colors">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+                    <Card key={student.id} className="hover:border-primary/30 transition-colors">
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          {/* Student Info */}
                           <div className="flex items-start gap-4 flex-1">
-                            <Avatar className="h-16 w-16">
+                            <Avatar className="h-14 w-14">
                               {student.avatar_url ? (
                                 <AvatarImage src={student.avatar_url} alt={student.name} />
                               ) : (
-                                <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
+                                <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
                                   {getInitials(student.name)}
                                 </AvatarFallback>
                               )}
                             </Avatar>
                             
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-xl font-bold text-foreground">{student.name}</h3>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-bold text-foreground">{student.name}</h3>
                                 {student.internship && (
-                                  <Badge className={`${getStatusColor(student.internship.status)} text-sm px-3 py-1 border`}>
+                                  <Badge className={`${getStatusColor(student.internship.status)} text-xs border`}>
                                     {student.internship.status.charAt(0).toUpperCase() + student.internship.status.slice(1)}
                                   </Badge>
                                 )}
                               </div>
                               
-                              <div className="space-y-2 mb-4">
-                                <div className="flex items-center gap-2 text-base text-muted-foreground">
-                                  <Mail className="h-4 w-4" />
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                                <span className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
                                   {student.email}
-                                </div>
-                                <div className="flex items-center gap-2 text-base text-muted-foreground">
-                                  <Award className="h-4 w-4" />
-                                  {student.program} - Year {student.year}
-                                  </div>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Award className="h-3 w-3" />
+                                  {student.program}
+                                </span>
                               </div>
 
+                              {/* Internship Info with Progress */}
                               {student.internship && (
-                                <div className="bg-muted rounded-lg p-4 space-y-3">
+                                <div className="bg-muted rounded-lg p-3 space-y-2">
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <p className="font-semibold text-foreground text-base">{student.internship.company}</p>
+                                      <p className="font-semibold text-foreground">{student.internship.company}</p>
                                       <p className="text-sm text-muted-foreground">{student.internship.position}</p>
                                     </div>
-                                    <div className="text-right">
-                                      <p className="text-sm text-muted-foreground">
-                                        {new Date(student.internship.startDate).toLocaleDateString()} - {new Date(student.internship.endDate).toLocaleDateString()}
-                                      </p>
+                                    <div className="text-right text-sm text-muted-foreground">
+                                      Started {new Date(student.internship.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                     </div>
                                   </div>
                                   
+                                  {/* Progress Bar */}
                                   <div>
                                     <div className="flex justify-between text-sm mb-1">
-                                      <span className="text-muted-foreground">Progress</span>
-                                      <span className="font-semibold text-foreground">{student.internship.progress}%</span>
+                                      <span className="text-muted-foreground">Hours Progress</span>
+                                      <span className="font-semibold text-primary">
+                                        {hoursProgressMap[student.internship.id]?.toFixed(1) || student.internship.progress}%
+                                      </span>
                                     </div>
-                                    <Progress value={student.internship.progress} className="h-2" />
+                                    <Progress 
+                                      value={hoursProgressMap[student.internship.id] || student.internship.progress} 
+                                      className="h-2" 
+                                    />
                                   </div>
-
-                                  {student.performance.overall > 0 && (
-                                    <div className="grid grid-cols-4 gap-3 pt-2 border-t">
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Overall</p>
-                                        <p className="text-lg font-bold text-primary">{student.performance.overall.toFixed(1)}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Technical</p>
-                                        <p className="text-lg font-bold text-foreground">{student.performance.technical.toFixed(1)}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Communication</p>
-                                        <p className="text-lg font-bold text-foreground">{student.performance.communication.toFixed(1)}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-muted-foreground">Work Ethic</p>
-                                        <p className="text-lg font-bold text-foreground">{student.performance.workEthic.toFixed(1)}</p>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {student.lastEvaluation && (
-                                    <p className="text-xs text-muted-foreground pt-2">
-                                      Last evaluation: {new Date(student.lastEvaluation).toLocaleDateString()} ({student.evaluationCount} total)
-                                    </p>
-                                  )}
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex gap-2 ml-4">
+                          {/* Actions */}
+                          <div className="flex gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleViewDetails(student.id)}
-                              className="border-border"
                             >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
+                              <Eye className="h-4 w-4 mr-1" />
+                              Details
                             </Button>
                             <Button
                               variant="outline"
@@ -344,7 +348,7 @@ export default function MyStudents() {
                               onClick={() => handleSendMessage(student.id)}
                               className="border-primary text-primary hover:bg-primary hover:text-white"
                             >
-                              <MessageSquare className="h-4 w-4 mr-2" />
+                              <MessageSquare className="h-4 w-4 mr-1" />
                               Message
                             </Button>
                           </div>
@@ -372,20 +376,20 @@ export default function MyStudents() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold">{stats.total}</div>
-                  <div className="text-xs text-gray-600">Total</div>
+                  <div className="text-xs text-muted-foreground">Total</div>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-[#4CAF50]">{stats.active}</div>
-                  <div className="text-xs text-gray-600">Active</div>
+                  <div className="text-2xl font-bold text-primary">{stats.active}</div>
+                  <div className="text-xs text-muted-foreground">Active</div>
                 </CardContent>
               </Card>
             </div>
 
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search..."
                 className="pl-9 text-sm"
@@ -394,33 +398,7 @@ export default function MyStudents() {
               />
             </div>
 
-            {/* Filters */}
-            <div className="grid grid-cols-2 gap-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={programFilter} onValueChange={setProgramFilter}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Programs</SelectItem>
-                  {programs.map(program => (
-                    <SelectItem key={program} value={program}>{program}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Students List */}
+            {/* Students List - Mobile */}
             {filteredStudents.map((student) => (
               <Card key={student.id}>
                 <CardContent className="p-4">
@@ -429,7 +407,7 @@ export default function MyStudents() {
                       {student.avatar_url ? (
                         <AvatarImage src={student.avatar_url} alt={student.name} />
                       ) : (
-                        <AvatarFallback className="bg-[#4CAF50]/10 text-[#4CAF50] text-sm font-semibold">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
                           {getInitials(student.name)}
                         </AvatarFallback>
                       )}
@@ -438,26 +416,29 @@ export default function MyStudents() {
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-bold text-sm truncate">{student.name}</h3>
                         {student.internship && (
-                          <Badge className={`${getStatusColor(student.internship.status)} text-xs px-2 py-0.5 border`}>
+                          <Badge className={`${getStatusColor(student.internship.status)} text-xs border`}>
                             {student.internship.status}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-gray-600 truncate">{student.email}</p>
-                      <p className="text-xs text-gray-600">{student.program}</p>
+                      <p className="text-xs text-muted-foreground">{student.program}</p>
                     </div>
                   </div>
 
                   {student.internship && (
-                    <div className="bg-gray-50 rounded p-3 mb-3 space-y-2">
+                    <div className="bg-muted rounded p-3 mb-3 space-y-2">
                       <p className="font-semibold text-sm">{student.internship.company}</p>
-                      <p className="text-xs text-gray-600">{student.internship.position}</p>
                       <div>
                         <div className="flex justify-between text-xs mb-1">
                           <span>Progress</span>
-                          <span className="font-semibold">{student.internship.progress}%</span>
+                          <span className="font-semibold">
+                            {hoursProgressMap[student.internship.id]?.toFixed(1) || student.internship.progress}%
+                          </span>
                         </div>
-                        <Progress value={student.internship.progress} className="h-1.5" />
+                        <Progress 
+                          value={hoursProgressMap[student.internship.id] || student.internship.progress} 
+                          className="h-1.5" 
+                        />
                       </div>
                     </div>
                   )}
@@ -476,7 +457,7 @@ export default function MyStudents() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleSendMessage(student.id)}
-                      className="flex-1 text-xs border-[#4CAF50] text-[#4CAF50]"
+                      className="flex-1 text-xs border-primary text-primary"
                     >
                       <MessageSquare className="h-3 w-3 mr-1" />
                       Message
@@ -492,11 +473,9 @@ export default function MyStudents() {
 
       {/* Student Details Dialog */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              Student Details
-            </DialogTitle>
+            <DialogTitle>Student Details</DialogTitle>
           </DialogHeader>
 
           {detailsLoading ? (
@@ -507,22 +486,21 @@ export default function MyStudents() {
             <div className="space-y-6">
               {/* Student Info */}
               <div className="flex items-start gap-4">
-                <Avatar className="h-20 w-20">
+                <Avatar className="h-16 w-16">
                   {selectedStudent.avatar_url ? (
                     <AvatarImage src={selectedStudent.avatar_url} alt={selectedStudent.name} />
                   ) : (
-                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold">
                       {getInitials(selectedStudent.name)}
                     </AvatarFallback>
                   )}
                 </Avatar>
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold text-foreground">{selectedStudent.name}</h2>
+                  <h2 className="text-xl font-bold text-foreground">{selectedStudent.name}</h2>
                   <p className="text-muted-foreground">{selectedStudent.email}</p>
                   <div className="flex gap-2 mt-2">
                     <Badge variant="outline">{selectedStudent.program}</Badge>
-                    <Badge variant="outline">Year {selectedStudent.year}</Badge>
-                    {selectedStudent.student_id && <Badge variant="outline">{selectedStudent.student_id}</Badge>}
+                    {selectedStudent.year && <Badge variant="outline">Year {selectedStudent.year}</Badge>}
                   </div>
                 </div>
               </div>
@@ -531,95 +509,93 @@ export default function MyStudents() {
               {selectedStudent.internship && (
                 <div className="border rounded-lg p-4 space-y-4">
                   <h3 className="font-bold text-lg">Current Internship</h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-sm text-gray-600">Company</p>
+                      <p className="text-muted-foreground">Company</p>
                       <p className="font-semibold">{selectedStudent.internship.company}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Position</p>
+                      <p className="text-muted-foreground">Position</p>
                       <p className="font-semibold">{selectedStudent.internship.position}</p>
                     </div>
-                    {selectedStudent.internship.companyLocation && (
-                      <div>
-                        <p className="text-sm text-gray-600">Location</p>
-                        <p className="font-semibold">{selectedStudent.internship.companyLocation}</p>
-                      </div>
-                    )}
-                    {selectedStudent.internship.companyIndustry && (
-                      <div>
-                        <p className="text-sm text-gray-600">Industry</p>
-                        <p className="font-semibold">{selectedStudent.internship.companyIndustry}</p>
-                      </div>
-                    )}
                     <div>
-                      <p className="text-sm text-gray-600">Start Date</p>
+                      <p className="text-muted-foreground">Start Date</p>
                       <p className="font-semibold">{new Date(selectedStudent.internship.startDate).toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">End Date</p>
-                      <p className="font-semibold">{new Date(selectedStudent.internship.endDate).toLocaleDateString()}</p>
+                      <p className="text-muted-foreground">Status</p>
+                      <Badge className={getStatusColor(selectedStudent.internship.status || 'pending')}>
+                        {selectedStudent.internship.status}
+                      </Badge>
                     </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Progress</span>
-                      <span className="font-semibold">{selectedStudent.internship.progress}%</span>
-                    </div>
-                    <Progress value={selectedStudent.internship.progress} className="h-3" />
                   </div>
                 </div>
               )}
 
-              {/* Performance Metrics */}
-              {selectedStudent.performance && selectedStudent.performance.overall > 0 && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-bold text-lg mb-4">Performance Metrics</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <p className="text-3xl font-bold text-[#4CAF50]">{selectedStudent.performance.overall.toFixed(1)}</p>
-                      <p className="text-sm text-gray-600">Overall</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-3xl font-bold text-gray-900">{selectedStudent.performance.technical.toFixed(1)}</p>
-                      <p className="text-sm text-gray-600">Technical</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-3xl font-bold text-gray-900">{selectedStudent.performance.communication.toFixed(1)}</p>
-                      <p className="text-sm text-gray-600">Communication</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-3xl font-bold text-gray-900">{selectedStudent.performance.workEthic.toFixed(1)}</p>
-                      <p className="text-sm text-gray-600">Work Ethic</p>
-                    </div>
+              {/* Hours Progress - Full Display */}
+              {studentHoursSummary && (
+                <div className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-lg">Hours Progress</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mt-4">
-                    Based on {selectedStudent.evaluationCount} evaluation{selectedStudent.evaluationCount !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-
-              {/* Recent Reports */}
-              {selectedStudent.recentReports && selectedStudent.recentReports.length > 0 && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-bold text-lg mb-4">Recent Weekly Reports</h3>
+                  
+                  {/* Progress Bar */}
                   <div className="space-y-2">
-                    {selectedStudent.recentReports.slice(0, 5).map((report: any) => (
-                      <div key={report.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                        <span className="text-sm">Week {report.week_number}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {report.status || 'submitted'}
-                        </Badge>
-                      </div>
-                    ))}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {studentHoursSummary.total_hours_worked} / {studentHoursSummary.required_hours} hours
+                      </span>
+                      <span className="text-xl font-bold text-primary">
+                        {studentHoursSummary.progress_percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                    <Progress value={studentHoursSummary.progress_percentage} className="h-3" />
                   </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg border bg-muted/50 text-center">
+                      <Clock className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-lg font-bold">{studentHoursSummary.total_hours_worked}</p>
+                      <p className="text-xs text-muted-foreground">Worked</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-muted/50 text-center">
+                      <Target className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-lg font-bold">{studentHoursSummary.remaining_hours}</p>
+                      <p className="text-xs text-muted-foreground">Remaining</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-muted/50 text-center">
+                      <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-lg font-bold">{studentHoursSummary.weeks_completed}</p>
+                      <p className="text-xs text-muted-foreground">Weeks</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-muted/50 text-center">
+                      <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-sm font-bold">
+                        {studentHoursSummary.projected_end_date 
+                          ? new Date(studentHoursSummary.projected_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : 'TBD'
+                        }
+                      </p>
+                      <p className="text-xs text-muted-foreground">Est. End</p>
+                    </div>
+                  </div>
+
+                  {/* Completion Status */}
+                  {studentHoursSummary.is_completed && (
+                    <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-center">
+                      <p className="font-medium">✅ Hours requirement completed!</p>
+                    </div>
+                  )}
                 </div>
               )}
 
+              {/* Actions */}
               <div className="flex gap-3">
                 <Button
                   onClick={() => handleSendMessage(selectedStudent.id)}
-                  className="flex-1 bg-[#4CAF50] hover:bg-[#45a049]"
+                  className="flex-1 bg-primary hover:bg-primary/90"
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Send Message

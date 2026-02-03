@@ -16,7 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EvaluationWithRelations } from '@/types/api';
-import { Eye, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Eye, XCircle, RefreshCw } from 'lucide-react';
 import { convertScoreToGrade } from './gradeUtils';
 
 interface EvaluationTableProps {
@@ -163,25 +163,17 @@ export function EvaluationTable({
                     <Eye className="h-4 w-4" />
                   </Button>
                   
-                  {evaluation.status === 'submitted' && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onApprove(evaluation)}
-                        className="text-success hover:text-success"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onReject(evaluation)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    </>
+                  {/* Archive button for approved evaluations */}
+                  {evaluation.status === 'approved' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onReject(evaluation)}
+                      className="text-destructive hover:text-destructive"
+                      title="Archive evaluation"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
                   )}
                   
                   {evaluation.status === 'processed' && (

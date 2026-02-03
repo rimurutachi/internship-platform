@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, User, Building2, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, User, Building2, Clock, CheckCircle2, AlertCircle, Loader2, TrendingUp, Target } from 'lucide-react';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -10,10 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-// Tabs removed; milestones only for now
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { hoursApi } from '@/lib/api/hours';
+import type { InternshipHoursSummary, WeeklyHoursBreakdown } from '@/types/hours';
 
 interface InternshipData {
   id: string;
@@ -29,13 +30,6 @@ interface InternshipData {
   department?: string;
 }
 
-interface Task {
-  id: number;
-  title: string;
-  status: 'completed' | 'pending' | 'upcoming';
-  dueDate: string;
-}
-
 interface Milestone {
   id: number;
   title: string;
@@ -48,12 +42,33 @@ export default function CurrentInternship() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [internship, setInternship] = useState<InternshipData | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  
+  // Hours tracking state
+  const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
+  const [weeklyBreakdown, setWeeklyBreakdown] = useState<WeeklyHoursBreakdown[]>([]);
 
   useEffect(() => {
     loadInternshipData();
   }, []);
+
+  const fetchHoursData = async (internshipId: string) => {
+    try {
+      const [summaryResult, breakdownResult] = await Promise.all([
+        hoursApi.getInternshipHoursSummary(internshipId),
+        hoursApi.getWeeklyHoursBreakdown(internshipId),
+      ]);
+      
+      if (summaryResult.success && summaryResult.data) {
+        setHoursSummary(summaryResult.data);
+      }
+      if (breakdownResult.success && breakdownResult.data) {
+        setWeeklyBreakdown(breakdownResult.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch hours data:', error);
+    }
+  };
 
   const loadInternshipData = async () => {
     try {
@@ -140,11 +155,11 @@ export default function CurrentInternship() {
 
       setInternship(formattedInternship);
 
+      // Fetch hours data
+      await fetchHoursData(internshipData.id);
+
       // Define today for milestone checks
       const today = new Date();
-
-      // Tasks are moved to a dedicated page; skip loading here (placeholder kept minimal)
-      setTasks([]);
 
       // Create milestones based on internship dates and evaluations
       const { data: evaluations } = await supabase
@@ -281,25 +296,129 @@ export default function CurrentInternship() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Calendar className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-lg">{new Date(internship.startDate).toLocaleDateString()} - {new Date(internship.endDate).toLocaleDateString()}</span>
+                  <span className="text-lg">Started {new Date(internship.startDate).toLocaleDateString()}</span>
                 </div>
               </div>
-            </div>
-            <div className="md:w-64">
-              <Card className="bg-muted border-2 border-border">
-                <CardContent className="p-6">
-                  <div className="text-base text-muted-foreground mb-2">Overall Progress</div>
-                  <div className="text-4xl font-bold text-primary mb-4">{internship.progress}%</div>
-                  <Progress value={internship.progress} className="h-3 bg-muted-foreground/20" />
-                </CardContent>
-              </Card>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Hours Progress Card - Full Version */}
+      {hoursSummary && (
+        <Card className="bg-card border border-border">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-6 w-6 text-primary" />
+              <CardTitle className="text-xl">Hours Progress</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Progress Bar */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-lg text-muted-foreground">
+                  {hoursSummary.total_hours_worked} / {hoursSummary.required_hours} hours completed
+                </span>
+                <span className="text-2xl font-bold text-primary">
+                  {hoursSummary.progress_percentage.toFixed(1)}%
+                </span>
+              </div>
+              <Progress 
+                value={hoursSummary.progress_percentage} 
+                className="h-4" 
+              />
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-5 w-5" />
+                  <span className="text-sm">Hours Worked</span>
+                </div>
+                <p className="text-3xl font-bold text-foreground">{hoursSummary.total_hours_worked}</p>
+              </div>
+              <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Target className="h-5 w-5" />
+                  <span className="text-sm">Remaining</span>
+                </div>
+                <p className="text-3xl font-bold text-foreground">{hoursSummary.remaining_hours}</p>
+              </div>
+              <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-5 w-5" />
+                  <span className="text-sm">Weeks Completed</span>
+                </div>
+                <p className="text-3xl font-bold text-foreground">{hoursSummary.weeks_completed}</p>
+              </div>
+              <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-5 w-5" />
+                  <span className="text-sm">Projected End</span>
+                </div>
+                <p className="text-xl font-bold text-foreground">
+                  {hoursSummary.projected_end_date 
+                    ? new Date(hoursSummary.projected_end_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'TBD'
+                  }
+                </p>
+              </div>
+            </div>
+
+            {/* Completion Status */}
+            {hoursSummary.is_completed && (
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400">
+                <p className="font-medium text-lg">✅ Congratulations! You've completed your required internship hours!</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Weekly Hours Breakdown */}
+      {weeklyBreakdown.length > 0 && (
+        <Card className="bg-card border border-border">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Weekly Hours Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {weeklyBreakdown.map((week) => (
+                <div 
+                  key={week.week_number}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-muted/50"
+                >
+                  <div className="flex items-center gap-4">
+                    <Badge variant="outline" className="text-base px-3 py-1">Week {week.week_number}</Badge>
+                    <span className="text-muted-foreground">
+                      {new Date(week.week_start_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })} - {new Date(week.week_end_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-xl font-semibold">{week.hours_rendered}h</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Team Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6 max-w-5xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
         <Card className="bg-card border border-border">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl text-foreground">Company Supervisor</CardTitle>
@@ -391,18 +510,111 @@ export default function CurrentInternship() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  <span>{new Date(internship.startDate).toLocaleDateString()} - {new Date(internship.endDate).toLocaleDateString()}</span>
+                  <span>Started {new Date(internship.startDate).toLocaleDateString()}</span>
                 </div>
               </div>
-              <Card className="mt-4">
-                <CardContent className="pt-4">
-                  <div className="text-xs text-muted-foreground mb-1">Overall Progress</div>
-                  <div className="text-2xl font-bold text-primary mb-2">{internship.progress}%</div>
-                  <Progress value={internship.progress} className="h-2" />
-                </CardContent>
-              </Card>
             </CardContent>
           </Card>
+
+          {/* Hours Progress Card - Mobile */}
+          {hoursSummary && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Hours Progress</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {hoursSummary.total_hours_worked} / {hoursSummary.required_hours}h
+                    </span>
+                    <span className="text-lg font-bold text-primary">
+                      {hoursSummary.progress_percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress value={hoursSummary.progress_percentage} className="h-3" />
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg border bg-muted/50">
+                    <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <Clock className="h-3 w-3" />
+                      <span>Worked</span>
+                    </div>
+                    <p className="text-xl font-bold">{hoursSummary.total_hours_worked}h</p>
+                  </div>
+                  <div className="p-3 rounded-lg border bg-muted/50">
+                    <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <Target className="h-3 w-3" />
+                      <span>Remaining</span>
+                    </div>
+                    <p className="text-xl font-bold">{hoursSummary.remaining_hours}h</p>
+                  </div>
+                  <div className="p-3 rounded-lg border bg-muted/50">
+                    <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <Calendar className="h-3 w-3" />
+                      <span>Weeks</span>
+                    </div>
+                    <p className="text-xl font-bold">{hoursSummary.weeks_completed}</p>
+                  </div>
+                  <div className="p-3 rounded-lg border bg-muted/50">
+                    <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <Calendar className="h-3 w-3" />
+                      <span>End Date</span>
+                    </div>
+                    <p className="text-sm font-bold">
+                      {hoursSummary.projected_end_date 
+                        ? new Date(hoursSummary.projected_end_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : 'TBD'
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                {/* Completion Status */}
+                {hoursSummary.is_completed && (
+                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400">
+                    <p className="font-medium text-sm">✅ Hours requirement completed!</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Weekly Breakdown - Mobile */}
+          {weeklyBreakdown.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Weekly Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {weeklyBreakdown.slice(0, 5).map((week) => (
+                    <div 
+                      key={week.week_number}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">Week {week.week_number}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(week.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                      <span className="font-semibold">{week.hours_rendered}h</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Team Info */}
           <div className="grid grid-cols-1 gap-3">
@@ -441,8 +653,6 @@ export default function CurrentInternship() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Tasks removed in favor of dedicated Task Lists page */}
         </div>
         <BottomNavigation type="student" />
       </div>
