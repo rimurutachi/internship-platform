@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Loader2, Upload, AlertCircle, CheckCircle2, Shield, Lock, Eye, EyeOff } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Save, Loader2, Upload, AlertCircle, CheckCircle2, Shield, Lock, Eye, EyeOff, User, Bell, KeyRound } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
@@ -325,9 +326,9 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
   // Get tabs based on user type
   const tabs = [
-    { value: 'profile', label: 'Profile' },
-    { value: 'notifications', label: 'Notifications' },
-    { value: 'security', label: 'Security' },
+    { value: 'profile', label: 'Profile', icon: User },
+    { value: 'notifications', label: 'Notifications', icon: Bell },
+    { value: 'security', label: 'Security', icon: KeyRound },
   ];
 
   return (
@@ -337,127 +338,133 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
         {sidebar}
         <div className="flex-1 flex flex-col overflow-hidden">
           {header}
-          <div className="flex-1 overflow-y-auto p-6 bg-muted">
-            <div className="max-w-4xl mx-auto">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 xl:p-8 bg-muted/30">
+            <div className="max-w-5xl mx-auto">
               {/* Header */}
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-                <p className="text-muted-foreground mt-2">Manage your account and preferences</p>
+              <div className="mb-6 lg:mb-8">
+                <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Settings</h1>
+                <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
               </div>
 
               {/* Success/Error Alerts */}
               {success && (
-                <Alert className="mb-4 border-green-500 bg-green-50">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <AlertDescription className="text-green-700">{success}</AlertDescription>
+                <Alert className="mb-4 border-green-500/50 bg-green-50 dark:bg-green-950/20">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-700 dark:text-green-400">{success}</AlertDescription>
                 </Alert>
               )}
               
               {error && (
-                <Alert className="mb-4 border-red-500 bg-red-50">
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                <Alert className="mb-4 border-red-500/50 bg-red-50 dark:bg-red-950/20">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-700 dark:text-red-400">{error}</AlertDescription>
                 </Alert>
               )}
 
               <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3">
-                  {tabs.map((tab) => (
-                    <TabsTrigger key={tab.value} value={tab.value}>
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
+                <TabsList className="inline-flex h-auto p-1 bg-muted/50 rounded-lg gap-1">
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <TabsTrigger 
+                        key={tab.value} 
+                        value={tab.value}
+                        className="flex items-center gap-2 px-4 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all"
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                      </TabsTrigger>
+                    );
+                  })}
                 </TabsList>
 
                 {/* Profile Tab */}
-                <TabsContent value="profile" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Profile Information</CardTitle>
+                <TabsContent value="profile" className="space-y-6 mt-0">
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Profile Information</CardTitle>
                       <CardDescription>
                         Update your personal {userType === 'supervisor' ? 'and company ' : ''}information
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Profile Picture */}
-                      <div className="flex items-center gap-6">
-                        <Avatar className="w-24 h-24">
-                          <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-semibold">
+                      {/* Profile Picture Section */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 pb-6 border-b">
+                        <Avatar className="w-20 h-20 lg:w-24 lg:h-24 ring-4 ring-background shadow-lg">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-xl lg:text-2xl font-semibold">
                             {getInitials()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="space-y-2">
-                          <Button variant="outline" size="sm">
-                            <Upload className="w-4 h-4 mr-2" />
+                          <Button variant="outline" size="sm" className="gap-2">
+                            <Upload className="w-4 h-4" />
                             Change Photo
                           </Button>
                           <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 2MB</p>
                         </div>
                       </div>
 
-                      {/* Form Fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>First Name</Label>
+                      {/* Basic Info */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">First Name</Label>
                           <Input 
                             value={firstName} 
                             onChange={(e) => setFirstName(e.target.value)}
-                            className="mt-2" 
+                            placeholder="Enter first name"
                           />
                         </div>
-                        <div>
-                          <Label>Last Name</Label>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Last Name</Label>
                           <Input 
                             value={lastName} 
                             onChange={(e) => setLastName(e.target.value)}
-                            className="mt-2" 
+                            placeholder="Enter last name"
                           />
                         </div>
-                        <div className="md:col-span-2">
-                          <Label>Email</Label>
+                        <div className="sm:col-span-2 space-y-2">
+                          <Label className="text-sm font-medium">Email</Label>
                           <Input 
                             type="email" 
                             value={email} 
                             disabled
-                            className="mt-2 bg-muted" 
+                            className="bg-muted/50"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                          <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                         </div>
 
                         {/* Role-specific fields */}
                         {userType === 'student' && (
                           <>
-                            <div>
-                              <Label>Student ID</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Student ID</Label>
                               <Input 
                                 value={studentId} 
                                 onChange={(e) => setStudentId(e.target.value)}
-                                className="mt-2" 
+                                placeholder="Enter student ID"
                               />
                             </div>
-                            <div>
-                              <Label>Department</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Department</Label>
                               <Input 
                                 value={department} 
                                 onChange={(e) => setDepartment(e.target.value)}
-                                className="mt-2" 
+                                placeholder="e.g., Computer Science"
                               />
                             </div>
-                            <div>
-                              <Label>Course</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Course</Label>
                               <Input 
                                 value={course} 
                                 onChange={(e) => setCourse(e.target.value)}
-                                className="mt-2" 
                                 placeholder="e.g., BS Computer Science"
                               />
                             </div>
-                            <div>
-                              <Label>Year Level</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Year Level</Label>
                               <Input 
                                 value={yearLevel} 
                                 onChange={(e) => setYearLevel(e.target.value)}
-                                className="mt-2" 
                                 placeholder="e.g., 4th Year"
                               />
                             </div>
@@ -466,20 +473,20 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                         {userType === 'advisor' && (
                           <>
-                            <div>
-                              <Label>Faculty ID</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Faculty ID</Label>
                               <Input 
                                 value={facultyId} 
                                 onChange={(e) => setFacultyId(e.target.value)}
-                                className="mt-2" 
+                                placeholder="Enter faculty ID"
                               />
                             </div>
-                            <div>
-                              <Label>Department</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Department</Label>
                               <Input 
                                 value={department} 
                                 onChange={(e) => setDepartment(e.target.value)}
-                                className="mt-2" 
+                                placeholder="e.g., Computer Science"
                               />
                             </div>
                           </>
@@ -487,28 +494,28 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                         {userType === 'supervisor' && (
                           <>
-                            <div>
-                              <Label>Position</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Position</Label>
                               <Input 
                                 value={position} 
                                 onChange={(e) => setPosition(e.target.value)}
-                                className="mt-2" 
+                                placeholder="e.g., Software Engineer"
                               />
                             </div>
-                            <div>
-                              <Label>Department</Label>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Department</Label>
                               <Input 
                                 value={department} 
                                 onChange={(e) => setDepartment(e.target.value)}
-                                className="mt-2" 
+                                placeholder="e.g., Engineering"
                               />
                             </div>
-                            <div className="md:col-span-2">
-                              <Label>Company</Label>
+                            <div className="sm:col-span-2 space-y-2">
+                              <Label className="text-sm font-medium">Company</Label>
                               <Input 
                                 value={company} 
                                 onChange={(e) => setCompany(e.target.value)}
-                                className="mt-2" 
+                                placeholder="e.g., Tech Company Inc."
                               />
                             </div>
                           </>
@@ -517,31 +524,33 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                       {/* Bio for Advisor */}
                       {userType === 'advisor' && (
-                        <div>
-                          <Label>Bio</Label>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Bio</Label>
                           <Textarea 
                             value={bio}
                             onChange={(e) => setBio(e.target.value)}
                             placeholder="Tell us about yourself..."
-                            className="mt-2 min-h-[100px]"
+                            className="min-h-[100px] resize-none"
                           />
                         </div>
                       )}
 
-                      <div className="flex justify-end pt-4">
+                      <Separator className="my-2" />
+
+                      <div className="flex justify-end">
                         <Button 
                           onClick={handleSaveProfile}
                           disabled={saving}
-                          className="bg-primary hover:bg-primary/90"
+                          className="gap-2"
                         >
                           {saving ? (
                             <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              <Loader2 className="w-4 h-4 animate-spin" />
                               Saving...
                             </>
                           ) : (
                             <>
-                              <Save className="w-4 h-4 mr-2" />
+                              <Save className="w-4 h-4" />
                               Save Changes
                             </>
                           )}
@@ -552,19 +561,19 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                 </TabsContent>
 
                 {/* Notifications Tab */}
-                <TabsContent value="notifications" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Notification Preferences</CardTitle>
+                <TabsContent value="notifications" className="space-y-6 mt-0">
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Notification Preferences</CardTitle>
                       <CardDescription>Choose how you want to receive notifications</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {/* Channels */}
                       <div className="space-y-4">
-                        <h3 className="font-medium text-foreground">Notification Channels</h3>
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
+                        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Notification Channels</h3>
+                        <div className="grid gap-4">
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">Email Notifications</p>
                               <p className="text-sm text-muted-foreground">Receive notifications via email</p>
                             </div>
@@ -573,8 +582,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                               onCheckedChange={setEmailNotifications}
                             />
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">Push Notifications</p>
                               <p className="text-sm text-muted-foreground">Receive push notifications in the app</p>
                             </div>
@@ -583,8 +592,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                               onCheckedChange={setPushNotifications}
                             />
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">SMS Notifications</p>
                               <p className="text-sm text-muted-foreground">Receive text message notifications</p>
                             </div>
@@ -596,12 +605,14 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         </div>
                       </div>
 
+                      <Separator />
+
                       {/* Notification Types */}
-                      <div className="space-y-4 pt-4 border-t">
-                        <h3 className="font-medium text-foreground">Notification Types</h3>
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Notification Types</h3>
+                        <div className="grid gap-4">
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">Evaluation Updates</p>
                               <p className="text-sm text-muted-foreground">Get notified about evaluation changes</p>
                             </div>
@@ -610,8 +621,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                               onCheckedChange={setNotifyEvaluations}
                             />
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">Report Submissions</p>
                               <p className="text-sm text-muted-foreground">Notifications for report activities</p>
                             </div>
@@ -620,8 +631,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                               onCheckedChange={setNotifyReports}
                             />
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">New Messages</p>
                               <p className="text-sm text-muted-foreground">Get notified when you receive messages</p>
                             </div>
@@ -633,8 +644,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                           
                           {/* Student-specific */}
                           {userType === 'student' && (
-                            <div className="flex items-center justify-between">
-                              <div>
+                            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                              <div className="space-y-0.5">
                                 <p className="font-medium text-foreground">Internship Updates</p>
                                 <p className="text-sm text-muted-foreground">Updates about your internship status</p>
                               </div>
@@ -647,8 +658,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                           {/* Advisor-specific */}
                           {userType === 'advisor' && (
-                            <div className="flex items-center justify-between">
-                              <div>
+                            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                              <div className="space-y-0.5">
                                 <p className="font-medium text-foreground">Student Activities</p>
                                 <p className="text-sm text-muted-foreground">Updates about your students</p>
                               </div>
@@ -659,8 +670,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="space-y-0.5">
                               <p className="font-medium text-foreground">System Announcements</p>
                               <p className="text-sm text-muted-foreground">Important platform updates</p>
                             </div>
@@ -672,20 +683,22 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         </div>
                       </div>
 
-                      <div className="flex justify-end pt-4">
+                      <Separator />
+
+                      <div className="flex justify-end">
                         <Button 
                           onClick={handleSaveNotifications}
                           disabled={saving}
-                          className="bg-primary hover:bg-primary/90"
+                          className="gap-2"
                         >
                           {saving ? (
                             <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              <Loader2 className="w-4 h-4 animate-spin" />
                               Saving...
                             </>
                           ) : (
                             <>
-                              <Save className="w-4 h-4 mr-2" />
+                              <Save className="w-4 h-4" />
                               Save Preferences
                             </>
                           )}
@@ -696,100 +709,105 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                 </TabsContent>
 
                 {/* Security Tab */}
-                <TabsContent value="security" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Change Password</CardTitle>
+                <TabsContent value="security" className="space-y-6 mt-0">
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Change Password</CardTitle>
                       <CardDescription>Update your password to keep your account secure</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div>
-                        <Label>Current Password</Label>
-                        <div className="relative mt-2">
-                          <Input 
-                            type={showCurrentPassword ? 'text' : 'password'}
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="Enter current password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3"
-                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                          >
-                            {showCurrentPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
+                      <div className="grid gap-4 max-w-md">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Current Password</Label>
+                          <div className="relative">
+                            <Input 
+                              type={showCurrentPassword ? 'text' : 'password'}
+                              value={currentPassword}
+                              onChange={(e) => setCurrentPassword(e.target.value)}
+                              placeholder="Enter current password"
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            >
+                              {showCurrentPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">New Password</Label>
+                          <div className="relative">
+                            <Input 
+                              type={showNewPassword ? 'text' : 'password'}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Enter new password"
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                            >
+                              {showNewPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Confirm New Password</Label>
+                          <div className="relative">
+                            <Input 
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="Confirm new password"
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <Label>New Password</Label>
-                        <div className="relative mt-2">
-                          <Input 
-                            type={showNewPassword ? 'text' : 'password'}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Enter new password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                          >
-                            {showNewPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">Must be at least 8 characters</p>
-                      </div>
-                      <div>
-                        <Label>Confirm New Password</Label>
-                        <div className="relative mt-2">
-                          <Input 
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm new password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex justify-end pt-4">
+                      <div className="flex justify-start pt-2">
                         <Button 
                           onClick={handleChangePassword}
                           disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-                          className="bg-primary hover:bg-primary/90"
+                          className="gap-2"
                         >
                           {saving ? (
                             <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              <Loader2 className="w-4 h-4 animate-spin" />
                               Changing...
                             </>
                           ) : (
                             <>
-                              <Lock className="w-4 h-4 mr-2" />
+                              <Lock className="w-4 h-4" />
                               Change Password
                             </>
                           )}
@@ -798,14 +816,14 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Two-Factor Authentication</CardTitle>
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Two-Factor Authentication</CardTitle>
                       <CardDescription>Add an extra layer of security to your account</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                        <div className="space-y-0.5">
                           <p className="font-medium text-foreground">Enable 2FA</p>
                           <p className="text-sm text-muted-foreground">
                             Secure your account with two-factor authentication
@@ -817,9 +835,9 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                         />
                       </div>
                       {twoFactorEnabled && (
-                        <Alert className="mt-4 border-blue-500 bg-blue-50">
-                          <Shield className="h-4 w-4 text-blue-500" />
-                          <AlertDescription className="text-blue-700">
+                        <Alert className="mt-4 border-blue-500/50 bg-blue-50 dark:bg-blue-950/20">
+                          <Shield className="h-4 w-4 text-blue-600" />
+                          <AlertDescription className="text-blue-700 dark:text-blue-400">
                             Two-factor authentication is enabled. You'll need your authentication code to sign in.
                           </AlertDescription>
                         </Alert>
@@ -834,90 +852,125 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
       </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col">
+      <div className="lg:hidden h-screen flex flex-col bg-background">
         <MobileHeader title="Settings" subtitle="Manage your account" />
 
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
+        <div className="flex-1 overflow-y-auto p-4 pb-24">
           {/* Success/Error Alerts */}
           {success && (
-            <Alert className="mb-4 border-green-500 bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <AlertDescription className="text-green-700">{success}</AlertDescription>
+            <Alert className="mb-4 border-green-500/50 bg-green-50 dark:bg-green-950/20">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700 dark:text-green-400">{success}</AlertDescription>
             </Alert>
           )}
           
           {error && (
-            <Alert className="mb-4 border-red-500 bg-red-50">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <AlertDescription className="text-red-700">{error}</AlertDescription>
+            <Alert className="mb-4 border-red-500/50 bg-red-50 dark:bg-red-950/20">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-700 dark:text-red-400">{error}</AlertDescription>
             </Alert>
           )}
 
           <Tabs defaultValue="profile" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
-              {tabs.map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value} className="text-xs">
-                  {tab.label}
-                </TabsTrigger>
-              ))}
+            <TabsList className="w-full grid grid-cols-3 h-auto p-1 bg-muted/50 rounded-lg">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <TabsTrigger 
+                    key={tab.value} 
+                    value={tab.value} 
+                    className="flex flex-col items-center gap-1 py-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
 
             {/* Mobile Profile Tab */}
-            <TabsContent value="profile" className="space-y-4">
-              <Card>
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex flex-col items-center gap-4">
-                    <Avatar className="w-20 h-20">
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+            <TabsContent value="profile" className="space-y-4 mt-0">
+              <Card className="border-0 shadow-sm">
+                <CardContent className="pt-6 space-y-5">
+                  {/* Avatar Section */}
+                  <div className="flex flex-col items-center gap-3 pb-4 border-b">
+                    <Avatar className="w-20 h-20 ring-4 ring-background shadow-lg">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xl font-semibold">
                         {getInitials()}
                       </AvatarFallback>
                     </Avatar>
-                    <Button variant="outline" size="sm">Change Photo</Button>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Upload className="w-4 h-4" />
+                      Change Photo
+                    </Button>
                   </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-xs">First Name</Label>
-                      <Input 
-                        value={firstName} 
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="mt-1" 
-                      />
+                  {/* Form Fields */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">First Name</Label>
+                        <Input 
+                          value={firstName} 
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">Last Name</Label>
+                        <Input 
+                          value={lastName} 
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="h-10"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs">Last Name</Label>
-                      <Input 
-                        value={lastName} 
-                        onChange={(e) => setLastName(e.target.value)}
-                        className="mt-1" 
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Email</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Email</Label>
                       <Input 
                         type="email" 
                         value={email} 
                         disabled
-                        className="mt-1 bg-muted" 
+                        className="h-10 bg-muted/50"
                       />
                     </div>
 
                     {userType === 'student' && (
                       <>
-                        <div>
-                          <Label className="text-xs">Student ID</Label>
-                          <Input 
-                            value={studentId} 
-                            onChange={(e) => setStudentId(e.target.value)}
-                            className="mt-1" 
-                          />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium">Student ID</Label>
+                            <Input 
+                              value={studentId} 
+                              onChange={(e) => setStudentId(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium">Year Level</Label>
+                            <Input 
+                              value={yearLevel} 
+                              onChange={(e) => setYearLevel(e.target.value)}
+                              className="h-10"
+                              placeholder="e.g., 4th Year"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label className="text-xs">Department</Label>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Department</Label>
                           <Input 
                             value={department} 
                             onChange={(e) => setDepartment(e.target.value)}
-                            className="mt-1" 
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Course</Label>
+                          <Input 
+                            value={course} 
+                            onChange={(e) => setCourse(e.target.value)}
+                            className="h-10"
+                            placeholder="e.g., BS Computer Science"
                           />
                         </div>
                       </>
@@ -925,20 +978,31 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                     {userType === 'advisor' && (
                       <>
-                        <div>
-                          <Label className="text-xs">Faculty ID</Label>
-                          <Input 
-                            value={facultyId} 
-                            onChange={(e) => setFacultyId(e.target.value)}
-                            className="mt-1" 
-                          />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium">Faculty ID</Label>
+                            <Input 
+                              value={facultyId} 
+                              onChange={(e) => setFacultyId(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium">Department</Label>
+                            <Input 
+                              value={department} 
+                              onChange={(e) => setDepartment(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label className="text-xs">Department</Label>
-                          <Input 
-                            value={department} 
-                            onChange={(e) => setDepartment(e.target.value)}
-                            className="mt-1" 
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Bio</Label>
+                          <Textarea 
+                            value={bio}
+                            onChange={(e) => setBio(e.target.value)}
+                            placeholder="Tell us about yourself..."
+                            className="min-h-[80px] resize-none"
                           />
                         </div>
                       </>
@@ -946,20 +1010,30 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                     {userType === 'supervisor' && (
                       <>
-                        <div>
-                          <Label className="text-xs">Position</Label>
-                          <Input 
-                            value={position} 
-                            onChange={(e) => setPosition(e.target.value)}
-                            className="mt-1" 
-                          />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium">Position</Label>
+                            <Input 
+                              value={position} 
+                              onChange={(e) => setPosition(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium">Department</Label>
+                            <Input 
+                              value={department} 
+                              onChange={(e) => setDepartment(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label className="text-xs">Department</Label>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Company</Label>
                           <Input 
-                            value={department} 
-                            onChange={(e) => setDepartment(e.target.value)}
-                            className="mt-1" 
+                            value={company} 
+                            onChange={(e) => setCompany(e.target.value)}
+                            className="h-10"
                           />
                         </div>
                       </>
@@ -969,16 +1043,16 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                   <Button 
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="w-full bg-primary hover:bg-primary/90"
+                    className="w-full gap-2"
                   >
                     {saving ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                         Saving...
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4 mr-2" />
+                        <Save className="w-4 h-4" />
                         Save Changes
                       </>
                     )}
@@ -988,72 +1062,102 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
             </TabsContent>
 
             {/* Mobile Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-4">
-              <Card>
+            <TabsContent value="notifications" className="space-y-4 mt-0">
+              <Card className="border-0 shadow-sm">
                 <CardContent className="pt-6 space-y-4">
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Email</p>
-                        <p className="text-xs text-muted-foreground">Via email</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Channels</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="text-sm font-medium">Email</p>
+                          <p className="text-xs text-muted-foreground">Via email</p>
+                        </div>
+                        <Switch 
+                          checked={emailNotifications}
+                          onCheckedChange={setEmailNotifications}
+                        />
                       </div>
-                      <Switch 
-                        checked={emailNotifications}
-                        onCheckedChange={setEmailNotifications}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Push</p>
-                        <p className="text-xs text-muted-foreground">In-app</p>
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="text-sm font-medium">Push</p>
+                          <p className="text-xs text-muted-foreground">In-app</p>
+                        </div>
+                        <Switch 
+                          checked={pushNotifications}
+                          onCheckedChange={setPushNotifications}
+                        />
                       </div>
-                      <Switch 
-                        checked={pushNotifications}
-                        onCheckedChange={setPushNotifications}
-                      />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Types</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <p className="text-sm font-medium">Evaluations</p>
+                        <Switch 
+                          checked={notifyEvaluations}
+                          onCheckedChange={setNotifyEvaluations}
+                        />
                       </div>
-                      <Switch 
-                        checked={notifyEvaluations}
-                        onCheckedChange={setNotifyEvaluations}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <p className="text-sm font-medium">Reports</p>
+                        <Switch 
+                          checked={notifyReports}
+                          onCheckedChange={setNotifyReports}
+                        />
                       </div>
-                      <Switch 
-                        checked={notifyReports}
-                        onCheckedChange={setNotifyReports}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <p className="text-sm font-medium">Messages</p>
+                        <Switch 
+                          checked={notifyMessages}
+                          onCheckedChange={setNotifyMessages}
+                        />
                       </div>
-                      <Switch 
-                        checked={notifyMessages}
-                        onCheckedChange={setNotifyMessages}
-                      />
+                      {userType === 'student' && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <p className="text-sm font-medium">Internship</p>
+                          <Switch 
+                            checked={notifyInternship}
+                            onCheckedChange={setNotifyInternship}
+                          />
+                        </div>
+                      )}
+                      {userType === 'advisor' && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <p className="text-sm font-medium">Students</p>
+                          <Switch 
+                            checked={notifyStudents}
+                            onCheckedChange={setNotifyStudents}
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <p className="text-sm font-medium">System</p>
+                        <Switch 
+                          checked={notifySystem}
+                          onCheckedChange={setNotifySystem}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   <Button 
                     onClick={handleSaveNotifications}
                     disabled={saving}
-                    className="w-full bg-primary hover:bg-primary/90"
+                    className="w-full gap-2"
                   >
                     {saving ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                         Saving...
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4 mr-2" />
+                        <Save className="w-4 h-4" />
                         Save
                       </>
                     )}
@@ -1063,58 +1167,116 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
             </TabsContent>
 
             {/* Mobile Security Tab */}
-            <TabsContent value="security" className="space-y-4">
-              <Card>
-                <CardContent className="pt-6 space-y-4">
+            <TabsContent value="security" className="space-y-4 mt-0">
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Change Password</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-3">
-                    <div>
-                      <Label className="text-xs">Current Password</Label>
-                      <Input 
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="mt-1"
-                      />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Current Password</Label>
+                      <div className="relative">
+                        <Input 
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="h-10 pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs">New Password</Label>
-                      <Input 
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="mt-1"
-                      />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">New Password</Label>
+                      <div className="relative">
+                        <Input 
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="h-10 pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs">Confirm Password</Label>
-                      <Input 
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="mt-1"
-                      />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Confirm Password</Label>
+                      <div className="relative">
+                        <Input 
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="h-10 pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
                   <Button 
                     onClick={handleChangePassword}
                     disabled={saving || !currentPassword || !newPassword}
-                    className="w-full bg-primary hover:bg-primary/90"
+                    className="w-full gap-2"
                   >
-                    {saving ? 'Changing...' : 'Change Password'}
+                    {saving ? 'Changing...' : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        Change Password
+                      </>
+                    )}
                   </Button>
+                </CardContent>
+              </Card>
 
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Two-Factor Auth</p>
-                        <p className="text-xs text-muted-foreground">Extra security</p>
-                      </div>
-                      <Switch 
-                        checked={twoFactorEnabled}
-                        onCheckedChange={setTwoFactorEnabled}
-                      />
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Two-Factor Auth</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div>
+                      <p className="text-sm font-medium">Enable 2FA</p>
+                      <p className="text-xs text-muted-foreground">Extra security</p>
                     </div>
+                    <Switch 
+                      checked={twoFactorEnabled}
+                      onCheckedChange={setTwoFactorEnabled}
+                    />
                   </div>
                 </CardContent>
               </Card>

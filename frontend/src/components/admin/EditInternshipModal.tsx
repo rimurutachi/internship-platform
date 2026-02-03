@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { adminInternshipsAPI } from '@/lib/api/admin-internships';
+import { hoursApi } from '@/lib/api/hours';
 import type {
   InternshipWithRelations,
   InternshipUpdateInput,
   User,
 } from '@/lib/api/admin-internships';
+import type { ProgramHours, InternshipHoursSummary } from '@/types/hours';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +28,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Clock, Calendar, Info, TrendingUp } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface EditInternshipModalProps {
   open: boolean;
@@ -45,8 +48,13 @@ export function EditInternshipModal({
   const [loading, setLoading] = useState(false);
   const [advisors, setAdvisors] = useState<User[]>([]);
   const [supervisors, setSupervisors] = useState<User[]>([]);
+  
+  // Hours tracking state
+  const [programs, setPrograms] = useState<ProgramHours[]>([]);
+  const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
+  const [useCustomHours, setUseCustomHours] = useState(false);
 
-  const [formData, setFormData] = useState<InternshipUpdateInput>({
+  const [formData, setFormData] = useState<InternshipUpdateInput & { required_hours?: number; program_code?: string }>({
     position: internship.position,
     department: internship.department,
     advisor_id: internship.advisor_id || undefined,
@@ -54,11 +62,16 @@ export function EditInternshipModal({
     start_date: internship.start_date.split('T')[0],
     end_date: internship.end_date.split('T')[0],
     status: internship.status,
+    required_hours: (internship as any).required_hours || 240,
+    program_code: (internship as any).program_code || '',
   });
 
   // Reset form data when internship changes
   useEffect(() => {
     if (open) {
+      const existingRequiredHours = (internship as any).required_hours || 240;
+      const existingProgramCode = (internship as any).program_code || '';
+      
       setFormData({
         position: internship.position,
         department: internship.department,
@@ -67,9 +80,82 @@ export function EditInternshipModal({
         start_date: internship.start_date.split('T')[0],
         end_date: internship.end_date.split('T')[0],
         status: internship.status,
+        required_hours: existingRequiredHours,
+        program_code: existingProgramCode,
       });
+      
+      // Check if using custom hours (no program code or program not in list)
+      setUseCustomHours(!existingProgramCode);
+      
+      // Fetch hours summary
+      fetchHoursSummary();
+      fetchPrograms();
     }
   }, [open, internship]);
+
+  const fetchHoursSummary = async () => {
+    try {
+      const result = await hoursApi.getInternshipHoursSummary(internship.id);
+      if (result.success && result.data) {
+        setHoursSummary(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch hours summary:', error);
+    }
+  };
+
+  const fetchPrograms = async () => {
+    try {
+      const result = await hoursApi.getAllPrograms();
+      if (result.success && result.data) {
+        setPrograms(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch programs:', error);
+    }
+  };
+
+  // Calculate projected end date when start_date or required_hours changes
+  useEffect(() => {
+    if (formData.start_date && formData.required_hours && formData.required_hours > 0) {
+      const projectedEndDate = calculateProjectedEndDate(formData.start_date, formData.required_hours);
+      setFormData(prev => ({ ...prev, end_date: projectedEndDate }));
+    }
+  }, [formData.start_date, formData.required_hours]);
+
+  const calculateProjectedEndDate = (startDate: string, requiredHours: number): string => {
+    const HOURS_PER_DAY = 8;
+    const requiredDays = Math.ceil(requiredHours / HOURS_PER_DAY);
+    
+    const start = new Date(startDate);
+    let businessDaysAdded = 0;
+    const current = new Date(start);
+    
+    while (businessDaysAdded < requiredDays) {
+      current.setDate(current.getDate() + 1);
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        businessDaysAdded++;
+      }
+    }
+    
+    return current.toISOString().split('T')[0];
+  };
+
+  const handleProgramChange = (programCode: string) => {
+    if (programCode === 'custom') {
+      setUseCustomHours(true);
+      setFormData(prev => ({ ...prev, program_code: '' }));
+    } else {
+      const program = programs.find(p => p.program_code === programCode);
+      setUseCustomHours(false);
+      setFormData(prev => ({ 
+        ...prev, 
+        program_code: programCode,
+        required_hours: program?.required_hours || prev.required_hours 
+      }));
+    }
+  };
 
   // Fetch advisors and supervisors
   useEffect(() => {
@@ -113,10 +199,10 @@ export function EditInternshipModal({
     e.preventDefault();
 
     // Validation
-    if (new Date(formData.start_date!) >= new Date(formData.end_date!)) {
+    if (!formData.required_hours || formData.required_hours < 40) {
       toast({
         title: 'Validation Error',
-        description: 'Start date must be before end date',
+        description: 'Required hours must be at least 40',
         variant: 'destructive',
       });
       return;
@@ -273,18 +359,98 @@ export function EditInternshipModal({
                 required
               />
             </div>
+            
+            {/* Program / Required Hours Selection */}
             <div className="space-y-2">
-              <Label htmlFor="end_date">End Date *</Label>
-              <Input
-                id="end_date"
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              <Label htmlFor="program">Program / Required Hours *</Label>
+              <Select
+                value={useCustomHours ? 'custom' : (formData.program_code || 'custom')}
+                onValueChange={handleProgramChange}
                 disabled={loading}
-                required
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select program" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs.map((program) => (
+                    <SelectItem key={program.program_code} value={program.program_code}>
+                      {program.program_code} - {program.required_hours} hours
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom hours...</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* Custom Hours Input */}
+          {useCustomHours && (
+            <div className="space-y-2">
+              <Label htmlFor="required_hours">Required Hours *</Label>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="required_hours"
+                  type="number"
+                  min={40}
+                  max={2000}
+                  value={formData.required_hours || ''}
+                  onChange={(e) => setFormData({ ...formData, required_hours: parseInt(e.target.value) || 0 })}
+                  placeholder="e.g., 240, 486, 500"
+                  disabled={loading}
+                  required
+                />
+                <span className="text-sm text-muted-foreground">hours</span>
+              </div>
+            </div>
+          )}
+
+          {/* Current Progress Card */}
+          {hoursSummary && (
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Current Progress
+                </div>
+                <span className="text-sm font-semibold">
+                  {hoursSummary.progress_percentage.toFixed(1)}%
+                </span>
+              </div>
+              <Progress value={hoursSummary.progress_percentage} className="h-2" />
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Hours Worked:</span>
+                  <span className="ml-2 font-medium">{hoursSummary.total_hours_worked}h</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Required:</span>
+                  <span className="ml-2 font-medium">{hoursSummary.required_hours}h</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Remaining:</span>
+                  <span className="ml-2 font-medium">{hoursSummary.remaining_hours}h</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Weeks:</span>
+                  <span className="ml-2 font-medium">{hoursSummary.weeks_completed}</span>
+                </div>
+              </div>
+              {hoursSummary.projected_end_date && (
+                <div className="flex items-center gap-1 text-sm">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Projected End:</span>
+                  <span className="ml-1 font-medium">
+                    {new Date(hoursSummary.projected_end_date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status */}
           <div className="space-y-2">

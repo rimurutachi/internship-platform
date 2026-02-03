@@ -400,7 +400,6 @@ export default function AdminInternshipsPage() {
                       <TableHead>Supervisor</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -442,7 +441,6 @@ export default function AdminInternshipsPage() {
                           </div>
                         </TableCell>
                         <TableCell>{formatDate(internship.start_date)}</TableCell>
-                        <TableCell>{formatDate(internship.end_date)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button
@@ -528,10 +526,6 @@ export default function AdminInternshipsPage() {
                           <div>
                             <span className="text-muted-foreground">Start:</span>
                             <div className="font-medium">{formatDate(internship.start_date)}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">End:</span>
-                            <div className="font-medium">{formatDate(internship.end_date)}</div>
                           </div>
                         </div>
 

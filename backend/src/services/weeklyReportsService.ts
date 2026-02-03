@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import notificationService from './notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -182,20 +183,21 @@ export async function createWeeklyReport(
     if (supervisor?.supervisor_id) {
       console.log('📢 [WeeklyReportsService] Sending notification to supervisor:', supervisor.supervisor_id);
       
-      // Notify supervisor
-      await supabase.from('notifications').insert({
-        user_id: supervisor.supervisor_id,
-        type: 'weekly_report_submitted',
-        title: 'New Weekly Report',
-        message: `A student has submitted a weekly report for week ${week_number}`,
-        data: {
-          report_id: report.id,
-          internship_id,
-          week_number,
-        },
-      });
-      
-      console.log('✅ [WeeklyReportsService] Notification sent');
+      // Notify supervisor using notification service (triggers socket emit)
+      try {
+        await notificationService.createNotification({
+          user_id: supervisor.supervisor_id,
+          type: 'weekly_report_submitted',
+          title: 'New Weekly Report',
+          message: `A student has submitted a weekly report for week ${week_number}`,
+          action_url: `/dashboard/supervisor/weekly-reports/${report.id}`,
+          reference_type: 'weekly_report',
+        });
+        console.log('✅ [WeeklyReportsService] Notification sent');
+      } catch (notifError) {
+        console.error('⚠️ [WeeklyReportsService] Failed to send notification:', notifError);
+        // Don't fail the whole operation if notification fails
+      }
     }
 
     return {

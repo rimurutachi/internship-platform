@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../../middleware/auth';
 import studentController from '../../controllers/student/studentController';
 import weeklyReportsRoutes from './weeklyReports';
+import documentRequirementsRoutes from './documentRequirements';
 
 const router = Router();
 
@@ -25,13 +26,16 @@ router.get('/evaluations', studentController.getEvaluations);
 router.get('/evaluations/:id', studentController.getEvaluation);
 router.get('/skills-assessment', studentController.getSkillsAssessment);
 
-// Document routes
+// Document routes (existing document management)
 router.get('/documents/required', studentController.getRequiredDocuments); // Must be before /:id route
 router.get('/documents', studentController.getDocuments);
 router.post('/documents', studentController.uploadDocument);
 router.get('/documents/:id', studentController.getDocument);
 router.patch('/documents/:id', studentController.updateDocument);
 router.delete('/documents/:id', studentController.deleteDocument);
+
+// Document requirements routes (advisor-assigned requirements)
+router.use('/', documentRequirementsRoutes);
 
 // Message routes
 router.get('/messages/conversations', studentController.getConversations);

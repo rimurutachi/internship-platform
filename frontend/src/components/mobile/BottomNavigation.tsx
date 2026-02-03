@@ -67,8 +67,8 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
   const minWidth = itemCount <= 5 ? `${100 / itemCount}%` : 'auto';
 
   return (
-    <nav className="lg:hidden bg-background border-t border-border z-50 safe-area-inset-bottom shadow-lg">
-      <div className="flex h-16 overflow-x-auto scrollbar-hide">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+      <div className="flex h-14 sm:h-16 overflow-x-auto scrollbar-hide pb-safe">
         {navItems.map((item) => {
           // For Home/dashboard base path, only match exact path. For others, match exact or child paths
           const isBaseDashboard = item.path === '/dashboard/student' || 
@@ -85,16 +85,16 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
               key={item.path}
               href={item.path}
               className={cn(
-                'flex flex-col items-center justify-center space-y-1 transition-colors px-2 flex-1',
+                'flex flex-col items-center justify-center space-y-0.5 sm:space-y-1 transition-colors px-1 sm:px-2 flex-1 min-h-[44px]',
                 itemCount > 5 && 'min-w-[16.666%]',
                 isActive 
                   ? 'text-primary' 
-                  : 'text-muted-foreground hover:text-foreground'
+                  : 'text-muted-foreground hover:text-foreground active:bg-muted/50'
               )}
               style={itemCount <= 5 ? { minWidth } : undefined}
             >
-              <Icon className={cn('w-5 h-5', isActive && 'fill-primary/10')} />
-              <span className="text-xs font-medium whitespace-nowrap">{item.label}</span>
+              <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', isActive && 'fill-primary/10')} />
+              <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap truncate max-w-full">{item.label}</span>
             </Link>
           );
         })}
