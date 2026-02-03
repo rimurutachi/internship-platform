@@ -1,0 +1,66 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const evaluationController = __importStar(require("../controllers/evaluationController"));
+const router = (0, express_1.Router)();
+router.use(auth_1.authenticateToken);
+// Get evaluations with filters (must be before /:id)
+router.get('/', evaluationController.getEvaluations);
+// Get overdue evaluations (must be before /:id)
+router.get('/overdue', evaluationController.getOverdueEvaluations);
+// Get evaluation timeline for an internship (must be before /:id)
+router.get('/timeline/:internshipId', evaluationController.getEvaluationTimeline);
+// Get evaluation progress summary (must be before /:id)
+router.get('/progress/:internshipId', evaluationController.getEvaluationProgress);
+// Get evaluations by type for an internship (must be before /:id)
+router.get('/internship/:internshipId/type/:evaluationType', evaluationController.getEvaluationsByType);
+// NOTE: POST /analyze-draft route removed in v2.0.0
+// AI is now used only for historical trend analysis (admin analytics)
+// Create evaluation (supervisor)
+router.post('/', (0, auth_1.requireRole)(['supervisor']), evaluationController.createEvaluation);
+// Get evaluation
+router.get('/:id', evaluationController.getEvaluation);
+// Update evaluation (supervisor, draft only)
+router.put('/:id', (0, auth_1.requireRole)(['supervisor']), evaluationController.updateEvaluation);
+// Submit evaluation for AI Processing
+router.post('/:id/submit', (0, auth_1.requireRole)(['supervisor']), evaluationController.submitEvaluation);
+// Approve evaluation (advisor)
+router.post('/:id/approve', (0, auth_1.requireRole)(['advisor']), evaluationController.approveEvaluation);
+// Get evaluation for internship
+router.get('/internship/:internshipId', evaluationController.getInternshipEvaluations);
+exports.default = router;
+//# sourceMappingURL=evaluations.js.map

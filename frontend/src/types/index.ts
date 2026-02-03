@@ -1,65 +1,152 @@
-// Types
+/**
+ * User profile data structure
+ */
+export interface UserProfileData {
+  bio?: string;
+  skills?: string[];
+  experience?: string;
+  education?: string;
+  portfolio_url?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  avatar_url?: string;
+  preferences?: {
+    notifications?: boolean;
+    theme?: 'light' | 'dark';
+    language?: string;
+  };
+}
+
+/**
+ * Contact information structure
+ */
+export interface ContactInfo {
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    country?: string;
+  };
+  social_media?: {
+    linkedin?: string;
+    twitter?: string;
+    facebook?: string;
+  };
+}
+
+/**
+ * User entity
+ */
 export interface User {
-    id: string;
-    email: string;
-    role: 'student' | 'advisor' | 'supervisor' | 'admin';
-    first_name?: string;
-    last_name?: string;
-    university_id?: string;
-    company_id?: string;
-    profile_data?: any;
-    created_at?: string;
-    updated_at?: string;
+  id: string;
+  email: string;
+  role: 'student' | 'advisor' | 'supervisor' | 'admin';
+  first_name?: string;
+  last_name?: string;
+  university_id?: string;
+  company_id?: string;
+  profile_data?: UserProfileData;
+  contact_info?: ContactInfo;
+  created_at?: string;
+  updated_at?: string;
 }
 
+/**
+ * Notification entity
+ * @deprecated Use Notification from './api' instead
+ */
+export interface NotificationEntity {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  action_url?: string;
+  reference_id?: string;
+  reference_type?: string;
+  metadata?: any;
+  is_read: boolean;
+  read_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * University entity
+ */
 export interface University {
-    id: string;
-    name: string;
-    code?: string;
-    address?: string;
-    contact_info?: any;
-    created_at?: string;
+  id: string;
+  name: string;
+  code?: string;
+  address?: string;
+  contact_info?: ContactInfo;
+  created_at?: string;
 }
 
+/**
+ * Company entity
+ */
 export interface Company {
-    id: string;
-    name: string;
-    industry?: string;
-    address?: string;
-    contact_info?: any;
-    is_verified?: boolean;
-    created_at?: string;
+  id: string;
+  name: string;
+  industry?: string;
+  address?: string;
+  contact_info?: ContactInfo;
+  is_verified?: boolean;
+  created_at?: string;
 }
 
-// Component props
+/**
+ * Component props
+ */
 export interface LoginFormProps {
-    redirectTo?: string;
-    className?: string;
+  redirectTo?: string;
+  className?: string;
+  selectedRole?: 'student' | 'advisor' | 'supervisor' | 'admin';
 }
 
 export interface DashboardProps {
-    user: User;
+  user: User;
 }
 
-//Supabase specific types
+/**
+ * Supabase database types
+ */
 export interface Database {
-    public: {
-        Tables: {
-            users: {
-                Row: User;
-                Insert: Omit < User, 'id' | 'created_at' | 'updated_at'>;
-                Update: Partial < Omit < User, 'id' | 'created_at'>>;
-            };
-            universities: {
-                Row: University;
-                Insert: Omit < University, 'id' | 'created_at'>;
-                Update: Partial < Omit < University, 'id' | 'created_at'>>;
-            };
-            companies: {
-                Row: Company;
-                Insert: Omit < Company, 'id' | 'created_at'>;
-                Update: Partial < Omit < Company, 'id' | 'created_at'>>;
-            };
-        };
+  public: {
+    Tables: {
+      users: {
+        Row: User;
+        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<User, 'id' | 'created_at'>>;
+      };
+      universities: {
+        Row: University;
+        Insert: Omit<University, 'id' | 'created_at'>;
+        Update: Partial<Omit<University, 'id' | 'created_at'>>;
+      };
+      companies: {
+        Row: Company;
+        Insert: Omit<Company, 'id' | 'created_at'>;
+        Update: Partial<Omit<Company, 'id' | 'created_at'>>;
+      };
     };
+  };
 }
+
+// Re-export API types for convenience
+export type {
+  Internship,
+  Evaluation,
+  Conversation,
+  Message,
+  Notification,
+  Document,
+  CollaborationSession,
+  PaginatedResponse,
+  ListParams,
+} from './api';

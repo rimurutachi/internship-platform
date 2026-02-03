@@ -1,58 +1,237 @@
-import { Request, Response, NextFunction } from 'express';
-import { createClient } from '@supabase/supabase-js';
-import { error } from 'console';
+import { Request, Response, NextFunction } from "express";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import jwt from "jsonwebtoken";
 
-const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-);
+// Lazy-load Supabase client
+let supabaseClient: SupabaseClient | null = null;
+
+function getSupabaseClient(): SupabaseClient {
+  if (!supabaseClient) {
+    // Validate required environment variables (skip strict check in test environment)
+    if (
+      process.env.NODE_ENV !== "test" &&
+      (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)
+    ) {
+      throw new Error(
+        "Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_KEY"
+      );
+    }
+
+    supabaseClient = createClient(
+      process.env.SUPABASE_URL as string,
+      process.env.SUPABASE_SERVICE_KEY as string
+    );
+  }
+  return supabaseClient;
+}
 
 export interface AuthRequest extends Request {
-    user?: any;
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+  };
 }
 
+/**
+ * SECURITY: Test mode configuration
+ * - Only enabled when NODE_ENV=test AND ALLOW_TEST_MODE=true
+ * - TEST_USER_ROLE must be explicitly set (no default admin fallback)
+ * - Production deployment: Ensure ALLOW_TEST_MODE is NOT set or set to false
+ */
+const isTestModeAllowed = (): boolean => {
+  // Double-check: test mode requires BOTH conditions
+  if (process.env.NODE_ENV !== "test") return false;
+  if (process.env.ALLOW_TEST_MODE !== "true") return false;
+  return true;
+};
+
+/* Middleware for authentication and extract user info including its role. */
 export const authenticateToken = async (
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
 ) => {
-    try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-
-        if (!token) {
-            return res.status(401).json({ error: 'No Token Provided.'});
-        }
-
-        const { data: { user}, error } = await supabase.auth.getUser(token);
-
-        if(error || !user) {
-            return res.status(401).json({ error: 'Invalid Token.'});
-        }
-
-        req.user = user;
-        next();
-    } catch (error) {
-        res.status(401).json({ error: 'Authentication Failed, try again.'})
+  // SECURITY: Test mode with strict guards (requires explicit ALLOW_TEST_MODE=true)
+  if (isTestModeAllowed()) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        error: "No token provided",
+        message: "Authorization header with Bearer token is required",
+      });
     }
-}
+    
+    // SECURITY: TEST_USER_ROLE must be explicitly configured - no default admin fallback
+    const testRole = process.env.TEST_USER_ROLE;
+    if (!testRole) {
+      console.error("🔴 SECURITY: Test mode enabled but TEST_USER_ROLE not configured");
+      return res.status(500).json({
+        error: "Test configuration error",
+        message: "TEST_USER_ROLE environment variable must be explicitly set",
+      });
+    }
+    
+    console.warn("⚠️ TEST MODE: Using mock authentication for user with role:", testRole);
+    req.user = {
+      id: "test-user",
+      email: "test@example.com",
+      role: testRole,
+    };
+    return next();
+  }
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        error: "No token provided",
+        message: "Authorization header with Bearer token is required",
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+
+    // Verify token with Supabase
+    const supabase = getSupabaseClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({
+        error: "Invalid token",
+        message: "Token is invalid or expired",
+      });
+    }
+
+    // Decode JWT to extract app_metadata
+    const decoded: any = jwt.decode(token);
+
+    if (!decoded) {
+      return res.status(401).json({
+        error: "Invalid token.",
+        message: "Token decoded failed.",
+      });
+    }
+
+    // Extract role from app_metadata
+    const role = decoded.app_metadata?.role || decoded.user_metadata?.role;
+
+    if (!role) {
+      // IF no role in JWT, fetch from database as fallback
+      const supabase = getSupabaseClient();
+      const { data: userProfile, error: profileError } = await supabase
+        .from("users")
+        .select("role, status")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        return res.status(403).json({
+          error: "Access denied.",
+          message: "User role not found.",
+        });
+      }
+
+      // Check if user is suspended or inactive
+      if (userProfile.status === 'suspended') {
+        return res.status(403).json({
+          error: "Account Suspended",
+          message: "Your account has been suspended. Please contact support.",
+        });
+      }
+
+      if (userProfile.status === 'inactive') {
+        return res.status(403).json({
+          error: "Account Inactive",
+          message: "Your account is inactive. Please contact support.",
+        });
+      }
+
+      req.user = {
+        id: user.id,
+        email: user.email || "",
+        role: userProfile.role,
+      };
+    } else {
+      // Even if role exists in JWT, check status from database
+      const supabase = getSupabaseClient();
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select("status")
+        .eq("id", user.id)
+        .single();
+
+      if (userProfile) {
+        if (userProfile.status === 'suspended') {
+          return res.status(403).json({
+            error: "Account Suspended",
+            message: "Your account has been suspended. Please contact support.",
+          });
+        }
+
+        if (userProfile.status === 'inactive') {
+          return res.status(403).json({
+            error: "Account Inactive",
+            message: "Your account is inactive. Please contact support.",
+          });
+        }
+      }
+
+      // Attach user info with role from JWT.
+      req.user = {
+        id: user.id,
+        email: user.email || "",
+        role: role,
+      };
+    }
+
+    next();
+  } catch (error) {
+    console.error("Authentication error:", error);
+    return res.status(401).json({
+      error: "Authentication failed",
+      message: "Unable to verify authentication",
+    });
+  }
+};
 
 // Role-based Authentication
 export const requireRole = (roles: string[]) => {
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
-        try {
-            const { data: userProfile } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', req.user.id)
-            .single();
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({
+          error: "User not authenticated",
+          message: "Please authenticate first",
+        });
+      }
 
-        if (!userProfile || !roles.includes(userProfile.role)) {
-            return res.status(403).json({ error: 'Insufficient permissions, sorry!'});
-        }
+      const userRole = req.user.role;
 
-        next();
-        } catch (error) {
-            res.status(500).json({ error: 'Authorization Failed.'});
-        }
-    };
+      if (!userRole) {
+        return res.status(404).json({
+          error: "Access denied.",
+          message: "User not found.",
+        });
+      }
+
+      if (!roles.includes(userRole)) {
+        return res.status(403).json({
+          error: "Insufficient permissions",
+          message: `Access denied. Required roles: ${roles.join(", ")}`,
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Authorization error:", error);
+      return res.status(500).json({
+        error: "Authorization failed",
+        message: "Unable to verify user permissions",
+      });
+    }
+  };
 };
