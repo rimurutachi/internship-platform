@@ -80,25 +80,20 @@ app.use("/api/collaboration", collaborationRoutes);
 // Websocket Setup
 setupWebSocket(io);
 
-// Start Servers
+// Start Server (unified port for HTTP + WebSocket)
 const PORT = env.PORT;
-const WS_PORT = env.WEBSOCKET_PORT;
 
-// Use single port for everything (Socket.io + HTTP API)
-// Note: Using same port for both to avoid browser unsafe port blocking
-const SERVER_PORT = WS_PORT || PORT;
-
-server.listen(SERVER_PORT, () => {
-  console.log(`🟢 Socket.io + HTTP server running on port ${SERVER_PORT}`);
-  console.log(`   - WebSocket: ws://localhost:${SERVER_PORT}`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/documents`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/blockchain`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/signatures`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/access`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/workflows`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/templates`);
-  console.log(`   - HTTP API: http://localhost:${SERVER_PORT}/api/collaboration`);
-  console.log(`   - Health: http://localhost:${SERVER_PORT}/health`);
+server.listen(PORT, () => {
+  console.log(`🟢 Socket.io + HTTP server running on port ${PORT}`);
+  console.log(`   - WebSocket: ws://localhost:${PORT}`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/documents`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/blockchain`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/signatures`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/access`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/workflows`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/templates`);
+  console.log(`   - HTTP API: http://localhost:${PORT}/api/collaboration`);
+  console.log(`   - Health: http://localhost:${PORT}/health`);
 });
 
 export { app, io, server };
