@@ -223,7 +223,7 @@ const StudentDashboard = () => {
                     releaseDate={dashboardData.internship?.end_date}
                     disabledReason={finalAvailable.reason}
                   />
-                  <TasksCard />
+                  <TasksCard internshipId={dashboardData.internship?.id} />
                 </div>
               </div>
               
@@ -282,7 +282,7 @@ const StudentDashboard = () => {
             releaseDate={dashboardData.internship?.end_date}
             disabledReason={finalAvailable.reason}
           />
-          <TasksCard />
+          <TasksCard internshipId={dashboardData.internship?.id} />
         </div>
 
         {/* Bottom Navigation */}

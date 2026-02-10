@@ -366,20 +366,84 @@ export const studentAPI = {
   // ============ Task APIs ============
 
   /**
-   * Get tasks
+   * Get tasks with optional filters
    */
-  getTasks: async (status?: string) => {
-    const query = status ? `?status=${status}` : '';
-    return apiCall<{ tasks: any[] }>(`/student/tasks${query}`);
+  getTasks: async (filters?: {
+    status?: 'pending' | 'in_progress' | 'completed' | 'all';
+    priority?: 'low' | 'medium' | 'high';
+    internship_id?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.priority) params.append('priority', filters.priority);
+    if (filters?.internship_id) params.append('internship_id', filters.internship_id);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiCall<{ tasks: any[]; stats: { total: number; pending: number; in_progress: number; completed: number } }>(`/student/tasks${query}`);
+  },
+
+  /**
+   * Get task statistics for dashboard widget
+   */
+  getTaskStats: async (internshipId?: string) => {
+    const query = internshipId ? `?internship_id=${internshipId}` : '';
+    return apiCall<{ total: number; pending: number; in_progress: number; completed: number }>(`/student/tasks/stats${query}`);
+  },
+
+  /**
+   * Get single task by ID
+   */
+  getTaskById: async (id: string) => {
+    return apiCall<any>(`/student/tasks/${id}`);
+  },
+
+  /**
+   * Create a new task
+   */
+  createTask: async (data: {
+    internship_id: string;
+    title: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high';
+    due_date?: string;
+  }) => {
+    return apiCall<any>('/student/tasks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
    * Update task
    */
-  updateTask: async (id: string, data: { status?: string; notes?: string }) => {
-    return apiCall<{ task: any; message: string }>(`/student/tasks/${id}`, {
+  updateTask: async (id: string, data: {
+    title?: string;
+    description?: string;
+    priority?: 'low' | 'medium' | 'high';
+    status?: 'pending' | 'in_progress' | 'completed';
+    due_date?: string | null;
+  }) => {
+    return apiCall<any>(`/student/tasks/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete task
+   */
+  deleteTask: async (id: string) => {
+    return apiCall<{ message: string }>(`/student/tasks/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Bulk update task statuses
+   */
+  bulkUpdateTaskStatus: async (taskIds: string[], status: 'pending' | 'in_progress' | 'completed') => {
+    return apiCall<{ updated: number }>('/student/tasks/bulk-status', {
+      method: 'POST',
+      body: JSON.stringify({ task_ids: taskIds, status }),
     });
   },
 

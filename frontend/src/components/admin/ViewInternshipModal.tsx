@@ -8,6 +8,7 @@ import type {
   ActivityLogEntry,
 } from '@/lib/api/admin-internships';
 import type { InternshipHoursSummary, WeeklyHoursBreakdown } from '@/types/hours';
+import { createSupabaseClient } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+interface WeeklyReport {
+  id: string;
+  week_number: number;
+  week_start_date: string;
+  week_end_date: string;
+  hours_rendered: number;
+}
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,6 +51,7 @@ export function ViewInternshipModal({
   // Hours tracking state
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
   const [weeklyBreakdown, setWeeklyBreakdown] = useState<WeeklyHoursBreakdown[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
 
   useEffect(() => {
     if (open && internshipId) {
@@ -69,16 +79,58 @@ export function ViewInternshipModal({
 
   const fetchHoursData = async () => {
     try {
-      const [summaryResult, breakdownResult] = await Promise.all([
+      const supabase = createSupabaseClient();
+      
+      console.log('🔵 [Admin Hours Data] Fetching for internship:', internshipId);
+      
+      const [summaryResult, breakdownResult, reportsResult] = await Promise.all([
         hoursApi.getInternshipHoursSummary(internshipId),
         hoursApi.getWeeklyHoursBreakdown(internshipId),
+        supabase
+          .from('student_weekly_accomplishments')
+          .select('id, week_number, hours_rendered, internship_id, created_at')
+          .eq('internship_id', internshipId)
+          .order('week_number', { ascending: true })
       ]);
+      
+      console.log('🔵 [Admin Weekly Reports] Query result:', {
+        data: reportsResult.data,
+        error: reportsResult.error,
+        count: reportsResult.data?.length || 0
+      });
+      
+      console.log('🔵 [Admin Weekly Breakdown] Hours API result:', {
+        data: breakdownResult.data,
+        count: breakdownResult.data?.length || 0
+      });
       
       if (summaryResult.success && summaryResult.data) {
         setHoursSummary(summaryResult.data);
       }
       if (breakdownResult.success && breakdownResult.data) {
         setWeeklyBreakdown(breakdownResult.data);
+      }
+      if (reportsResult.data && internship) {
+        // Compute week dates based on internship start_date
+        const startDate = new Date(internship.start_date);
+        const reportsWithDates = reportsResult.data.map(report => {
+          const weekStart = new Date(startDate);
+          weekStart.setDate(weekStart.getDate() + (report.week_number - 1) * 7);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          
+          return {
+            ...report,
+            week_start_date: weekStart.toISOString(),
+            week_end_date: weekEnd.toISOString()
+          };
+        });
+        
+        console.log('✅ [Admin Weekly Reports] Setting weekly reports with computed dates:', reportsWithDates);
+        setWeeklyReports(reportsWithDates);
+      }
+      if (reportsResult.error) {
+        console.error('❌ [Admin Weekly Reports] Supabase error:', reportsResult.error);
       }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
@@ -373,29 +425,34 @@ export function ViewInternshipModal({
                   <p className="text-sm text-muted-foreground">No weekly reports submitted yet</p>
                 ) : (
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {weeklyBreakdown.map((week) => (
-                      <div 
-                        key={week.week_number}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline">Week {week.week_number}</Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {new Date(week.week_start_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })} - {new Date(week.week_end_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </span>
+                    {weeklyBreakdown.map((week) => {
+                      const report = weeklyReports.find(r => r.week_number === week.week_number);
+                      return (
+                        <div 
+                          key={week.week_number}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline">Week {week.week_number}</Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {report ? (
+                                `${new Date(report.week_start_date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })} - ${new Date(report.week_end_date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}`
+                              ) : 'Date TBD'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{week.hours_rendered}h</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{week.hours_rendered}h</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
