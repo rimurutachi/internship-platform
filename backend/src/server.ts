@@ -23,6 +23,7 @@ import supervisorRoutes from "./routes/supervisor";
 import publicRoutes from "./routes/public";
 import hoursRoutes from "./routes/hours";
 import { startArchiveJob } from "./jobs/archiveJob";
+import { startAIServiceKeepAlive } from "./jobs/aiServiceKeepAlive";
 
 const app = express();
 
@@ -302,6 +303,9 @@ if (process.env.NODE_ENV !== "test") {
     // Start archive job (runs every hour)
     startArchiveJob();
     console.log("✅ Archive job scheduler started");
+    
+    // Start AI service keep-alive (runs every 10 minutes to prevent Render shutdown)
+    startAIServiceKeepAlive();
   });
 }
 
