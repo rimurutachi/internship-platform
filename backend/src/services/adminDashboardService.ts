@@ -43,8 +43,7 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
     const { data: studentsWithInternships, error: internshipsForStudentsError } = await supabase
       .from('internships')
       .select('student_id')
-      .eq('status', 'active')
-      .or('status.eq.ongoing');
+      .in('status', ['active', 'ongoing']);
 
     if (internshipsForStudentsError) {
       console.error('[adminDashboard] studentsWithInternships query error', internshipsForStudentsError);

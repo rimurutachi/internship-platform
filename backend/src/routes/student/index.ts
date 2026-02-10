@@ -3,6 +3,7 @@ import { authenticateToken, requireRole } from '../../middleware/auth';
 import studentController from '../../controllers/student/studentController';
 import weeklyReportsRoutes from './weeklyReports';
 import documentRequirementsRoutes from './documentRequirements';
+import tasksRoutes from './tasks';
 
 const router = Router();
 
@@ -54,9 +55,8 @@ router.patch('/notifications/read-all', studentController.markAllNotificationsRe
 router.get('/mentors', studentController.getMentors);
 router.post('/mentors/:id/message', studentController.messageMentor);
 
-// Task routes
-router.get('/tasks', studentController.getTasks);
-router.patch('/tasks/:id', studentController.updateTask);
+// Task routes (new dedicated task management)
+router.use('/', tasksRoutes);
 
 // Weekly reports routes
 router.use('/', weeklyReportsRoutes);

@@ -176,17 +176,8 @@ export interface StudentNotification {
   reference_id?: string;
 }
 
-export interface StudentTask {
-  id: string;
-  title: string;
-  description?: string;
-  due_date?: string;
-  status: 'pending' | 'completed' | 'overdue';
-  priority: 'low' | 'medium' | 'high';
-  completed_date?: string;
-  assigned_by?: string;
-  created_at: string;
-}
+// Note: StudentTask is now defined later in this file with the new schema
+// Old interface removed to avoid duplicate declarations
 
 export interface StudentReminder {
   id: string;
@@ -283,3 +274,57 @@ export interface ConversationMessagesResponse {
   messages: StudentMessage[];
   pagination: MessagePagination;
 }
+
+// ============ Task Types ============
+
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface StudentTask {
+  id: string;
+  student_id: string;
+  internship_id: string;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskStats {
+  total: number;
+  pending: number;
+  in_progress: number;
+  completed: number;
+}
+
+export interface CreateTaskData {
+  internship_id: string;
+  title: string;
+  description?: string;
+  priority?: TaskPriority;
+  due_date?: string;
+}
+
+export interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  priority?: TaskPriority;
+  status?: TaskStatus;
+  due_date?: string | null;
+}
+
+export interface TaskFilters {
+  status?: TaskStatus | 'all';
+  priority?: TaskPriority;
+  internship_id?: string;
+}
+
+export interface TasksResponse {
+  tasks: StudentTask[];
+  stats: TaskStats;
+}
+

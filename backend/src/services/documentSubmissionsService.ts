@@ -539,6 +539,123 @@ export class DocumentSubmissionsService {
 
     return false;
   }
+
+  /**
+   * Generate a signed URL for a submission file using service key (bypasses RLS)
+   * Tries multiple path variations to handle legacy data
+   */
+  async getSignedUrlForSubmission(
+    submissionId: string,
+    userId: string,
+    role: 'student' | 'advisor'
+  ): Promise<{ signedUrl: string; expiresIn: number }> {
+    // Get the submission first
+    const { data: submission, error: fetchError } = await supabase
+      .from('document_submissions')
+      .select(`
+        id, file_url, student_id, requirement_id,
+        requirement:document_requirements!inner(id, created_by)
+      `)
+      .eq('id', submissionId)
+      .single();
+
+    if (fetchError || !submission) {
+      throw new Error('Submission not found');
+    }
+
+    // Authorization check
+    if (role === 'student' && submission.student_id !== userId) {
+      throw new Error('Access denied: you can only access your own submissions');
+    }
+
+    if (role === 'advisor') {
+      const requirement = submission.requirement as any;
+      if (requirement?.created_by !== userId) {
+        throw new Error('Access denied: you can only access submissions for your requirements');
+      }
+    }
+
+    const fileUrl = submission.file_url;
+    console.log(`📁 Generating signed URL for submission ${submissionId}, file: ${fileUrl}`);
+
+    // Generate possible paths to try
+    const pathsToTry: string[] = [];
+    
+    // Extract path from URL if it's a full URL
+    let basePath = fileUrl;
+    if (fileUrl.startsWith('http')) {
+      try {
+        const url = new URL(fileUrl);
+        const pathMatch = url.pathname.match(/\/(?:object\/(?:public|sign)\/)?documents\/(.+)$/);
+        if (pathMatch) {
+          basePath = pathMatch[1];
+        }
+      } catch {
+        // Keep basePath as fileUrl
+      }
+    }
+    
+    // Decode URL-encoded characters
+    try {
+      basePath = decodeURIComponent(basePath);
+    } catch {
+      // Keep as-is if decoding fails
+    }
+    
+    // 1. Original path
+    pathsToTry.push(basePath);
+    
+    // 2. Without document-submissions prefix
+    if (basePath.startsWith('document-submissions/')) {
+      const withoutPrefix = basePath.replace('document-submissions/', '');
+      pathsToTry.push(withoutPrefix);
+      
+      // 3. Swap first two path components (student_id/requirement_id -> requirement_id/student_id)
+      const parts = withoutPrefix.split('/');
+      if (parts.length >= 3) {
+        const swapped = [parts[1], parts[0], ...parts.slice(2)].join('/');
+        pathsToTry.push(swapped);
+      }
+    }
+    
+    // 4. Try using submission metadata (student_id/requirement_id/filename)
+    if (submission.student_id && submission.requirement_id && fileUrl.includes('/')) {
+      const fileName = fileUrl.split('/').pop() || '';
+      if (fileName) {
+        // New format: student_id/requirement_id/filename
+        pathsToTry.push(`${submission.student_id}/${submission.requirement_id}/${fileName}`);
+        // Old format variation: requirement_id/student_id/filename
+        pathsToTry.push(`${submission.requirement_id}/${submission.student_id}/${fileName}`);
+      }
+    }
+    
+    // Remove duplicates
+    const uniquePaths = [...new Set(pathsToTry)];
+    
+    // Try each path
+    for (const pathToTry of uniquePaths) {
+      console.log(`🔄 Trying path: ${pathToTry}`);
+      try {
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(pathToTry, 3600); // 1 hour validity
+        
+        if (!error && data) {
+          console.log(`✅ Successfully generated signed URL with path: ${pathToTry}`);
+          return { signedUrl: data.signedUrl, expiresIn: 3600 };
+        }
+        
+        if (error && !error.message.includes('not found')) {
+          console.error(`❌ Non-recoverable error for path ${pathToTry}:`, error.message);
+        }
+      } catch (e) {
+        console.error(`❌ Exception for path ${pathToTry}:`, e);
+      }
+    }
+    
+    console.error(`❌ All path variations failed for submission ${submissionId}`);
+    throw new Error('Could not generate signed URL: file not found in storage');
+  }
 }
 
 // Export singleton instance

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, Building2, FileText, ClipboardCheck, AlertCircle, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, GraduationCap, Briefcase } from "lucide-react";
+import { Users, Building2, FileText, ClipboardCheck, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, GraduationCap, Briefcase, Sparkles, ArrowUpRight, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -203,238 +203,262 @@ export function AdminAnalyticsOJT() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Last Updated and Refresh Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-foreground">OJT Platform Overview</h2>
-          {lastUpdated && (
-            <p className="text-muted-foreground mt-1">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </p>
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4 mr-2" />
-          )}
-          Refresh
-        </Button>
-      </div>
-
-      {/* Key OJT Metrics - Students & Internships */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <GraduationCap className="w-5 h-5 text-primary" />
-          Student Enrollment & Deployment
-        </h3>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="hover:shadow-hover transition-shadow border-l-4 border-l-blue-500">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">{metrics?.students_enrolled || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Students Enrolled</p>
-                </div>
-                <Users className="w-8 h-8 text-blue-500" />
+    <div className="space-y-8">
+      {/* Modern Header with Gradient Background */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 border">
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
+        <div className="relative flex justify-between items-start">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-hover transition-shadow border-l-4 border-l-amber-500">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">{metrics?.students_pending_deployment || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Pending Deployment</p>
-                </div>
-                <Clock className="w-8 h-8 text-amber-500" />
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">OJT Platform Overview</h2>
+                {lastUpdated && (
+                  <p className="text-sm text-muted-foreground">
+                    Last updated: {lastUpdated.toLocaleTimeString()}
+                  </p>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-hover transition-shadow border-l-4 border-l-green-500">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">{metrics?.active_internships || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Active Internships</p>
-                </div>
-                <Briefcase className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-hover transition-shadow border-l-4 border-l-purple-500">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">{metrics?.completed_internships || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Completed This Year</p>
-                </div>
-                <CheckCircle2 className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="bg-background/50 backdrop-blur-sm hover:bg-background"
+          >
+            {refreshing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Refresh
+          </Button>
         </div>
       </div>
 
-      {/* Company Metrics */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-primary" />
-          Company Partner Statistics
-        </h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card className="hover:shadow-hover transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">{metrics?.total_companies || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Total Partner Companies</p>
-                  <p className="text-xs text-muted-foreground mt-2">Active partnerships for internship placement</p>
-                </div>
-                <Building2 className="w-10 h-10 text-primary" />
+      {/* Key Metrics - Modern Grid with Subtle Animations */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-blue-500/10 to-blue-500/5 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-16 h-16 bg-blue-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform" />
+          <CardContent className="pt-6 pb-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Students Enrolled</p>
+                <p className="text-3xl font-bold text-foreground">{metrics?.students_enrolled || 0}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card className="hover:shadow-hover transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-3xl font-bold text-foreground">{metrics?.companies_with_capacity || 0}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Companies with Available Slots</p>
-                  <p className="text-xs text-muted-foreground mt-2">Ready to accept new interns</p>
-                </div>
-                <TrendingUp className="w-10 h-10 text-green-500" />
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-amber-500/10 to-amber-500/5 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-16 h-16 bg-amber-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform" />
+          <CardContent className="pt-6 pb-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Pending Deployment</p>
+                <p className="text-3xl font-bold text-foreground">{metrics?.students_pending_deployment || 0}</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-green-500/10 to-green-500/5 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-16 h-16 bg-green-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform" />
+          <CardContent className="pt-6 pb-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Active Internships</p>
+                <p className="text-3xl font-bold text-foreground">{metrics?.active_internships || 0}</p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <Briefcase className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-purple-500/10 to-purple-500/5 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-16 h-16 bg-purple-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform" />
+          <CardContent className="pt-6 pb-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Completed This Year</p>
+                <p className="text-3xl font-bold text-foreground">{metrics?.completed_internships || 0}</p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Workflow Status - Reports & Evaluations */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <ClipboardCheck className="w-5 h-5 text-primary" />
-          Pending Workflow Items
-        </h3>
-        <div className="grid md:grid-cols-3 gap-4">
-          <Card className="hover:shadow-hover transition-shadow">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <FileText className="w-10 h-10 mx-auto mb-3 text-amber-500" />
-                <p className="text-3xl font-bold text-foreground">{metrics?.pending_weekly_reports || 0}</p>
-                <p className="text-sm text-muted-foreground mt-1">Weekly Reports</p>
-                <p className="text-xs text-muted-foreground mt-2">Awaiting supervisor approval</p>
+      {/* Two Column Layout - Partners & Workflow */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Company Partners Card */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Building2 className="w-4 h-4 text-primary" />
+                </div>
+                <CardTitle className="text-lg">Company Partners</CardTitle>
               </div>
-            </CardContent>
-          </Card>
+              <Link href="/dashboard/admin/companies">
+                <Button variant="ghost" size="sm" className="text-xs gap-1">
+                  View All <ArrowUpRight className="w-3 h-3" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-muted/50">
+                <p className="text-3xl font-bold text-foreground">{metrics?.total_companies || 0}</p>
+                <p className="text-sm text-muted-foreground mt-1">Total Partners</p>
+              </div>
+              <div className="p-4 rounded-xl bg-green-500/10">
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">{metrics?.companies_with_capacity || 0}</p>
+                <p className="text-sm text-muted-foreground mt-1">Available Slots</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card className="hover:shadow-hover transition-shadow">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <ClipboardCheck className="w-10 h-10 mx-auto mb-3 text-orange-500" />
-                <p className="text-3xl font-bold text-foreground">{metrics?.pending_supervisor_evaluations || 0}</p>
-                <p className="text-sm text-muted-foreground mt-1">Supervisor Evaluations</p>
-                <p className="text-xs text-muted-foreground mt-2">Pending submission</p>
+        {/* Pending Workflow Card */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <ClipboardCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <CardTitle className="text-lg">Pending Approvals</CardTitle>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-hover transition-shadow">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-blue-500" />
-                <p className="text-3xl font-bold text-foreground">{metrics?.pending_advisor_evaluations || 0}</p>
-                <p className="text-sm text-muted-foreground mt-1">Advisor Reviews</p>
-                <p className="text-xs text-muted-foreground mt-2">Awaiting final approval</p>
+              <Link href="/dashboard/admin/evaluations">
+                <Button variant="ghost" size="sm" className="text-xs gap-1">
+                  Manage <ArrowUpRight className="w-3 h-3" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-medium">Weekly Reports</span>
+                </div>
+                <Badge variant={((metrics?.pending_weekly_reports || 0) > 0) ? "destructive" : "secondary"} className="font-bold">
+                  {metrics?.pending_weekly_reports || 0}
+                </Badge>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                <div className="flex items-center gap-3">
+                  <ClipboardCheck className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm font-medium">Supervisor Evaluations</span>
+                </div>
+                <Badge variant={((metrics?.pending_supervisor_evaluations || 0) > 0) ? "destructive" : "secondary"} className="font-bold">
+                  {metrics?.pending_supervisor_evaluations || 0}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Recent Activity Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>This Week's Activity</CardTitle>
-          <CardDescription>Overview of recent submissions and completions</CardDescription>
+      {/* This Week's Activity - Compact Modern Stats */}
+      <Card className="border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-2 bg-gradient-to-r from-primary/5 to-transparent">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">This Week's Activity</CardTitle>
+              <CardDescription>Overview of recent submissions and completions</CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
-              <p className="text-4xl font-bold text-green-600 dark:text-green-400">{recentActivity.weekly_reports_this_week}</p>
-              <p className="text-sm text-muted-foreground mt-2">Weekly Reports Submitted</p>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 rounded-xl bg-green-500/5 border border-green-500/10">
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{recentActivity.weekly_reports_this_week}</p>
+              <p className="text-xs text-muted-foreground mt-1">Weekly Reports</p>
             </div>
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-              <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{recentActivity.evaluations_this_week}</p>
-              <p className="text-sm text-muted-foreground mt-2">Evaluations Completed</p>
+            <div className="text-center p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
+              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{recentActivity.evaluations_this_week}</p>
+              <p className="text-xs text-muted-foreground mt-1">Evaluations</p>
             </div>
-            <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
-              <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">{metrics?.completed_evaluations_this_month || 0}</p>
-              <p className="text-sm text-muted-foreground mt-2">Evaluations This Month</p>
+            <div className="text-center p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
+              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{metrics?.completed_evaluations_this_month || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Monthly Total</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* AI Insights from Historical Evaluations */}
+      {/* AI Insights - Modern Condensed View */}
       {insights.length > 0 && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              AI-Generated Insights
-            </CardTitle>
-            <CardDescription>
-              Historical evaluation analytics and trends (Post-approval analytics only)
-            </CardDescription>
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <CardHeader className="pb-2 bg-gradient-to-r from-violet-500/5 to-transparent">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">AI-Generated Insights</CardTitle>
+                  <CardDescription>Historical evaluation analytics</CardDescription>
+                </div>
+              </div>
+              <Link href="/dashboard/admin/reports">
+                <Button variant="outline" size="sm" className="text-xs gap-1">
+                  View Details <ArrowUpRight className="w-3 h-3" />
+                </Button>
+              </Link>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {insights.map((insight, index) => (
-                <Alert key={index} className="bg-primary/5 border-primary/20">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  <AlertDescription className="text-sm">
-                    <span className="font-medium">{insight.message}</span>
-                    {insight.type === 'trend' && (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        Trend
-                      </Badge>
-                    )}
-                  </AlertDescription>
-                </Alert>
+          <CardContent className="pt-4">
+            <div className="space-y-2">
+              {insights.slice(0, 3).map((insight, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-violet-500/5 border border-violet-500/10">
+                  <TrendingUp className="h-4 w-4 text-violet-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{insight.message}</p>
+                </div>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground mt-4 italic">
-              * Insights generated from approved evaluations only. AI does not influence evaluation scoring.
+            <p className="text-xs text-muted-foreground mt-4 text-center italic">
+              Insights generated from approved evaluations only
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* CBSU Branding Footer */}
-      <div className="text-center py-4 border-t">
-        <p className="text-sm text-muted-foreground">
-          Cavite State University - Bacoor Campus
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          On-the-Job Training Management Platform
+      {/* CBSU Branding Footer - Minimal */}
+      <div className="text-center py-3">
+        <p className="text-xs text-muted-foreground">
+          Cavite State University - Bacoor Campus • OJT Management Platform
         </p>
       </div>
     </div>

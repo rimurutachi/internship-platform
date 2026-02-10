@@ -11,10 +11,18 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { createSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { hoursApi } from '@/lib/api/hours';
 import type { InternshipHoursSummary, WeeklyHoursBreakdown } from '@/types/hours';
+import { createSupabaseClient } from '@/lib/supabase';
+
+interface WeeklyReport {
+  id: string;
+  week_number: number;
+  week_start_date: string;
+  week_end_date: string;
+  hours_rendered: number;
+}
 
 interface InternshipData {
   id: string;
@@ -47,6 +55,7 @@ export default function CurrentInternship() {
   // Hours tracking state
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
   const [weeklyBreakdown, setWeeklyBreakdown] = useState<WeeklyHoursBreakdown[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
 
   useEffect(() => {
     loadInternshipData();
@@ -54,16 +63,58 @@ export default function CurrentInternship() {
 
   const fetchHoursData = async (internshipId: string) => {
     try {
-      const [summaryResult, breakdownResult] = await Promise.all([
+      const supabase = createSupabaseClient();
+      
+      console.log('🔵 [Hours Data] Fetching for internship:', internshipId);
+      
+      const [summaryResult, breakdownResult, reportsResult] = await Promise.all([
         hoursApi.getInternshipHoursSummary(internshipId),
         hoursApi.getWeeklyHoursBreakdown(internshipId),
+        supabase
+          .from('student_weekly_accomplishments')
+          .select('id, week_number, hours_rendered, internship_id, created_at')
+          .eq('internship_id', internshipId)
+          .order('week_number', { ascending: true })
       ]);
+      
+      console.log('🔵 [Weekly Reports] Query result:', {
+        data: reportsResult.data,
+        error: reportsResult.error,
+        count: reportsResult.data?.length || 0
+      });
+      
+      console.log('🔵 [Weekly Breakdown] Hours API result:', {
+        data: breakdownResult.data,
+        count: breakdownResult.data?.length || 0
+      });
       
       if (summaryResult.success && summaryResult.data) {
         setHoursSummary(summaryResult.data);
       }
       if (breakdownResult.success && breakdownResult.data) {
         setWeeklyBreakdown(breakdownResult.data);
+      }
+      if (reportsResult.data && internship) {
+        // Compute week dates based on internship start_date
+        const startDate = new Date(internship.startDate);
+        const reportsWithDates = reportsResult.data.map(report => {
+          const weekStart = new Date(startDate);
+          weekStart.setDate(weekStart.getDate() + (report.week_number - 1) * 7);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          
+          return {
+            ...report,
+            week_start_date: weekStart.toISOString(),
+            week_end_date: weekEnd.toISOString()
+          };
+        });
+        
+        console.log('✅ [Weekly Reports] Setting weekly reports with computed dates:', reportsWithDates);
+        setWeeklyReports(reportsWithDates);
+      }
+      if (reportsResult.error) {
+        console.error('❌ [Weekly Reports] Supabase error:', reportsResult.error);
       }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
@@ -389,29 +440,34 @@ export default function CurrentInternship() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {weeklyBreakdown.map((week) => (
-                <div 
-                  key={week.week_number}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-muted/50"
-                >
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline" className="text-base px-3 py-1">Week {week.week_number}</Badge>
-                    <span className="text-muted-foreground">
-                      {new Date(week.week_start_date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })} - {new Date(week.week_end_date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
+              {weeklyBreakdown.map((week) => {
+                const report = weeklyReports.find(r => r.week_number === week.week_number);
+                return (
+                  <div 
+                    key={week.week_number}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-muted/50"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline" className="text-base px-3 py-1">Week {week.week_number}</Badge>
+                      <span className="text-muted-foreground">
+                        {report ? (
+                          `${new Date(report.week_start_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })} - ${new Date(report.week_end_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}`
+                        ) : 'Date TBD'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-xl font-semibold">{week.hours_rendered}h</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-xl font-semibold">{week.hours_rendered}h</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -597,20 +653,25 @@ export default function CurrentInternship() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {weeklyBreakdown.slice(0, 5).map((week) => (
-                    <div 
-                      key={week.week_number}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">Week {week.week_number}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(week.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
+                  {weeklyBreakdown.slice(0, 5).map((week) => {
+                    const report = weeklyReports.find(r => r.week_number === week.week_number);
+                    return (
+                      <div 
+                        key={week.week_number}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">Week {week.week_number}</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {report ? (
+                              `${new Date(report.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(report.week_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                            ) : 'Date TBD'}
+                          </span>
+                        </div>
+                        <span className="font-semibold">{week.hours_rendered}h</span>
                       </div>
-                      <span className="font-semibold">{week.hours_rendered}h</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

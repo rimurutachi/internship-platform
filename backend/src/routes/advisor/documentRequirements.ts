@@ -309,4 +309,35 @@ router.patch('/submissions/:id/review', async (req: AuthRequest, res: Response) 
   }
 });
 
+/**
+ * GET /advisor/submissions/:id/signed-url
+ * Generate a signed URL for a submission file (uses service key to bypass RLS)
+ */
+router.get('/submissions/:id/signed-url', async (req: AuthRequest, res: Response) => {
+  try {
+    const advisorId = req.user!.id;
+    const id = req.params.id as string;
+
+    const result = await documentSubmissionsService.getSignedUrlForSubmission(
+      id,
+      advisorId,
+      'advisor'
+    );
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    const message = error instanceof Error ? error.message : 'Failed to generate signed URL';
+    const status = message.includes('not found') ? 404 : 
+                   message.includes('denied') ? 403 : 500;
+    return res.status(status).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
 export default router;

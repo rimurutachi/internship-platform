@@ -44,12 +44,14 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { createSupabaseClient } from '@/lib/supabase';
 import {
   DocumentRequirement,
   DocumentSubmission,
   getDocumentRequirement,
   getRequirementSubmissions,
   reviewSubmission,
+  getAdvisorSubmissionSignedUrl,
 } from '@/lib/api/document-requirements';
 
 export default function RequirementDetailPage() {
@@ -64,6 +66,7 @@ export default function RequirementDetailPage() {
   const [submissions, setSubmissions] = useState<DocumentSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
 
   // Review dialog state
   const [showReviewDialog, setShowReviewDialog] = useState(false);
@@ -71,6 +74,149 @@ export default function RequirementDetailPage() {
   const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected' | 'revision_requested'>('approved');
   const [reviewNotes, setReviewNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Helper function to try multiple path variations and return a signed URL
+  const tryGenerateSignedUrl = async (
+    supabase: ReturnType<typeof createSupabaseClient>,
+    originalPath: string
+  ): Promise<string | null> => {
+    // Generate all possible path variations to try
+    const pathsToTry: string[] = [];
+    
+    // Decode URL-encoded characters in the path
+    let decodedPath = originalPath;
+    try {
+      decodedPath = decodeURIComponent(originalPath);
+    } catch {
+      // If decoding fails, use original
+    }
+    
+    // 1. Original path as-is
+    pathsToTry.push(decodedPath);
+    
+    // 2. Without document-submissions prefix
+    if (decodedPath.startsWith('document-submissions/')) {
+      const withoutPrefix = decodedPath.replace('document-submissions/', '');
+      pathsToTry.push(withoutPrefix);
+      
+      // 3. Swap the first two path components (student_id/requirement_id -> requirement_id/student_id)
+      const parts = withoutPrefix.split('/');
+      if (parts.length >= 3) {
+        // Swap first two parts: [student_id, requirement_id, ...rest] -> [requirement_id, student_id, ...rest]
+        const swapped = [parts[1], parts[0], ...parts.slice(2)].join('/');
+        pathsToTry.push(swapped);
+      }
+    }
+    
+    // 4. Try path segments extraction for various structures
+    const segments = decodedPath.split('/').filter(s => s.length > 0);
+    if (segments.length >= 3) {
+      // If first segment is 'document-submissions', remove it and try swapped order
+      if (segments[0] === 'document-submissions') {
+        const withoutPrefix = segments.slice(1);
+        if (withoutPrefix.length >= 3) {
+          // Try requirement_id/student_id/file structure
+          const swapped = [withoutPrefix[1], withoutPrefix[0], ...withoutPrefix.slice(2)].join('/');
+          if (!pathsToTry.includes(swapped)) {
+            pathsToTry.push(swapped);
+          }
+        }
+      }
+    }
+    
+    // Try each path variation
+    for (const pathToTry of pathsToTry) {
+      console.log('🔄 Trying path:', pathToTry);
+      try {
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(pathToTry, 3600);
+        
+        if (!error && data) {
+          console.log('✅ Success with path:', pathToTry);
+          return data.signedUrl;
+        }
+        
+        if (error && !error.message.includes('not found')) {
+          console.error('❌ Non-recoverable error:', error.message);
+        }
+      } catch (e) {
+        console.error('❌ Exception trying path:', pathToTry, e);
+      }
+    }
+    
+    console.error('❌ All path variations failed for:', originalPath);
+    return null;
+  };
+
+  // Generate signed URLs for file paths
+  const generateFileUrls = async (submissions: DocumentSubmission[]) => {
+    const supabase = createSupabaseClient();
+    const urls: Record<string, string> = {};
+
+    console.log('🔍 Generating signed URLs for', submissions.length, 'submissions');
+
+    for (const submission of submissions) {
+      if (submission.file_url) {
+        console.log(`📁 Processing submission ${submission.id}:`, submission.file_url);
+        
+        // Check if it's already a signed URL (old data)
+        if (submission.file_url.includes('supabase.co/storage/v1/object/sign/')) {
+          console.log('✅ Already a signed URL, using as-is');
+          urls[submission.id] = submission.file_url;
+          continue;
+        }
+
+        let signedUrl: string | null = null;
+
+        // Check if it's a public URL - extract path and try variations
+        if (submission.file_url.startsWith('http')) {
+          console.log('⚠️ HTTP URL detected, attempting to extract path');
+          try {
+            const url = new URL(submission.file_url);
+            // Handle both /object/public/documents/ and /object/sign/documents/ patterns
+            const pathMatch = url.pathname.match(/\/(?:object\/(?:public|sign)\/)?documents\/(.+)$/);
+            if (pathMatch) {
+              const filePath = pathMatch[1];
+              console.log('📂 Extracted path:', filePath);
+              
+              signedUrl = await tryGenerateSignedUrl(supabase, filePath);
+            } else {
+              console.error('❌ Could not extract path from URL');
+            }
+          } catch (e) {
+            console.error('❌ Error parsing URL:', e);
+          }
+        } else {
+          // It's a file path - try variations
+          signedUrl = await tryGenerateSignedUrl(supabase, submission.file_url);
+        }
+
+        // If direct approach worked, use it
+        if (signedUrl) {
+          urls[submission.id] = signedUrl;
+          continue;
+        }
+
+        // Fallback: Use backend API to generate signed URL (bypasses RLS)
+        console.log('🔄 Trying backend API fallback for submission:', submission.id);
+        try {
+          const response = await getAdvisorSubmissionSignedUrl(submission.id);
+          if (response.success && response.data?.signedUrl) {
+            console.log('✅ Backend API generated signed URL successfully');
+            urls[submission.id] = response.data.signedUrl;
+          } else {
+            console.error('❌ Backend API failed to generate signed URL');
+          }
+        } catch (apiError) {
+          console.error('❌ Backend API error:', apiError);
+        }
+      }
+    }
+
+    console.log('📊 Generated', Object.keys(urls).length, 'signed URLs out of', submissions.length, 'submissions');
+    setFileUrls(urls);
+  };
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -90,6 +236,8 @@ export default function RequirementDetailPage() {
 
       if (subResponse.success) {
         setSubmissions(subResponse.data);
+        // Generate signed URLs for all submissions
+        await generateFileUrls(subResponse.data);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -384,23 +532,39 @@ export default function RequirementDetailPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            asChild
+                            disabled={!fileUrls[submission.id]}
+                            asChild={!!fileUrls[submission.id]}
                           >
-                            <a href={submission.file_url} target="_blank" rel="noopener noreferrer">
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </a>
+                            {fileUrls[submission.id] ? (
+                              <a href={fileUrls[submission.id]} target="_blank" rel="noopener noreferrer">
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </a>
+                            ) : (
+                              <>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </>
+                            )}
                           </Button>
                           
                           <Button
                             variant="outline"
                             size="sm"
-                            asChild
+                            disabled={!fileUrls[submission.id]}
+                            asChild={!!fileUrls[submission.id]}
                           >
-                            <a href={submission.file_url} download>
-                              <Download className="h-4 w-4 mr-1" />
-                              Download
-                            </a>
+                            {fileUrls[submission.id] ? (
+                              <a href={fileUrls[submission.id]} download>
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </a>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </>
+                            )}
                           </Button>
                           
                           {submission.status === 'pending' && (

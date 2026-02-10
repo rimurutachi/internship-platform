@@ -47,6 +47,7 @@ import {
   getSubmissionHistory,
   submitDocument,
   resubmitDocument,
+  getStudentSubmissionSignedUrl,
 } from '@/lib/api/document-requirements';
 
 export default function StudentRequirementDetailPage() {
@@ -64,8 +65,167 @@ export default function StudentRequirementDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+
+  // Helper function to try multiple path variations and return a signed URL
+  const tryGenerateSignedUrl = async (
+    supabase: ReturnType<typeof createSupabaseClient>,
+    originalPath: string
+  ): Promise<string | null> => {
+    // Generate all possible path variations to try
+    const pathsToTry: string[] = [];
+    
+    // Decode URL-encoded characters in the path
+    let decodedPath = originalPath;
+    try {
+      decodedPath = decodeURIComponent(originalPath);
+    } catch {
+      // If decoding fails, use original
+    }
+    
+    // 1. Original path as-is
+    pathsToTry.push(decodedPath);
+    
+    // 2. Without document-submissions prefix
+    if (decodedPath.startsWith('document-submissions/')) {
+      const withoutPrefix = decodedPath.replace('document-submissions/', '');
+      pathsToTry.push(withoutPrefix);
+      
+      // 3. Swap the first two path components (student_id/requirement_id -> requirement_id/student_id)
+      const parts = withoutPrefix.split('/');
+      if (parts.length >= 3) {
+        // Swap first two parts: [student_id, requirement_id, ...rest] -> [requirement_id, student_id, ...rest]
+        const swapped = [parts[1], parts[0], ...parts.slice(2)].join('/');
+        pathsToTry.push(swapped);
+      }
+    }
+    
+    // 4. Try path segments extraction for various structures
+    const segments = decodedPath.split('/').filter(s => s.length > 0);
+    if (segments.length >= 3) {
+      // If first segment is 'document-submissions', remove it and try swapped order
+      if (segments[0] === 'document-submissions') {
+        const withoutPrefix = segments.slice(1);
+        if (withoutPrefix.length >= 3) {
+          // Try requirement_id/student_id/file structure
+          const swapped = [withoutPrefix[1], withoutPrefix[0], ...withoutPrefix.slice(2)].join('/');
+          if (!pathsToTry.includes(swapped)) {
+            pathsToTry.push(swapped);
+          }
+        }
+      }
+    }
+    
+    // Try each path variation
+    for (const pathToTry of pathsToTry) {
+      console.log('🔄 Trying path:', pathToTry);
+      try {
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(pathToTry, 3600);
+        
+        if (!error && data) {
+          console.log('✅ Success with path:', pathToTry);
+          return data.signedUrl;
+        }
+        
+        if (error && !error.message.includes('not found')) {
+          console.error('❌ Non-recoverable error:', error.message);
+        }
+      } catch (e) {
+        console.error('❌ Exception trying path:', pathToTry, e);
+      }
+    }
+    
+    console.error('❌ All path variations failed for:', originalPath);
+    return null;
+  };
 
   // Fetch data
+  // Generate signed URLs for file paths
+  const generateFileUrls = async (
+    requirement: DocumentRequirement | null,
+    history: DocumentSubmission[]
+  ) => {
+    const supabase = createSupabaseClient();
+    const urls: Record<string, string> = {};
+
+    console.log('🔍 Generating signed URLs for student view');
+
+    // Helper to process a single submission
+    const processSubmission = async (submission: DocumentSubmission) => {
+      if (!submission.file_url) return;
+      
+      console.log(`📁 Processing submission ${submission.id}:`, submission.file_url);
+      
+      // Check if it's already a signed URL (old data)
+      if (submission.file_url.includes('supabase.co/storage/v1/object/sign/')) {
+        console.log('✅ Already a signed URL, using as-is');
+        urls[submission.id] = submission.file_url;
+        return;
+      }
+      
+      let signedUrl: string | null = null;
+      
+      // Check if it's a public URL - extract path and try variations
+      if (submission.file_url.startsWith('http')) {
+        console.log('⚠️ HTTP URL detected, attempting to extract path');
+        try {
+          const url = new URL(submission.file_url);
+          // Handle both /object/public/documents/ and /object/sign/documents/ patterns
+          const pathMatch = url.pathname.match(/\/(?:object\/(?:public|sign)\/)?documents\/(.+)$/);
+          if (pathMatch) {
+            const filePath = pathMatch[1];
+            console.log('📂 Extracted path:', filePath);
+            
+            signedUrl = await tryGenerateSignedUrl(supabase, filePath);
+          } else {
+            console.error('❌ Could not extract path from URL');
+          }
+        } catch (e) {
+          console.error('❌ Error parsing URL:', e);
+        }
+      } else {
+        // It's a file path - try variations
+        signedUrl = await tryGenerateSignedUrl(supabase, submission.file_url);
+      }
+      
+      // If direct approach worked, use it
+      if (signedUrl) {
+        urls[submission.id] = signedUrl;
+        return;
+      }
+      
+      // Fallback: Use backend API to generate signed URL (bypasses RLS)
+      console.log('🔄 Trying backend API fallback for submission:', submission.id);
+      try {
+        const response = await getStudentSubmissionSignedUrl(submission.id);
+        if (response.success && response.data?.signedUrl) {
+          console.log('✅ Backend API generated signed URL successfully');
+          urls[submission.id] = response.data.signedUrl;
+        } else {
+          console.error('❌ Backend API failed to generate signed URL');
+        }
+      } catch (apiError) {
+        console.error('❌ Backend API error:', apiError);
+      }
+    };
+
+    // Generate URL for current submission
+    if (requirement?.my_submission) {
+      await processSubmission(requirement.my_submission);
+    }
+
+    // Generate URLs for submission history
+    for (const submission of history) {
+      await processSubmission(submission);
+    }
+
+    console.log('📊 Generated', Object.keys(urls).length, 'signed URLs out of', 
+      (requirement?.my_submission ? 1 : 0) + history.length, 'submissions');
+    setFileUrls(urls);
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -82,7 +242,8 @@ export default function StudentRequirementDetailPage() {
       if (historyResponse.success && historyResponse.data) {
         setSubmissionHistory(historyResponse.data);
       }
-    } catch (error) {
+      // Generate signed URLs for all files
+      await generateFileUrls(reqResponse.data || null, historyResponse.data || []);    } catch (error) {
       console.error('Error fetching data:', error);
       toast({
         title: 'Error',
@@ -134,7 +295,9 @@ export default function StudentRequirementDetailPage() {
 
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${Date.now()}_${selectedFile.name}`;
-      const filePath = `document-submissions/${user.id}/${requirementId}/${fileName}`;
+      // New path format: {user-id}/{requirement-id}/{filename} (no document-submissions prefix)
+      // This matches the RLS policy which checks foldername(name)[1] = auth.uid()
+      const filePath = `${user.id}/${requirementId}/${fileName}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
@@ -144,18 +307,14 @@ export default function StudentRequirementDetailPage() {
         throw uploadError;
       }
 
-      // Get signed URL (valid for 1 year)
-      const { data: urlData, error: urlError } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(filePath, 31536000); // 1 year in seconds
-
-      if (urlError || !urlData) {
-        throw new Error('Failed to generate file URL');
+      if (!uploadData?.path) {
+        throw new Error('Upload succeeded but no file path returned');
       }
 
-      // Submit or resubmit based on current status
+      // Store the file PATH (not signed URL) in database
+      // Signed URLs will be generated on-the-fly when displaying
       const submissionData = {
-        file_url: urlData.signedUrl,
+        file_url: uploadData.path, // Store the path, not a signed URL
         file_name: selectedFile.name,
         file_size: selectedFile.size,
         mime_type: selectedFile.type,
@@ -352,17 +511,41 @@ export default function StudentRequirementDetailPage() {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={requirement.my_submission.file_url} target="_blank" rel="noopener noreferrer">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </a>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={!fileUrls[requirement.my_submission.id]}
+                      asChild={!!fileUrls[requirement.my_submission.id]}
+                    >
+                      {fileUrls[requirement.my_submission.id] ? (
+                        <a href={fileUrls[requirement.my_submission.id]} target="_blank" rel="noopener noreferrer">
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </a>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </>
+                      )}
                     </Button>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={requirement.my_submission.file_url} download>
-                        <Download className="h-4 w-4 mr-1" />
-                        Download
-                      </a>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      disabled={!fileUrls[requirement.my_submission.id]}
+                      asChild={!!fileUrls[requirement.my_submission.id]}
+                    >
+                      {fileUrls[requirement.my_submission.id] ? (
+                        <a href={fileUrls[requirement.my_submission.id]} download>
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </a>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -467,10 +650,21 @@ export default function StudentRequirementDetailPage() {
                       
                       <div className="flex items-center gap-2">
                         {getStatusBadge(submission.status)}
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={submission.file_url} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-4 w-4" />
-                          </a>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          disabled={!fileUrls[submission.id]}
+                          asChild={!!fileUrls[submission.id]}
+                        >
+                          {fileUrls[submission.id] ? (
+                            <a href={fileUrls[submission.id]} target="_blank" rel="noopener noreferrer">
+                              <Eye className="h-4 w-4" />
+                            </a>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4" />
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
