@@ -5,7 +5,39 @@ import { createClient } from "@supabase/supabase-js";
 import { env } from "./config/env";
 import collaborationService from "./services/collaborationService";
 
-const redis = new Redis(env.REDIS_URL);
+// Configure Redis connection (no SSL required for this endpoint)
+const redis = new Redis(env.REDIS_URL, {
+  maxRetriesPerRequest: 3,
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  connectTimeout: 10000,
+  enableReadyCheck: true,
+  enableOfflineQueue: true,
+});
+
+// Redis connection event handlers
+redis.on('connect', () => {
+  console.log('✅ Document Service Redis connected');
+});
+
+redis.on('ready', () => {
+  console.log('✅ Document Service Redis ready');
+});
+
+redis.on('error', (err) => {
+  console.error('❌ Document Service Redis error:', err.message);
+});
+
+redis.on('close', () => {
+  console.warn('⚠️ Document Service Redis connection closed');
+});
+
+redis.on('reconnecting', () => {
+  console.log('🔄 Document Service Redis reconnecting...');
+});
+
 const documents = new Map<string, Y.Doc>();
 
 // =============================================================================
