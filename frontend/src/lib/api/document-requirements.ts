@@ -292,3 +292,27 @@ export const resubmitDocument = async (
   );
   return response.data;
 };
+
+// ============================================================================
+// Signed URL Functions (for secure document downloads)
+// ============================================================================
+
+/**
+ * Get a signed URL for an advisor to download a submission file
+ */
+export const getAdvisorSubmissionSignedUrl = async (
+  submissionId: string
+): Promise<ApiResponse<{ signedUrl: string; expiresAt: string }>> => {
+  const response = await apiClient.get(`/advisor/submissions/${submissionId}/signed-url`);
+  return response.data;
+};
+
+/**
+ * Get a signed URL for a student to download their submission file
+ */
+export const getStudentSubmissionSignedUrl = async (
+  submissionId: string
+): Promise<ApiResponse<{ signedUrl: string; expiresAt: string }>> => {
+  const response = await apiClient.get(`/student/document-submissions/${submissionId}/signed-url`);
+  return response.data;
+};
