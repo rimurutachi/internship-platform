@@ -45,7 +45,13 @@ export declare function deleteUser(req: AuthRequest, res: Response): Promise<Res
 export declare function updateUserRole(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
  * Update user status
- * Body: { status: 'active' | 'inactive' | 'suspended' }
+ * Body: { status: 'active' | 'inactive' | 'suspended' | 'graduated' | 'pending_graduation' }
  */
 export declare function updateUserStatus(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Graduate student
+ * Mark a student as graduated after internship completion and evaluation approval
+ * Body: { graduation_notes?: string }
+ */
+export declare function graduateStudent(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=usersController.d.ts.map

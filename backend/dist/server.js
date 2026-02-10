@@ -25,6 +25,8 @@ const student_1 = __importDefault(require("./routes/student"));
 const advisor_1 = __importDefault(require("./routes/advisor"));
 const supervisor_1 = __importDefault(require("./routes/supervisor"));
 const public_1 = __importDefault(require("./routes/public"));
+const hours_1 = __importDefault(require("./routes/hours"));
+const archiveJob_1 = require("./jobs/archiveJob");
 const app = (0, express_1.default)();
 // Disable ETag to prevent 304 responses for dynamic APIs
 app.set("etag", false);
@@ -144,12 +146,12 @@ const authLimiter = (0, express_rate_limit_1.default)({
 });
 // Apply general rate limiter to all routes
 app.use(generalLimiter);
-// SECURITY: Apply stricter rate limiter SPECIFICALLY to auth endpoints
-app.use('/api/auth', authLimiter);
-app.use('/api/login', authLimiter);
-app.use('/api/register', authLimiter);
-app.use('/api/forgot-password', authLimiter);
-app.use('/api/reset-password', authLimiter);
+// SECURITY: Apply stricter rate limiter ONLY to sensitive auth endpoints
+// Do NOT apply to logout, profile, or other authenticated routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
 // Routes
 app.get("/health", (req, res) => {
     res.json({ status: "OK", message: "Intern-Galing API is running smoothly." });
@@ -172,6 +174,8 @@ app.use("/api/advisor", advisor_1.default);
 app.use("/api/supervisor", supervisor_1.default);
 // Supervisor APIs
 app.use("/api/supervisor", supervisor_1.default);
+// Hours Tracking APIs
+app.use("/api/hours", hours_1.default);
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes_1.default);
 // Error Handling Middleware
@@ -184,6 +188,9 @@ if (process.env.NODE_ENV !== "test") {
     httpServer.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
         console.log("Socket.io initialized and ready.");
+        // Start archive job (runs every hour)
+        (0, archiveJob_1.startArchiveJob)();
+        console.log("✅ Archive job scheduler started");
     });
 }
 exports.default = app;

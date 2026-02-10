@@ -1,9 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.internshipsController = exports.InternshipsController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const internship_service_1 = require("../../services/internship.service");
 const typeGuards_1 = require("../../utils/typeGuards");
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class InternshipsController {
     constructor() {
@@ -318,6 +322,30 @@ class InternshipsController {
             if (Object.keys(changes).length > 0) {
                 await this.internshipService.logActivity(req.user.id, 'internship_updated', id, 'Admin updated internship', { changes });
             }
+            // Send notifications for status changes
+            if (status && status !== currentInternship.status) {
+                const statusMessages = {
+                    active: { title: 'Internship Approved', message: 'Your internship has been approved and is now active.' },
+                    completed: { title: 'Internship Completed', message: 'Congratulations! Your internship has been marked as completed.' },
+                    cancelled: { title: 'Internship Cancelled', message: 'Your internship has been cancelled. Please contact your advisor for more information.' },
+                };
+                const notifInfo = statusMessages[status];
+                if (notifInfo && currentInternship.student_id) {
+                    try {
+                        await notificationService_1.default.createNotification({
+                            user_id: currentInternship.student_id,
+                            type: `internship_${status}`,
+                            title: notifInfo.title,
+                            message: notifInfo.message,
+                            action_url: `/dashboard/student/internship`,
+                            reference_type: 'internship',
+                        });
+                    }
+                    catch (notifError) {
+                        console.error('⚠️ Failed to send internship status notification:', notifError);
+                    }
+                }
+            }
             res.json({
                 success: true,
                 data: {
@@ -366,6 +394,22 @@ class InternshipsController {
             }
             // Log deletion
             await this.internshipService.logActivity(req.user.id, 'internship_cancelled', id, 'Admin cancelled internship', { previous_status: internship.status });
+            // Notify student about cancellation
+            if (internship.student_id) {
+                try {
+                    await notificationService_1.default.createNotification({
+                        user_id: internship.student_id,
+                        type: 'internship_cancelled',
+                        title: 'Internship Cancelled',
+                        message: 'Your internship has been cancelled by an administrator. Please contact your advisor for more information.',
+                        action_url: `/dashboard/student/internship`,
+                        reference_type: 'internship',
+                    });
+                }
+                catch (notifError) {
+                    console.error('⚠️ Failed to send cancellation notification:', notifError);
+                }
+            }
             res.json({
                 success: true,
                 data: {

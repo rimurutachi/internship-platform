@@ -104,4 +104,36 @@ export declare function getQuickActionItems(universityId: string): Promise<{
     error: any;
     data?: undefined;
 }>;
+/**
+ * Get company capacity breakdown
+ * Shows which companies have slots and utilization percentage
+ */
+export declare function getCompanyCapacityBreakdown(universityId: string): Promise<{
+    success: boolean;
+    data: {
+        companies: {
+            id: any;
+            name: any;
+            capacity_limit: any;
+            current_students: any;
+            available_slots: number;
+            utilization_percent: number;
+            is_full: boolean;
+            is_verified: any;
+        }[];
+        summary: {
+            total_companies: number;
+            companies_with_capacity: number;
+            companies_full: number;
+            total_capacity: number;
+            total_deployed: number;
+            total_available: number;
+        };
+    };
+    error?: undefined;
+} | {
+    success: boolean;
+    error: any;
+    data?: undefined;
+}>;
 //# sourceMappingURL=adminDashboardService.d.ts.map

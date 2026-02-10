@@ -7,6 +7,8 @@ const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const studentController_1 = __importDefault(require("../../controllers/student/studentController"));
 const weeklyReports_1 = __importDefault(require("./weeklyReports"));
+const documentRequirements_1 = __importDefault(require("./documentRequirements"));
+const tasks_1 = __importDefault(require("./tasks"));
 const router = (0, express_1.Router)();
 // Apply authentication middleware to all routes
 router.use(auth_1.authenticateToken);
@@ -24,13 +26,15 @@ router.get('/internship/progress', studentController_1.default.getProgress);
 router.get('/evaluations', studentController_1.default.getEvaluations);
 router.get('/evaluations/:id', studentController_1.default.getEvaluation);
 router.get('/skills-assessment', studentController_1.default.getSkillsAssessment);
-// Document routes
+// Document routes (existing document management)
 router.get('/documents/required', studentController_1.default.getRequiredDocuments); // Must be before /:id route
 router.get('/documents', studentController_1.default.getDocuments);
 router.post('/documents', studentController_1.default.uploadDocument);
 router.get('/documents/:id', studentController_1.default.getDocument);
 router.patch('/documents/:id', studentController_1.default.updateDocument);
 router.delete('/documents/:id', studentController_1.default.deleteDocument);
+// Document requirements routes (advisor-assigned requirements)
+router.use('/', documentRequirements_1.default);
 // Message routes
 router.get('/messages/conversations', studentController_1.default.getConversations);
 router.post('/messages/conversations', studentController_1.default.createConversation);
@@ -45,9 +49,8 @@ router.patch('/notifications/read-all', studentController_1.default.markAllNotif
 // Mentor routes
 router.get('/mentors', studentController_1.default.getMentors);
 router.post('/mentors/:id/message', studentController_1.default.messageMentor);
-// Task routes
-router.get('/tasks', studentController_1.default.getTasks);
-router.patch('/tasks/:id', studentController_1.default.updateTask);
+// Task routes (new dedicated task management)
+router.use('/', tasks_1.default);
 // Weekly reports routes
 router.use('/', weeklyReports_1.default);
 // Dashboard route

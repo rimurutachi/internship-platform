@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InternshipsEnhancedController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const internship_service_1 = require("../../services/internship.service");
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class InternshipsEnhancedController {
     /**
@@ -239,21 +243,22 @@ class InternshipsEnhancedController {
             }
             // Filter out null/undefined recipients
             const validRecipients = recipients.filter(Boolean);
-            // Insert notifications
-            const notifications = validRecipients.map(user_id => ({
-                user_id,
-                type: 'system',
-                title: notificationTitle,
-                message: notificationMessage,
-                action_url: `/admin/internships/${internship_id}`,
-                reference_id: internship_id,
-                reference_type: 'internship',
-                created_at: new Date().toISOString()
-            }));
-            if (notifications.length > 0) {
-                const { error: notifError } = await supabase.from('notifications').insert(notifications);
-                if (notifError) {
-                    console.error('Failed to insert notifications:', notifError);
+            // Send notifications using notificationService (with real-time socket delivery)
+            let notificationCount = 0;
+            for (const userId of validRecipients) {
+                try {
+                    await notificationService_1.default.createNotification({
+                        user_id: userId,
+                        type: reminder_type || 'system',
+                        title: notificationTitle,
+                        message: notificationMessage,
+                        action_url: `/dashboard/student/internship`,
+                        reference_type: 'internship',
+                    });
+                    notificationCount++;
+                }
+                catch (notifError) {
+                    console.error(`Failed to send notification to ${userId}:`, notifError);
                 }
             }
             // Log action
@@ -270,7 +275,7 @@ class InternshipsEnhancedController {
             });
             res.json({
                 success: true,
-                message: `Reminder sent to ${validRecipients.length} recipients`
+                message: `Reminder sent to ${notificationCount} recipients`
             });
         }
         catch (error) {

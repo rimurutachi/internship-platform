@@ -25,10 +25,14 @@ export declare function getEvaluationsByStatus(advisorId: string, status: 'submi
 /**
  * Approve evaluation
  * Optionally override final grade with justification
+ * Optionally set grade reveal date for scheduled visibility
  * AI analytics will be triggered AFTER approval
  */
 export declare function approveEvaluation(evaluationId: string, advisorId: string, approvalData: {
     approval_comments?: string;
+    grade_override?: number;
+    grade_override_reason?: string;
+    grade_reveal_date?: string;
 }): Promise<{
     success: boolean;
     data: any;
@@ -99,5 +103,37 @@ export declare function getEvaluationWithContext(evaluationId: string, advisorId
     success: boolean;
     error: any;
     data?: undefined;
+}>;
+/**
+ * Get all weekly reports for students under an advisor
+ * Standalone endpoint for advisor weekly reports page
+ */
+export declare function getAllWeeklyReportsForAdvisor(advisorId: string, options?: {
+    status?: string;
+    studentId?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{
+    success: boolean;
+    data: any[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+    statistics: {
+        total: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+    };
+    error?: undefined;
+} | {
+    success: boolean;
+    error: any;
+    data?: undefined;
+    pagination?: undefined;
+    statistics?: undefined;
 }>;
 //# sourceMappingURL=advisorEvaluationService.d.ts.map

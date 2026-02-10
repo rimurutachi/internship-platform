@@ -183,10 +183,8 @@ const sanitizeInput = (req, res, next) => {
         req.body = sanitizeObject(req.body);
         console.log("🛡️ Input sanitized for request:", req.method, req.path);
     }
-    // Also sanitize query parameters
-    if (req.query && typeof req.query === 'object') {
-        req.query = sanitizeObject(req.query);
-    }
+    // Note: req.query is read-only in Express, cannot be reassigned
+    // Query params are sanitized by express-validator on routes that need it
     next();
 };
 exports.sanitizeInput = sanitizeInput;

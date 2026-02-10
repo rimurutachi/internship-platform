@@ -204,13 +204,13 @@ class DocumentVersionModel {
     // Get all versions for a document
     static async findByDocumentId(documentId) {
         const { data, error } = await supabase
-            .from('document_versions')
+            .from('document_file_versions')
             .select(`
         *,
-        uploader:users!document_versions_uploaded_by_fkey(id, email, name, role)
+        uploader:users!document_file_versions_uploaded_by_fkey(id, email, name, role)
       `)
             .eq('document_id', documentId)
-            .order('version_number', { ascending: false });
+            .order('version', { ascending: false });
         if (error)
             throw error;
         return data || [];
@@ -218,10 +218,10 @@ class DocumentVersionModel {
     // Get specific version
     static async findById(id) {
         const { data, error } = await supabase
-            .from('document_versions')
+            .from('document_file_versions')
             .select(`
         *,
-        uploader:users!document_versions_uploaded_by_fkey(id, email, name, role)
+        uploader:users!document_file_versions_uploaded_by_fkey(id, email, name, role)
       `)
             .eq('id', id)
             .single();
@@ -232,20 +232,20 @@ class DocumentVersionModel {
     // Get latest version number for document
     static async getLatestVersionNumber(documentId) {
         const { data, error } = await supabase
-            .from('document_versions')
-            .select('version_number')
+            .from('document_file_versions')
+            .select('version')
             .eq('document_id', documentId)
-            .order('version_number', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(1)
             .single();
         if (error && error.code !== 'PGRST116')
             throw error; // PGRST116 = no rows returned
-        return data?.version_number || 0;
+        return data?.version || '1.0.0'; // Return version string (e.g., "1.0.0") or default
     }
     // Create version
     static async create(versionData) {
         const { data, error } = await supabase
-            .from('document_versions')
+            .from('document_file_versions')
             .insert(versionData)
             .select()
             .single();
@@ -256,7 +256,7 @@ class DocumentVersionModel {
     // Delete version
     static async delete(id) {
         const { error } = await supabase
-            .from('document_versions')
+            .from('document_file_versions')
             .delete()
             .eq('id', id);
         if (error)
