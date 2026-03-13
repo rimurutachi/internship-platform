@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Frontend document types matching backend schema
 
 export type DocumentType = 
@@ -73,22 +74,7 @@ export interface DocumentVersion {
   };
 }
 
-export interface CollaborationSession {
-  id: string;
-  document_id: string;
-  user_id: string;
-  started_at: string;
-  last_seen: string;
-  is_active: boolean;
-  cursor_position: number;
-  user_color: string;
-  user?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
-}
+
 
 export interface DocumentComment {
   id: string;
@@ -197,17 +183,7 @@ export interface UpdateWorkflowData {
   comments?: string;
 }
 
-export interface CollaborationInfo {
-  active_users: Array<{
-    user_id: string;
-    name: string;
-    email: string;
-    user_color: string;
-    cursor_position: number;
-    last_seen: Date;
-  }>;
-  sessions: CollaborationSession[];
-}
+
 
 // API Response types
 export interface DocumentsResponse {

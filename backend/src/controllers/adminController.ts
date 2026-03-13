@@ -111,11 +111,11 @@ export async function getUserById(req: AuthRequest, res: Response) {
 
 /**
  * Create new user (both Auth and database)
- * Body: { email, firstName, lastName, role, password }
+ * Body: { email, firstName, lastName, role, password, company_id?, university_id?, program?, year_level?, section? }
  */
 export async function createUser(req: AuthRequest, res: Response) {
   try {
-    const { email, firstName, lastName, role, password, company_id, university_id } = req.body;
+    const { email, firstName, lastName, role, password, company_id, university_id, program, year_level, section } = req.body;
 
     // Validate required fields
     if (!email || !firstName || !lastName || !role || !password) {
@@ -142,6 +142,15 @@ export async function createUser(req: AuthRequest, res: Response) {
         success: false,
         error: 'Validation error',
         message: 'Company ID is required for supervisors',
+      });
+    }
+
+    // Validate student/advisor has program
+    if ((role === 'student' || role === 'advisor') && !program) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'Program is required for students and advisors',
       });
     }
 
@@ -186,7 +195,7 @@ export async function createUser(req: AuthRequest, res: Response) {
       dbInsert.company_id = company_id;
     }
     
-    // Auto-assign CVSU-Bacoor Campus to students and advisors
+    // Handle students and advisors - add program, section, university
     if (role === 'student' || role === 'advisor') {
       // Get CVSU-BC university ID
       const { data: university } = await supabase
@@ -200,6 +209,68 @@ export async function createUser(req: AuthRequest, res: Response) {
       } else if (university_id) {
         // Fallback to provided university_id if CVSU-BC not found
         dbInsert.university_id = university_id;
+      }
+
+      // year_level is a direct column on users
+      if (year_level) dbInsert.year_level = year_level;
+
+      // program and section live in profile_data (not direct columns)
+      if (program || section) {
+        dbInsert.profile_data = {
+          ...(program ? { program } : {}),
+          ...(section ? { section } : {}),
+        };
+      }
+
+      // Auto-assign advisor for students: fetch all active advisors, filter in memory
+      // (program/section are in profile_data jsonb, so we filter client-side)
+      if (role === 'student' && program) {
+        const { data: activeAdvisors } = await supabase
+          .from('users')
+          .select('id, name, profile_data, year_level')
+          .eq('role', 'advisor')
+          .eq('status', 'active');
+
+        let matchingAdvisor: { id: string; name: string } | null = null;
+
+        if (activeAdvisors && activeAdvisors.length > 0) {
+          const sameProgram = activeAdvisors.filter((a) => {
+            const pd = a.profile_data || {};
+            return (pd.program || pd.course || pd.department) === program;
+          });
+
+          // Priority 1: program + year_level + section
+          if (!matchingAdvisor && year_level && section) {
+            const found = sameProgram.find(
+              (a) => a.year_level === year_level && a.profile_data?.section === section
+            );
+            if (found) matchingAdvisor = { id: found.id, name: found.name };
+          }
+
+          // Priority 2: program + year_level
+          if (!matchingAdvisor && year_level) {
+            const found = sameProgram.find((a) => a.year_level === year_level);
+            if (found) matchingAdvisor = { id: found.id, name: found.name };
+          }
+
+          // Priority 3: program + section
+          if (!matchingAdvisor && section) {
+            const found = sameProgram.find((a) => a.profile_data?.section === section);
+            if (found) matchingAdvisor = { id: found.id, name: found.name };
+          }
+
+          // Priority 4: program only
+          if (!matchingAdvisor && sameProgram.length > 0) {
+            matchingAdvisor = { id: sameProgram[0].id, name: sameProgram[0].name };
+          }
+        }
+
+        if (matchingAdvisor) {
+          dbInsert.advisor_id = matchingAdvisor.id;
+          console.log(`✅ Auto-assigned student ${fullName} to advisor ${matchingAdvisor.name} (program: ${program}, year: ${year_level})`);
+        } else {
+          console.log(`⚠️ No matching advisor found for student ${fullName} (program: ${program}, year: ${year_level}, section: ${section})`);
+        }
       }
     }
 

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, MessageSquare } from "lucide-react";
+import { Upload } from "lucide-react";
 import Link from "next/link";
 
 export const QuickActionsNewCard = () => {
@@ -20,15 +20,7 @@ export const QuickActionsNewCard = () => {
           </Link>
         </Button>
         
-        <Button 
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 text-base justify-start"
-          asChild
-        >
-          <Link href="/dashboard/student/messages">
-            <MessageSquare className="w-5 h-5 mr-3" />
-            Message
-          </Link>
-        </Button>
+
       </CardContent>
     </Card>
   );

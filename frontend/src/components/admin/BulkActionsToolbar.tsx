@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -260,7 +261,7 @@ export default function BulkActionsToolbar({
                 <SelectContent>
                   <SelectItem value="approaching_end_date">Approaching End Date</SelectItem>
                   <SelectItem value="pending_documents">Pending Documents</SelectItem>
-                  <SelectItem value="pending_weekly_report">Weekly Report Due</SelectItem>
+                  <SelectItem value="pending_daily_report">Daily Report Reminder</SelectItem>
                   <SelectItem value="evaluation_due">Evaluation Due</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>

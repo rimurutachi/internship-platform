@@ -16,5 +16,5 @@
     }
   },
   "python.analysis.autoSearchPaths": false,
-  "python.languageServer": "Pylance"
+  "python.languageServer": "Default"
 }

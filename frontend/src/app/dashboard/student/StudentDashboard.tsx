@@ -1,7 +1,8 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState, useEffect } from 'react';
-import { UserProvider, useUserContext } from '@/components/providers/UserProvider';
+import { useUserContext } from '@/components/providers/UserProvider';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { CurrentInternshipCard } from '@/components/student/CurrentInternshipCard';
@@ -52,7 +53,7 @@ const StudentDashboard = () => {
         console.log('✅ Dashboard data loaded:', response.data);
         setDashboardData(response.data);
 
-        // Fetch weekly logs count for current internship
+        // Fetch daily report logs count for current internship
         try {
           const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
           const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
@@ -60,21 +61,21 @@ const StudentDashboard = () => {
           const { data: { session } } = await supabase.auth.getSession();
           const internshipId = response.data.internship?.id;
           if (session?.access_token && internshipId) {
-            console.log('🔵 Fetching weekly logs count...', { internshipId });
-            const r = await fetch(`${apiBase}/student/weekly-reports?internship_id=${internshipId}`, {
+            console.log('🔵 Fetching daily logs count...', { internshipId });
+            const r = await fetch(`${apiBase}/student/daily-reports?internship_id=${internshipId}`, {
               headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
             });
             if (r.ok) {
               const j = await r.json();
               const count = Array.isArray(j.data) ? j.data.length : 0;
-              console.log('🟢 Weekly logs count:', count);
+              console.log('🟢 Daily logs count:', count);
               setLogsCount(count);
             } else {
-              console.warn('⚠️ Weekly logs count request failed', r.status);
+              console.warn('⚠️ Daily logs count request failed', r.status);
             }
           }
         } catch (e) {
-          console.warn('⚠️ Weekly logs count fetch error:', e);
+          console.warn('⚠️ Daily logs count fetch error:', e);
         }
 
         // Determine final evaluation availability

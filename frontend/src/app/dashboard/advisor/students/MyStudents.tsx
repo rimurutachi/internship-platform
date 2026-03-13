@@ -1,8 +1,9 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Award, MessageSquare, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp } from 'lucide-react';
+import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -107,9 +108,7 @@ export default function MyStudents() {
     }
   };
 
-  const handleSendMessage = (studentId: string) => {
-    router.push(`/dashboard/advisor/messages?userId=${studentId}`);
-  };
+
 
   // Filter students
   const filteredStudents = students.filter(student => {
@@ -342,15 +341,7 @@ export default function MyStudents() {
                               <Eye className="h-4 w-4 mr-1" />
                               Details
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSendMessage(student.id)}
-                              className="border-primary text-primary hover:bg-primary hover:text-white"
-                            >
-                              <MessageSquare className="h-4 w-4 mr-1" />
-                              Message
-                            </Button>
+
                           </div>
                         </div>
                       </CardContent>
@@ -453,15 +444,7 @@ export default function MyStudents() {
                       <Eye className="h-3 w-3 mr-1" />
                       View
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSendMessage(student.id)}
-                      className="flex-1 text-xs border-primary text-primary"
-                    >
-                      <MessageSquare className="h-3 w-3 mr-1" />
-                      Message
-                    </Button>
+
                   </div>
                 </CardContent>
               </Card>
@@ -567,8 +550,8 @@ export default function MyStudents() {
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-lg font-bold">{studentHoursSummary.weeks_completed}</p>
-                      <p className="text-xs text-muted-foreground">Weeks</p>
+                      <p className="text-lg font-bold">{studentHoursSummary.days_reported}</p>
+                      <p className="text-xs text-muted-foreground">Days</p>
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
@@ -593,13 +576,7 @@ export default function MyStudents() {
 
               {/* Actions */}
               <div className="flex gap-3">
-                <Button
-                  onClick={() => handleSendMessage(selectedStudent.id)}
-                  className="flex-1 bg-primary hover:bg-primary/90"
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Send Message
-                </Button>
+
                 <Button
                   variant="outline"
                   onClick={() => setShowDetails(false)}

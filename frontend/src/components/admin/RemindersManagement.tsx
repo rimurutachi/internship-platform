@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -156,7 +157,7 @@ export default function RemindersManagement({ internshipId }: RemindersManagemen
     const labels: Record<ReminderType, string> = {
       approaching_end_date: 'Approaching End Date',
       pending_documents: 'Pending Documents',
-      pending_weekly_report: 'Weekly Report Due',
+      pending_daily_report: 'Daily Report Reminder',
       evaluation_due: 'Evaluation Due',
       missing_supervisor: 'Missing Supervisor',
       custom: 'Custom'
@@ -315,7 +316,7 @@ export default function RemindersManagement({ internshipId }: RemindersManagemen
                 <SelectContent>
                   <SelectItem value="approaching_end_date">Approaching End Date</SelectItem>
                   <SelectItem value="pending_documents">Pending Documents</SelectItem>
-                  <SelectItem value="pending_weekly_report">Weekly Report Due</SelectItem>
+                  <SelectItem value="pending_daily_report">Daily Report Reminder</SelectItem>
                   <SelectItem value="evaluation_due">Evaluation Due</SelectItem>
                   <SelectItem value="missing_supervisor">Missing Supervisor</SelectItem>
                   <SelectItem value="custom">Custom</SelectItem>

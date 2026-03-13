@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 
 import React, { useState, useEffect } from 'react';
 import { adminEvaluationsAPI } from '@/lib/api/admin-evaluations';

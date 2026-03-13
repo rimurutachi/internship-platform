@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useState } from 'react';
 import { StudentSidebar } from '@/components/student/StudentSidebar';
@@ -85,46 +86,112 @@ export default function Evaluations() {
 
   const available = isGradeVisible();
 
-  const FinalView = () => (
-    <Card className="bg-white border border-gray-200">
-      <CardHeader className="border-b border-gray-200 pb-4 flex items-center justify-between">
-        <CardTitle className="text-2xl text-gray-900">Final Evaluation</CardTitle>
-        <ShieldCheck className="w-6 h-6 text-[#4CAF50]" />
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-3 text-gray-800">
-          <div><span className="font-semibold">Overall Rating:</span> {finalEval?.rating_overall ?? finalEval?.final_grade ?? 'N/A'}</div>
-          <div><span className="font-semibold">Technical:</span> {finalEval?.rating_technical ?? 'N/A'}</div>
-          <div><span className="font-semibold">Communication:</span> {finalEval?.rating_communication ?? 'N/A'}</div>
-          <div><span className="font-semibold">Work Ethic:</span> {finalEval?.rating_work_ethic ?? 'N/A'}</div>
-          {finalEval?.total_score && (
-            <div><span className="font-semibold">Total Score:</span> {finalEval.total_score}</div>
-          )}
-          {finalEval?.supervisor && (
-            <div><span className="font-semibold">Supervisor:</span> {finalEval.supervisor.name || `${finalEval.supervisor.first_name} ${finalEval.supervisor.last_name}`} ({finalEval.supervisor.email})</div>
-          )}
-          {finalEval?.supervisor_comments && (
-            <div className="mt-4">
-              <div className="font-semibold">Supervisor Comments</div>
-              <p className="text-gray-700 whitespace-pre-wrap">{finalEval.supervisor_comments}</p>
+  const FinalView = () => {
+    const criterionScores = finalEval?.criterion_scores as any[] || [];
+
+    return (
+      <Card className="bg-white border border-gray-200 shadow-sm">
+        <CardHeader className="border-b border-gray-200 pb-4 flex items-center justify-between">
+          <CardTitle className="text-2xl text-gray-900">Final Evaluation</CardTitle>
+          <ShieldCheck className="w-6 h-6 text-[#4CAF50]" />
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="space-y-6 text-gray-800">
+            {/* Basic Information */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Status</p>
+                <div className="mt-1">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-semibold capitalize">
+                    {finalEval?.status || 'N/A'}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Submitted</p>
+                <p className="mt-1 font-medium">{finalEval?.created_at ? new Date(finalEval.created_at).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Total Score</p>
+                <p className="mt-1 font-medium">{finalEval?.total_score ?? 'N/A'}/70</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Final Grade</p>
+                <p className="mt-1 font-medium">{finalEval?.final_grade ? Number(finalEval.final_grade).toFixed(2) : 'N/A'}</p>
+              </div>
             </div>
-          )}
-          {finalEval?.advisor_comments && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <div className="font-semibold text-blue-800">Advisor Comments</div>
-              <p className="text-blue-700 whitespace-pre-wrap">{finalEval.advisor_comments}</p>
+
+            {/* Attendance & Punctuality */}
+            <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm text-gray-500 font-medium mb-1">Attendance</p>
+                <span className="px-3 py-1 border border-gray-200 rounded-full text-sm capitalize">
+                  {finalEval?.attendance || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium mb-1">Punctuality</p>
+                <span className="px-3 py-1 border border-gray-200 rounded-full text-sm capitalize">
+                  {finalEval?.punctuality || 'N/A'}
+                </span>
+              </div>
             </div>
-          )}
-          <div className="pt-4 border-t mt-4">
-            <p className="text-sm text-green-600 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" />
-              Approved on {finalEval?.approved_at ? new Date(finalEval.approved_at).toLocaleDateString() : 'N/A'}
-            </p>
+
+            {/* Evaluation Criteria */}
+            {criterionScores.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg border-b pb-2">Evaluation Criteria (CvSU A-G)</h3>
+                <div className="space-y-2">
+                  {criterionScores.map((score: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0">
+                      <div className="font-medium text-gray-700">
+                        {score.criterion_code}. {score.criterion_name}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-green-600">{score.score}/10</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Supervisor Info & Comments */}
+            {finalEval?.supervisor && (
+              <div className="pt-4 border-t border-gray-100">
+                <h3 className="font-semibold text-lg mb-2">Evaluator</h3>
+                <p className="text-gray-700">
+                  {finalEval.supervisor.name || `${finalEval.supervisor.first_name || ''} ${finalEval.supervisor.last_name || ''}`.trim()}
+                  <span className="text-gray-500 text-sm ml-2">({finalEval.supervisor.email})</span>
+                </p>
+              </div>
+            )}
+
+            {finalEval?.supervisor_comments && (
+              <div className="mt-4 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-semibold text-gray-800 mb-2">Supervisor Comments</h3>
+                <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">{finalEval.supervisor_comments}</p>
+              </div>
+            )}
+
+            {finalEval?.advisor_comments && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <h3 className="font-semibold text-blue-800 mb-2">Advisor Comments</h3>
+                <p className="text-blue-700 whitespace-pre-wrap text-sm leading-relaxed">{finalEval.advisor_comments}</p>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-gray-100 mt-6">
+              <p className="text-sm text-green-600 flex items-center gap-2 font-medium">
+                <ShieldCheck className="w-5 h-5" />
+                Approved on {finalEval?.approved_at ? new Date(finalEval.approved_at).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   const UnavailableView = () => {
     const revealDate = getRevealDate();

@@ -1,5 +1,5 @@
 import { StatsResponse } from '@/types/documents';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { FileText, Clock, CheckCircle, Archive } from 'lucide-react';
 
 interface DocumentStatsCardsProps {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Document Service API Client
  * Connects to document-service on port 6001

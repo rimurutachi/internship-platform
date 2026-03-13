@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Backend Socket.io Service
  * 
@@ -7,17 +8,13 @@
 
 import { io, Socket } from 'socket.io-client';
 import { createSupabaseClient } from '@/lib/supabase';
-import type { Message, Notification, Evaluation } from '@/types/api';
+import type { Notification, Evaluation } from '@/types/api';
 
 /**
  * Socket event types
  */
 export interface BackendSocketEvents {
-  // Message events
-  'message:sent': (message: Message) => void;
-  'message:updated': (message: Message) => void;
-  'message:read': (data: { message_id: string; read_by: string }) => void;
-  
+
   // Notification events
   'notification:new': (notification: Notification) => void;
   'notification:read': (data: { notification_id: string }) => void;
@@ -131,26 +128,7 @@ export function getBackendSocket(): Socket | null {
   return socket;
 }
 
-/**
- * Subscribe to a conversation room
- * 
- * @param conversationId - The conversation ID to join
- */
-export async function joinConversation(conversationId: string): Promise<void> {
-  const socket = await connectBackendSocket();
-  socket.emit('conversation:join', { conversation_id: conversationId });
-}
 
-/**
- * Leave a conversation room
- * 
- * @param conversationId - The conversation ID to leave
- */
-export function leaveConversation(conversationId: string): void {
-  if (socket?.connected) {
-    socket.emit('conversation:leave', { conversation_id: conversationId });
-  }
-}
 
 /**
  * Subscribe to evaluation updates
@@ -182,17 +160,7 @@ export async function subscribeToNotifications(): Promise<void> {
   socket.emit('notification:subscribe');
 }
 
-/**
- * Send typing indicator
- * 
- * @param conversationId - The conversation ID
- * @param isTyping - Whether the user is typing
- */
-export function sendTypingIndicator(conversationId: string, isTyping: boolean): void {
-  if (socket?.connected) {
-    socket.emit('typing', { conversation_id: conversationId, is_typing: isTyping });
-  }
-}
+
 
 /**
  * Hook for listening to socket events

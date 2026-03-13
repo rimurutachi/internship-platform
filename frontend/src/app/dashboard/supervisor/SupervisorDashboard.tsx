@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2 } from 'lucide-react';
+
 import { SupervisorSidebar } from '@/components/supervisor/SupervisorSidebar';
 import { SupervisorHeader } from '@/components/supervisor/SupervisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -41,8 +41,8 @@ const SupervisorDashboard = () => {
             <div className="space-y-6">
               {/* Page Header */}
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-                <p className="text-muted-foreground mt-1">Comprehensive insights and performance metrics</p>
+                <h1 className="text-3xl font-bold text-foreground">Evaluation Dashboard</h1>
+                <p className="text-muted-foreground mt-1">Submit and manage intern evaluations</p>
               </div>
 
               {/* Analytics Content */}
@@ -57,8 +57,8 @@ const SupervisorDashboard = () => {
         {/* Mobile Header - Fixed */}
         <div className="flex-shrink-0">
           <MobileHeader 
-            title="Dashboard"
-            subtitle="Performance insights"
+            title="Evaluations"
+            subtitle="Manage intern evaluations"
             logo={
               <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">{initials}</span>
@@ -72,8 +72,8 @@ const SupervisorDashboard = () => {
           <div className="space-y-4">
             {/* Header */}
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-1">Comprehensive insights and performance metrics</p>
+              <h1 className="text-2xl font-bold text-foreground">Evaluation Dashboard</h1>
+              <p className="text-sm text-muted-foreground mt-1">Submit and manage intern evaluations</p>
             </div>
 
             {/* Analytics Content */}

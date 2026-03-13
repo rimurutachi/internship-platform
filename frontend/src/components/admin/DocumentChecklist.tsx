@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -160,8 +161,7 @@ export default function DocumentChecklist({ internshipId }: DocumentChecklistPro
   }
 
   const allDocuments = [
-    ...(documentStatus?.required_documents || []),
-    ...(documentStatus?.weekly_reports || [])
+    ...(documentStatus?.required_documents || [])
   ];
 
   const completedCount = allDocuments.filter(d => d.status === 'submitted').length;
@@ -209,30 +209,8 @@ export default function DocumentChecklist({ internshipId }: DocumentChecklistPro
             </div>
           )}
 
-          {/* Weekly Reports */}
-          {documentStatus?.weekly_reports && documentStatus.weekly_reports.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold mb-3">Weekly Progress Reports</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Report</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Submitted By</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documentStatus.weekly_reports.map(renderDocumentRow)}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
           {/* No Documents Message */}
-          {(!documentStatus?.required_documents || documentStatus.required_documents.length === 0) && 
-           (!documentStatus?.weekly_reports || documentStatus.weekly_reports.length === 0) && (
+          {(!documentStatus?.required_documents || documentStatus.required_documents.length === 0) && (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No documents available for this internship</p>

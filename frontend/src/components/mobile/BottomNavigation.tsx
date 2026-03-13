@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Briefcase, TrendingUp, MessageSquare, FileCheck, Settings, Users, Brain, BarChart3, Building2, Shield, Server, FileText, ClipboardList } from 'lucide-react';
+import { Home, Briefcase, FileCheck, Settings, Users, Brain, BarChart3, Building2, FileText, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -14,25 +14,22 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/dashboard/student' },
   { icon: Briefcase, label: 'Internship', path: '/dashboard/student/current-internship' },
-  { icon: FileText, label: 'Reports', path: '/dashboard/student/weekly-reports' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/student/messages' },
+  { icon: FileText, label: 'Reports', path: '/dashboard/student/daily-reports' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents' },
   { icon: Settings, label: 'Settings', path: '/dashboard/student/settings' },
 ];
 
+// Supervisor pages: Dashboard, Interns, Evaluations, Settings
 const supervisorNavItems: NavItem[] = [
-  { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
-  { icon: ClipboardList, label: 'Reports', path: '/dashboard/supervisor/student-reports' },
+  { icon: LayoutDashboard, label: 'Home', path: '/dashboard/supervisor' },
+  { icon: Users, label: 'Interns', path: '/dashboard/supervisor/interns' },
   { icon: Brain, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },
-  { icon: FileCheck, label: 'Documents', path: '/dashboard/supervisor/documents' },
   { icon: Settings, label: 'Settings', path: '/dashboard/supervisor/settings' },
 ];
 
 const advisorNavItems: NavItem[] = [
   { icon: Users, label: 'Students', path: '/dashboard/advisor/students' },
   { icon: FileText, label: 'Evaluations', path: '/dashboard/advisor/evaluations' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/advisor/messages' },
   { icon: FileCheck, label: 'Documents', path: '/dashboard/advisor/documents' },
   { icon: Settings, label: 'Settings', path: '/dashboard/advisor/settings' },
 ];

@@ -41,17 +41,15 @@ export interface InternshipHoursSummary {
   remaining_hours: number;
   progress_percentage: number;
   projected_end_date: string | null;
-  weeks_completed: number;
+  days_reported: number;
   start_date: string;
   is_completed: boolean;
 }
 
-export interface WeeklyHoursBreakdown {
-  week_number: number;
-  hours_rendered: number;
-  week_start_date: string;
-  week_end_date: string;
-  submitted_at: string;
+export interface DailyHoursBreakdown {
+  report_date: string;
+  hours_worked: number;
+  created_at: string;
 }
 
 // ============================================
@@ -77,9 +75,9 @@ export interface HoursSummaryResponse {
   error?: string;
 }
 
-export interface WeeklyBreakdownResponse {
+export interface DailyBreakdownResponse {
   success: boolean;
-  data?: WeeklyHoursBreakdown[];
+  data?: DailyHoursBreakdown[];
   error?: string;
 }
 
@@ -107,7 +105,7 @@ export interface ProgressDisplayData {
   hoursWorked: number;
   hoursRequired: number;
   hoursRemaining: number;
-  weeksCompleted: number;
+  daysReported: number;
   projectedEndDate: string | null;
   isCompleted: boolean;
   status: 'not_started' | 'in_progress' | 'near_completion' | 'completed';
@@ -142,7 +140,7 @@ export function toProgressDisplayData(summary: InternshipHoursSummary): Progress
     hoursWorked: summary.total_hours_worked,
     hoursRequired: summary.required_hours,
     hoursRemaining: summary.remaining_hours,
-    weeksCompleted: summary.weeks_completed,
+    daysReported: summary.days_reported,
     projectedEndDate: summary.projected_end_date,
     isCompleted: summary.is_completed,
     status,

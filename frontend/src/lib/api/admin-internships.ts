@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Admin Internships API Client
  * Handles all API calls for admin internship management

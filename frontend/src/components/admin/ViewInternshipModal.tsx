@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
 import { useState, useEffect } from 'react';
 import { adminInternshipsAPI } from '@/lib/api/admin-internships';
@@ -7,7 +8,7 @@ import type {
   InternshipWithRelations,
   ActivityLogEntry,
 } from '@/lib/api/admin-internships';
-import type { InternshipHoursSummary, WeeklyHoursBreakdown } from '@/types/hours';
+import type { InternshipHoursSummary, DailyHoursBreakdown } from '@/types/hours';
 import { createSupabaseClient } from '@/lib/supabase';
 import {
   Dialog,
@@ -17,12 +18,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-interface WeeklyReport {
+interface DailyReport {
   id: string;
-  week_number: number;
-  week_start_date: string;
-  week_end_date: string;
-  hours_rendered: number;
+  report_date: string;
+  hours_worked: number;
 }
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -50,8 +49,8 @@ export function ViewInternshipModal({
   
   // Hours tracking state
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
-  const [weeklyBreakdown, setWeeklyBreakdown] = useState<WeeklyHoursBreakdown[]>([]);
-  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [dailyBreakdown, setDailyBreakdown] = useState<DailyHoursBreakdown[]>([]);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
 
   useEffect(() => {
     if (open && internshipId) {
@@ -85,21 +84,21 @@ export function ViewInternshipModal({
       
       const [summaryResult, breakdownResult, reportsResult] = await Promise.all([
         hoursApi.getInternshipHoursSummary(internshipId),
-        hoursApi.getWeeklyHoursBreakdown(internshipId),
+        hoursApi.getDailyHoursBreakdown(internshipId),
         supabase
-          .from('student_weekly_accomplishments')
-          .select('id, week_number, hours_rendered, internship_id, created_at')
+          .from('student_daily_reports')
+          .select('id, report_date, hours_worked, internship_id, created_at')
           .eq('internship_id', internshipId)
-          .order('week_number', { ascending: true })
+          .order('report_date', { ascending: true })
       ]);
       
-      console.log('🔵 [Admin Weekly Reports] Query result:', {
+      console.log('🔵 [Admin Daily Reports] Query result:', {
         data: reportsResult.data,
         error: reportsResult.error,
         count: reportsResult.data?.length || 0
       });
       
-      console.log('🔵 [Admin Weekly Breakdown] Hours API result:', {
+      console.log('🔵 [Admin Daily Breakdown] Hours API result:', {
         data: breakdownResult.data,
         count: breakdownResult.data?.length || 0
       });
@@ -108,29 +107,14 @@ export function ViewInternshipModal({
         setHoursSummary(summaryResult.data);
       }
       if (breakdownResult.success && breakdownResult.data) {
-        setWeeklyBreakdown(breakdownResult.data);
+        setDailyBreakdown(breakdownResult.data);
       }
-      if (reportsResult.data && internship) {
-        // Compute week dates based on internship start_date
-        const startDate = new Date(internship.start_date);
-        const reportsWithDates = reportsResult.data.map(report => {
-          const weekStart = new Date(startDate);
-          weekStart.setDate(weekStart.getDate() + (report.week_number - 1) * 7);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          
-          return {
-            ...report,
-            week_start_date: weekStart.toISOString(),
-            week_end_date: weekEnd.toISOString()
-          };
-        });
-        
-        console.log('✅ [Admin Weekly Reports] Setting weekly reports with computed dates:', reportsWithDates);
-        setWeeklyReports(reportsWithDates);
+      if (reportsResult.data) {
+        console.log('✅ [Admin Daily Reports] Setting daily reports:', reportsResult.data);
+        setDailyReports(reportsResult.data);
       }
       if (reportsResult.error) {
-        console.error('❌ [Admin Weekly Reports] Supabase error:', reportsResult.error);
+        console.error('❌ [Admin Daily Reports] Supabase error:', reportsResult.error);
       }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
@@ -380,9 +364,9 @@ export function ViewInternshipModal({
                     <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Calendar className="h-4 w-4" />
-                        <span className="text-sm">Weeks Completed</span>
+                        <span className="text-sm">Days Reported</span>
                       </div>
-                      <p className="text-2xl font-bold">{hoursSummary.weeks_completed}</p>
+                      <p className="text-2xl font-bold">{hoursSummary.days_reported}</p>
                     </div>
                     <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -412,43 +396,36 @@ export function ViewInternshipModal({
                 <div className="p-6 text-center text-muted-foreground">
                   <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No hours data available yet</p>
-                  <p className="text-sm">Hours will appear once weekly reports are submitted</p>
+                  <p className="text-sm">Hours will appear once daily reports are submitted</p>
                 </div>
               )}
 
               <Separator />
 
-              {/* Weekly Breakdown */}
+              {/* Daily Breakdown */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Weekly Hours Breakdown</h3>
-                {weeklyBreakdown.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No weekly reports submitted yet</p>
+                <h3 className="text-lg font-semibold">Daily Hours Log</h3>
+                {dailyBreakdown.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No daily reports submitted yet</p>
                 ) : (
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {weeklyBreakdown.map((week) => {
-                      const report = weeklyReports.find(r => r.week_number === week.week_number);
+                    {dailyBreakdown.map((day) => {
                       return (
                         <div 
-                          key={week.week_number}
+                          key={day.report_date}
                           className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
                         >
                           <div className="flex items-center gap-3">
-                            <Badge variant="outline">Week {week.week_number}</Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {report ? (
-                                `${new Date(report.week_start_date).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                })} - ${new Date(report.week_end_date).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}`
-                              ) : 'Date TBD'}
-                            </span>
+                            <Badge variant="outline">
+                              {new Date(day.report_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </Badge>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{week.hours_rendered}h</span>
+                            <span className="font-medium">{day.hours_worked}h</span>
                           </div>
                         </div>
                       );

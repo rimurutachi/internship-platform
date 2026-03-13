@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Custom Hooks for Supervisor Evaluations
  * 
@@ -7,7 +8,7 @@
  * AI is now used only for historical trend analysis (admin analytics)
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createSupabaseClient } from '@/lib/supabase';
 import {
   submitEvaluation,

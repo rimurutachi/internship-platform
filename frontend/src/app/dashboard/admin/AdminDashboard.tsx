@@ -1,6 +1,6 @@
 'use client';
 
-import { Shield } from 'lucide-react';
+
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';

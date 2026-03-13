@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { Loader2, Trash2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';

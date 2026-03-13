@@ -4,12 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
-  BarChart3, 
   Users, 
-  FileText, 
   Brain,
   Settings,
-  MessageSquare,
   FileCheck,
   ClipboardList
 } from 'lucide-react';
@@ -18,8 +15,8 @@ import { useUserContext } from '@/components/providers/UserProvider';
 
 const menuItems = [
   { icon: Users, label: 'My Students', path: '/dashboard/advisor/students' },
-  { icon: Brain, label: 'Evaluations & Reports', path: '/dashboard/advisor/evaluations' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/advisor/messages' },
+  { icon: Brain, label: 'Evaluations', path: '/dashboard/advisor/evaluations' },
+
   { icon: FileCheck, label: 'Documents', path: '/dashboard/advisor/documents' },
   { icon: ClipboardList, label: 'Requirements', path: '/dashboard/advisor/requirements' },
   { icon: Settings, label: 'Settings', path: '/dashboard/advisor/settings' },

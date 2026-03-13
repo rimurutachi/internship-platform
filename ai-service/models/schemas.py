@@ -284,3 +284,63 @@ class HealthResponse(BaseModel):
     version: str
     components: dict
     capabilities: List[str]
+
+
+# =============================================================================
+# NARRATIVE GENERATION SCHEMAS
+# =============================================================================
+
+class DailyReportData(BaseModel):
+    """Daily report entry for narrative generation"""
+    report_date: str = Field(..., description="Date of the report (YYYY-MM-DD)")
+    activities: str = Field(..., min_length=10, description="What the student accomplished")
+    hours_worked: Optional[float] = Field(None, description="Hours worked this day")
+    learnings: Optional[str] = Field(None, description="Key learnings")
+
+
+class NarrativeGenerationRequest(BaseModel):
+    """
+    Request for AI-assisted narrative generation from daily reports.
+    Used after internship completion to help students compile their narrative report.
+    """
+    student_name: str = Field(..., min_length=2, description="Student's full name")
+    company_name: str = Field(..., min_length=2, description="Company where internship was done")
+    position: str = Field(..., min_length=2, description="Internship position/role")
+    department: Optional[str] = Field(None, description="Department within company")
+    start_date: str = Field(..., description="Internship start date")
+    end_date: str = Field(..., description="Internship end date")
+    total_hours: Optional[float] = Field(None, description="Total hours completed")
+    daily_reports: List[DailyReportData] = Field(..., min_length=1, description="List of daily reports")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "student_name": "Juan Dela Cruz",
+                "company_name": "Tech Solutions Inc.",
+                "position": "Software Developer Intern",
+                "department": "Engineering",
+                "start_date": "2025-01-15",
+                "end_date": "2025-04-15",
+                "total_hours": 480,
+                "daily_reports": [
+                    {
+                        "report_date": "2025-01-15",
+                        "activities": "Completed orientation and setup development environment. Learned company coding standards.",
+                        "hours_worked": 8,
+                        "learnings": "Company uses agile methodology with daily standups"
+                    }
+                ]
+            }
+        }
+
+
+class NarrativeGenerationResponse(BaseModel):
+    """Response containing AI-generated narrative draft"""
+    success: bool
+    narrative_draft: str = Field(..., description="Generated narrative text")
+    sections: dict = Field(default_factory=dict, description="Structured sections of the narrative")
+    word_count: int
+    key_themes: List[str] = Field(default_factory=list, description="Identified key themes")
+    skills_mentioned: List[str] = Field(default_factory=list, description="Skills identified from reports")
+    suggestions: List[str] = Field(default_factory=list, description="Suggestions for improvement")
+    generated_at: str

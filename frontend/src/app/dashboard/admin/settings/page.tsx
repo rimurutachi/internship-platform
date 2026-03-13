@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Bell, Lock, Globe, Database } from 'lucide-react';
+import { User, Bell, Lock } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';

@@ -15,7 +15,6 @@ import {
   DocumentStats,
   UpdateStatusData,
   UpdateWorkflowData,
-  CollaborationInfo,
   DocumentStatus
 } from '../../types/documents';
 
@@ -362,47 +361,6 @@ export const updateWorkflow = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Update workflow error:', error);
     res.status(500).json({ error: 'Failed to update workflow', details: error.message });
-  }
-};
-
-/**
- * Get active collaborators from collaboration sessions
- */
-export const getCollaborators = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    // Get active sessions (active in last 5 minutes)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-
-    const { data: sessions, error } = await supabaseAdmin
-      .from('collaboration_sessions')
-      .select(`
-        *,
-        user:users(id, first_name, last_name, email)
-      `)
-      .eq('document_id', id)
-      .gte('last_seen', fiveMinutesAgo)
-      .order('last_seen', { ascending: false });
-
-    if (error) throw error;
-
-    const collaborationInfo: CollaborationInfo = {
-      active_users: sessions.map(session => ({
-        user_id: session.user_id,
-        name: `${session.user.first_name} ${session.user.last_name}`,
-        email: session.user.email,
-        user_color: session.user_color,
-        cursor_position: session.cursor_position,
-        last_seen: session.last_seen
-      })),
-      sessions: sessions as CollaborationSession[]
-    };
-
-    res.json(collaborationInfo);
-  } catch (error: any) {
-    console.error('Get collaborators error:', error);
-    res.status(500).json({ error: 'Failed to fetch collaborators', details: error.message });
   }
 };
 

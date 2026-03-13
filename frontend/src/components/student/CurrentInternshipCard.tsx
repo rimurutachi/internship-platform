@@ -122,8 +122,8 @@ export const CurrentInternshipCard = ({ internship, progress }: CurrentInternshi
                 <div className="flex items-center justify-center text-muted-foreground mb-1">
                   <Calendar className="w-3 h-3" />
                 </div>
-                <p className="text-lg font-bold text-foreground">{hoursSummary.weeks_completed}</p>
-                <p className="text-xs text-muted-foreground">Weeks</p>
+                <p className="text-lg font-bold text-foreground">{hoursSummary.days_reported}</p>
+                <p className="text-xs text-muted-foreground">Days</p>
               </div>
               <div className="text-center p-2 rounded-lg bg-muted/50">
                 <div className="flex items-center justify-center text-muted-foreground mb-1">

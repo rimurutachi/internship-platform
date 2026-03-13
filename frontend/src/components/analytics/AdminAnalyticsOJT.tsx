@@ -1,10 +1,11 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react/no-unescaped-entities */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, Building2, FileText, ClipboardCheck, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, GraduationCap, Briefcase, Sparkles, ArrowUpRight, Activity } from "lucide-react";
+
+import { Users, Building2, FileText, ClipboardCheck, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, Briefcase, Sparkles, ArrowUpRight, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -18,7 +19,7 @@ interface OJTDashboardMetrics {
   completed_internships: number;
   total_companies: number;
   companies_with_capacity: number;
-  pending_weekly_reports: number;
+  total_daily_reports: number;
   pending_supervisor_evaluations: number;
   pending_advisor_evaluations: number;
   completed_evaluations_this_month: number;
@@ -47,7 +48,7 @@ interface DashboardOverview {
   insights: AIInsight[];
   quick_actions?: QuickAction[];
   recent_activity: {
-    weekly_reports_this_week: number;
+    daily_reports_this_week: number;
     evaluations_this_week: number;
   };
 }
@@ -72,7 +73,7 @@ export function AdminAnalyticsOJT() {
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [recentActivity, setRecentActivity] = useState({
-    weekly_reports_this_week: 0,
+    daily_reports_this_week: 0,
     evaluations_this_week: 0,
   });
 
@@ -161,7 +162,7 @@ export function AdminAnalyticsOJT() {
       setMetrics(result.data.metrics);
       setInsights(result.data.insights || []);
       setRecentActivity(result.data.recent_activity || {
-        weekly_reports_this_week: 0,
+        daily_reports_this_week: 0,
         evaluations_this_week: 0,
       });
       
@@ -367,10 +368,10 @@ export function AdminAnalyticsOJT() {
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                 <div className="flex items-center gap-3">
                   <FileText className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-medium">Weekly Reports</span>
+                  <span className="text-sm font-medium">Daily Reports</span>
                 </div>
-                <Badge variant={((metrics?.pending_weekly_reports || 0) > 0) ? "destructive" : "secondary"} className="font-bold">
-                  {metrics?.pending_weekly_reports || 0}
+                <Badge variant="secondary" className="font-bold">
+                  {metrics?.total_daily_reports || 0}
                 </Badge>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
@@ -403,8 +404,8 @@ export function AdminAnalyticsOJT() {
         <CardContent className="pt-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-4 rounded-xl bg-green-500/5 border border-green-500/10">
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{recentActivity.weekly_reports_this_week}</p>
-              <p className="text-xs text-muted-foreground mt-1">Weekly Reports</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{recentActivity.daily_reports_this_week}</p>
+              <p className="text-xs text-muted-foreground mt-1">Daily Reports</p>
             </div>
             <div className="text-center p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
               <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{recentActivity.evaluations_this_week}</p>

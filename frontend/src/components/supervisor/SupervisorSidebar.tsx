@@ -4,22 +4,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
-  Users, 
   FileText, 
   Settings,
-  MessageSquare,
-  FileCheck,
-  ClipboardList
+  Users,
+  LayoutDashboard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
 
+// Supervisor pages: Dashboard, Interns, Evaluations, Settings
 const menuItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/supervisor' },
   { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
-  { icon: ClipboardList, label: 'Weekly Reports', path: '/dashboard/supervisor/student-reports' },
   { icon: FileText, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },
-  { icon: FileCheck, label: 'Documents', path: '/dashboard/supervisor/documents' },
   { icon: Settings, label: 'Settings', path: '/dashboard/supervisor/settings' },
 ];
 

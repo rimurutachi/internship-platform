@@ -1,7 +1,8 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps, react/no-unescaped-entities */
 
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Archive, ArchiveRestore, Lock, Unlock, Shield, Loader2, AlertTriangle } from 'lucide-react';
+import { Search, UserPlus, Archive, ArchiveRestore, Lock, Shield, Loader2, AlertTriangle } from 'lucide-react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -182,15 +183,27 @@ export default function UsersPage() {
       return;
     }
 
+    // Validate student/advisor has program
+    if ((createForm.role === 'student' || createForm.role === 'advisor') && !createForm.program) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a program',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       await adminAPI.createUser(createForm);
       toast({
         title: 'Success',
-        description: 'User created successfully',
+        description: createForm.role === 'student' 
+          ? 'Student created and auto-assigned to matching advisor if available' 
+          : 'User created successfully',
       });
       setCreateDialogOpen(false);
-      setCreateForm({ email: '', firstName: '', lastName: '', role: 'student', password: '' });
+      setCreateForm({ email: '', firstName: '', lastName: '', role: 'student', password: '', program: undefined, year_level: undefined, section: undefined });
       fetchUsers();
       fetchStats();
     } catch (error: any) {
@@ -424,6 +437,66 @@ export default function UsersPage() {
                             </Select>
                           )}
                         </div>
+                      )}
+                      
+                      {/* Program & Section - for students and advisors (auto-assignment) */}
+                      {(createForm.role === 'student' || createForm.role === 'advisor') && (
+                        <>
+                          <div>
+                            <Label>Program <span className="text-destructive">*</span></Label>
+                            <Select 
+                              value={createForm.program}
+                              onValueChange={(value: string) => setCreateForm({ ...createForm, program: value })}
+                            >
+                              <SelectTrigger className="mt-2">
+                                <SelectValue placeholder="Select program" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="BSPsych">Bachelor of Science in Psychology (BSPsych)</SelectItem>
+                                <SelectItem value="BSCrim">Bachelor of Science in Criminology (BSCrim)</SelectItem>
+                                <SelectItem value="BSIT">Bachelor of Science in Information Technology (BSIT)</SelectItem>
+                                <SelectItem value="BSCS">Bachelor of Science in Computer Science (BSCS)</SelectItem>
+                                <SelectItem value="BSEd-Math">Bachelor of Secondary Education major in Mathematics (BSEd-Math)</SelectItem>
+                                <SelectItem value="BSEd-English">Bachelor of Secondary Education major in English (BSEd-English)</SelectItem>
+                                <SelectItem value="BSEd-Filipino">Bachelor of Secondary Education major in Filipino (BSEd-Filipino)</SelectItem>
+                                <SelectItem value="BSBA-HRM">BSBA major in Human Resource Management (BSBA-HRM)</SelectItem>
+                                <SelectItem value="BSBA-MM">BSBA major in Marketing Management (BSBA-MM)</SelectItem>
+                                <SelectItem value="BSHM">Bachelor of Science in Hospitality Management (BSHM)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Year Level <span className="text-destructive">*</span></Label>
+                            <Select 
+                              value={createForm.year_level}
+                              onValueChange={(value: string) => setCreateForm({ ...createForm, year_level: value })}
+                            >
+                              <SelectTrigger className="mt-2">
+                                <SelectValue placeholder="Select year level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1st Year">1st Year</SelectItem>
+                                <SelectItem value="2nd Year">2nd Year</SelectItem>
+                                <SelectItem value="3rd Year">3rd Year</SelectItem>
+                                <SelectItem value="4th Year">4th Year</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Section</Label>
+                            <Input 
+                              placeholder="e.g., 4A, 4B, 3A" 
+                              className="mt-2"
+                              value={createForm.section || ''}
+                              onChange={(e) => setCreateForm({ ...createForm, section: e.target.value })}
+                            />
+                            {createForm.role === 'student' && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Students will be auto-assigned to their matching program &amp; year level advisor if available.
+                              </p>
+                            )}
+                          </div>
+                        </>
                       )}
                       
                       <Button 

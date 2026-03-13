@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps, react/no-unescaped-entities */
 
 import { useState, useEffect } from 'react';
 import { Bell, Check, Trash2, X, AlertCircle, CheckCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';

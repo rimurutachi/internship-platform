@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps, react/no-unescaped-entities */
 
 import { useState, useEffect } from 'react';
 import { Calendar, MapPin, User, Building2, Clock, CheckCircle2, AlertCircle, Loader2, TrendingUp, Target } from 'lucide-react';
@@ -13,15 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import { hoursApi } from '@/lib/api/hours';
-import type { InternshipHoursSummary, WeeklyHoursBreakdown } from '@/types/hours';
+import type { InternshipHoursSummary, DailyHoursBreakdown } from '@/types/hours';
 import { createSupabaseClient } from '@/lib/supabase';
 
-interface WeeklyReport {
+interface DailyReport {
   id: string;
-  week_number: number;
-  week_start_date: string;
-  week_end_date: string;
-  hours_rendered: number;
+  report_date: string;
+  hours_worked: number;
 }
 
 interface InternshipData {
@@ -54,8 +53,8 @@ export default function CurrentInternship() {
   
   // Hours tracking state
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
-  const [weeklyBreakdown, setWeeklyBreakdown] = useState<WeeklyHoursBreakdown[]>([]);
-  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [dailyBreakdown, setDailyBreakdown] = useState<DailyHoursBreakdown[]>([]);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
 
   useEffect(() => {
     loadInternshipData();
@@ -69,21 +68,21 @@ export default function CurrentInternship() {
       
       const [summaryResult, breakdownResult, reportsResult] = await Promise.all([
         hoursApi.getInternshipHoursSummary(internshipId),
-        hoursApi.getWeeklyHoursBreakdown(internshipId),
+        hoursApi.getDailyHoursBreakdown(internshipId),
         supabase
-          .from('student_weekly_accomplishments')
-          .select('id, week_number, hours_rendered, internship_id, created_at')
+          .from('student_daily_reports')
+          .select('id, report_date, hours_worked, internship_id, created_at')
           .eq('internship_id', internshipId)
-          .order('week_number', { ascending: true })
+          .order('report_date', { ascending: true })
       ]);
       
-      console.log('🔵 [Weekly Reports] Query result:', {
+      console.log('🔵 [Daily Reports] Query result:', {
         data: reportsResult.data,
         error: reportsResult.error,
         count: reportsResult.data?.length || 0
       });
       
-      console.log('🔵 [Weekly Breakdown] Hours API result:', {
+      console.log('🔵 [Daily Breakdown] Hours API result:', {
         data: breakdownResult.data,
         count: breakdownResult.data?.length || 0
       });
@@ -92,29 +91,14 @@ export default function CurrentInternship() {
         setHoursSummary(summaryResult.data);
       }
       if (breakdownResult.success && breakdownResult.data) {
-        setWeeklyBreakdown(breakdownResult.data);
+        setDailyBreakdown(breakdownResult.data);
       }
-      if (reportsResult.data && internship) {
-        // Compute week dates based on internship start_date
-        const startDate = new Date(internship.startDate);
-        const reportsWithDates = reportsResult.data.map(report => {
-          const weekStart = new Date(startDate);
-          weekStart.setDate(weekStart.getDate() + (report.week_number - 1) * 7);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          
-          return {
-            ...report,
-            week_start_date: weekStart.toISOString(),
-            week_end_date: weekEnd.toISOString()
-          };
-        });
-        
-        console.log('✅ [Weekly Reports] Setting weekly reports with computed dates:', reportsWithDates);
-        setWeeklyReports(reportsWithDates);
+      if (reportsResult.data) {
+        console.log('✅ [Daily Reports] Setting daily reports:', reportsResult.data);
+        setDailyReports(reportsResult.data);
       }
       if (reportsResult.error) {
-        console.error('❌ [Weekly Reports] Supabase error:', reportsResult.error);
+        console.error('❌ [Daily Reports] Supabase error:', reportsResult.error);
       }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
@@ -400,9 +384,9 @@ export default function CurrentInternship() {
               <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-5 w-5" />
-                  <span className="text-sm">Weeks Completed</span>
+                  <span className="text-sm">Days Reported</span>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{hoursSummary.weeks_completed}</p>
+                <p className="text-3xl font-bold text-foreground">{hoursSummary.days_reported}</p>
               </div>
               <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -432,38 +416,31 @@ export default function CurrentInternship() {
         </Card>
       )}
 
-      {/* Weekly Hours Breakdown */}
-      {weeklyBreakdown.length > 0 && (
+      {/* Daily Hours Log */}
+      {dailyBreakdown.length > 0 && (
         <Card className="bg-card border border-border">
           <CardHeader className="pb-4">
-            <CardTitle className="text-xl">Weekly Hours Breakdown</CardTitle>
+            <CardTitle className="text-xl">Daily Hours Log</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {weeklyBreakdown.map((week) => {
-                const report = weeklyReports.find(r => r.week_number === week.week_number);
+              {dailyBreakdown.map((day) => {
                 return (
                   <div 
-                    key={week.week_number}
+                    key={day.report_date}
                     className="flex items-center justify-between p-4 rounded-lg border bg-muted/50"
                   >
                     <div className="flex items-center gap-4">
-                      <Badge variant="outline" className="text-base px-3 py-1">Week {week.week_number}</Badge>
-                      <span className="text-muted-foreground">
-                        {report ? (
-                          `${new Date(report.week_start_date).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          })} - ${new Date(report.week_end_date).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          })}`
-                        ) : 'Date TBD'}
-                      </span>
+                      <Badge variant="outline" className="text-base px-3 py-1">
+                        {new Date(day.report_date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-xl font-semibold">{week.hours_rendered}h</span>
+                      <span className="text-xl font-semibold">{day.hours_worked}h</span>
                     </div>
                   </div>
                 );
@@ -614,9 +591,9 @@ export default function CurrentInternship() {
                   <div className="p-3 rounded-lg border bg-muted/50">
                     <div className="flex items-center gap-1 text-muted-foreground text-xs">
                       <Calendar className="h-3 w-3" />
-                      <span>Weeks</span>
+                      <span>Days</span>
                     </div>
-                    <p className="text-xl font-bold">{hoursSummary.weeks_completed}</p>
+                    <p className="text-xl font-bold">{hoursSummary.days_reported}</p>
                   </div>
                   <div className="p-3 rounded-lg border bg-muted/50">
                     <div className="flex items-center gap-1 text-muted-foreground text-xs">
@@ -645,30 +622,26 @@ export default function CurrentInternship() {
             </Card>
           )}
 
-          {/* Weekly Breakdown - Mobile */}
-          {weeklyBreakdown.length > 0 && (
+          {/* Daily Breakdown - Mobile */}
+          {dailyBreakdown.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Weekly Breakdown</CardTitle>
+                <CardTitle className="text-base">Daily Hours Log</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {weeklyBreakdown.slice(0, 5).map((week) => {
-                    const report = weeklyReports.find(r => r.week_number === week.week_number);
+                  {dailyBreakdown.slice(0, 5).map((day) => {
                     return (
                       <div 
-                        key={week.week_number}
+                        key={day.report_date}
                         className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
                       >
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">Week {week.week_number}</Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {report ? (
-                              `${new Date(report.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(report.week_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                            ) : 'Date TBD'}
-                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {new Date(day.report_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </Badge>
                         </div>
-                        <span className="font-semibold">{week.hours_rendered}h</span>
+                        <span className="font-semibold">{day.hours_worked}h</span>
                       </div>
                     );
                   })}

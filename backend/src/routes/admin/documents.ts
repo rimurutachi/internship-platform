@@ -9,7 +9,6 @@ import {
   getWorkflow,
   updateStatus,
   updateWorkflow,
-  getCollaborators,
   archiveDocument,
   deleteDocument,
   getDocumentStats
@@ -82,13 +81,6 @@ router.get('/:id/comments', getComments);
 router.get('/:id/workflow', getWorkflow);
 
 /**
- * @route   GET /api/admin/documents/:id/collaboration-info
- * @desc    Get active collaborators from collaboration sessions
- * @access  Admin
- */
-router.get('/:id/collaboration-info', getCollaborators);
-
-/**
  * @route   PATCH /api/admin/documents/:id/status
  * @desc    Update document status with validation
  * @body    { status: DocumentStatus }
@@ -117,117 +109,6 @@ router.patch('/:id/archive', archiveDocument);
  * @access  Admin
  */
 router.delete('/:id', deleteDocument);
-
-// ===== BLOCKCHAIN OPERATIONS =====
-
-/**
- * @route   POST /api/admin/documents/:id/blockchain/record
- * @desc    Record blockchain entry for document
- * @access  Admin
- */
-router.post('/:id/blockchain/record', async (req: any, res: any) => {
-  try {
-    console.log('📡 [Backend Route] Recording blockchain entry for document:', req.params.id);
-    const result = await documentServiceProxy.recordBlockchainEntry(
-      req.params.id,
-      req.body,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    console.error('❌ [Backend Route] Blockchain record failed:', error.message);
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/admin/documents/:id/blockchain/ledger
- * @desc    Get blockchain ledger for document
- * @access  Admin
- */
-router.get('/:id/blockchain/ledger', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.getDocumentLedger(
-      req.params.id,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   POST /api/admin/documents/:id/blockchain/verify
- * @desc    Verify document blockchain integrity
- * @access  Admin
- */
-router.post('/:id/blockchain/verify', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.verifyDocumentIntegrity(
-      req.params.id,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-// ===== SIGNATURE OPERATIONS =====
-
-/**
- * @route   POST /api/admin/documents/:id/signatures/sign
- * @desc    Sign document with digital signature
- * @access  Admin
- */
-router.post('/:id/signatures/sign', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.signDocument(
-      req.params.id,
-      req.body,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/admin/documents/:id/signatures
- * @desc    Get document signatures
- * @access  Admin
- */
-router.get('/:id/signatures', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.getDocumentSignatures(
-      req.params.id,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   POST /api/admin/documents/:id/signatures/:signatureId/verify
- * @desc    Verify a signature
- * @access  Admin
- */
-router.post('/:id/signatures/:signatureId/verify', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.verifySignature(
-      req.params.signatureId,
-      req.body,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
 
 // ===== ACCESS CONTROL OPERATIONS =====
 
@@ -470,131 +351,6 @@ router.delete('/templates/:templateId', async (req: any, res: any) => {
   try {
     const result = await documentServiceProxy.deleteTemplate(
       req.params.templateId,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-// ===== COLLABORATION OPERATIONS =====
-
-/**
- * @route   POST /api/admin/documents/:id/collaboration/sessions
- * @desc    Initialize collaboration session
- * @access  Admin
- */
-router.post('/:id/collaboration/sessions', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.initializeSession(
-      req.params.id,
-      req.body,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   POST /api/admin/documents/:id/collaboration/changes
- * @desc    Record collaboration change
- * @access  Admin
- */
-router.post('/:id/collaboration/changes', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.recordChange(
-      req.params.id,
-      req.body,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/admin/documents/:id/collaboration/changes
- * @desc    Get change history
- * @access  Admin
- */
-router.get('/:id/collaboration/changes', async (req: any, res: any) => {
-  try {
-    const limit = req.query.limit ? parseInt(req.query.limit) : 100;
-    const result = await documentServiceProxy.getChangeHistory(
-      req.params.id,
-      limit,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/admin/documents/:id/collaboration/users
- * @desc    Get active collaborators
- * @access  Admin
- */
-router.get('/:id/collaboration/users', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.getActiveUsers(
-      req.params.id,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   POST /api/admin/documents/:id/collaboration/undo
- * @desc    Undo last change
- * @access  Admin
- */
-router.post('/:id/collaboration/undo', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.undoChange(
-      req.params.id,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   POST /api/admin/documents/:id/collaboration/redo
- * @desc    Redo last change
- * @access  Admin
- */
-router.post('/:id/collaboration/redo', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.redoChange(
-      req.params.id,
-      req.headers.authorization?.split(' ')[1]
-    );
-    res.json(result);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/admin/documents/:id/collaboration/stack-status
- * @desc    Get undo/redo stack status
- * @access  Admin
- */
-router.get('/:id/collaboration/stack-status', async (req: any, res: any) => {
-  try {
-    const result = await documentServiceProxy.getStackStatus(
-      req.params.id,
       req.headers.authorization?.split(' ')[1]
     );
     res.json(result);

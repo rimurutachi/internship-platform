@@ -4,13 +4,14 @@ import * as adminController from '../controllers/adminController';
 import documentRoutes from './admin/documents';
 import dashboardRoutes from './admin/dashboard';
 import reportsRoutes from './admin/reports.routes';
-import weeklyReportsRoutes from './admin/weeklyReports';
+// Weekly reports removed - reports are now student-only daily reports
 import settingsRoutes from './admin/settings.routes';
 import internshipsRoutes from './admin/internships';
 import evaluationsRoutes from './admin/evaluations.routes';
 import companiesRoutes from './admin/companies';
 import rubricsRoutes from './admin/rubrics';
 import analyticsRoutes from './admin/analytics.routes';
+import moaRoutes from './admin/moa';
 
 const router = Router();
 
@@ -61,7 +62,7 @@ router.use('/dashboard', dashboardRoutes);
 
 // Reports and analytics routes
 router.use('/reports', reportsRoutes);
-router.use('/weekly-reports', weeklyReportsRoutes);
+// Weekly reports removed - daily reports are student-only
 
 // Settings routes (lightweight, no security tables)
 router.use('/settings', settingsRoutes);
@@ -80,5 +81,8 @@ router.use('/companies', companiesRoutes);
 
 // AI Analytics routes (trend analysis) - v2.0.0
 router.use('/analytics', analyticsRoutes);
+
+// MOA management routes (approved document submissions)
+router.use('/moa', moaRoutes);
 
 export default router;

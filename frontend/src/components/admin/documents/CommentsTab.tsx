@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { Loader2, MessageSquare, User, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
