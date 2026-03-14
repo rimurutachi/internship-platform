@@ -127,7 +127,7 @@ router.get('/internship/:id', async (req: AuthRequest, res) => {
 
 /**
  * GET /api/hours/internship/:id/breakdown
- * Get weekly hours breakdown for an internship
+ * Get daily hours breakdown for an internship
  */
 router.get('/internship/:id/breakdown', async (req: AuthRequest, res) => {
   try {
@@ -135,7 +135,7 @@ router.get('/internship/:id/breakdown', async (req: AuthRequest, res) => {
     const internshipId = Array.isArray(id) ? id[0] : id;
     console.log('🔵 [HoursRoutes] GET /internship/:id/breakdown -', internshipId);
     
-    const result = await hoursService.getWeeklyHoursBreakdown(internshipId);
+    const result = await hoursService.getDailyHoursBreakdown(internshipId);
     
     if (!result.success) {
       return res.status(404).json(result);

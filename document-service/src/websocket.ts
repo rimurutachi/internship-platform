@@ -219,7 +219,7 @@ export function setupWebSocket(io: SocketServer) {
         socket.to(documentId).emit("user:joined", {
           userId: socket.user.id,
           socketId: socket.id,
-          userColor: currentSession.color,
+          userColor: currentSession!.color,
         });
 
         // Send active users to new joiner
