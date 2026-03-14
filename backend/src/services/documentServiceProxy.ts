@@ -170,6 +170,12 @@ class DocumentServiceProxy {
     return this.request('GET', `/api/templates/public/list?limit=${limit}`);
   }
 
+  // ===== SIGNATURE VERIFICATION =====
+
+  async verifySignaturePublic(signatureId: string) {
+    return this.request('GET', `/api/public/signatures/verify/${signatureId}`);
+  }
+
   // ===== HEALTH CHECK =====
 
   async healthCheck(): Promise<boolean> {
