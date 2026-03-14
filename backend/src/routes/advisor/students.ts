@@ -224,12 +224,12 @@ router.get('/students/:studentId', async (req: AuthRequest, res: Response) => {
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
-    // Get weekly reports for this student
+    // Get daily reports progress for this student
     const { data: reports } = await supabase
-      .from('weekly_reports')
-      .select('*')
+      .from('student_daily_reports')
+      .select('id, report_date, hours_worked')
       .eq('student_id', studentId)
-      .order('week_number', { ascending: false })
+      .order('report_date', { ascending: false })
       .limit(10);
 
     // Calculate performance metrics

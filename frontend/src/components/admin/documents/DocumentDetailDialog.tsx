@@ -8,11 +8,7 @@ import { DocumentResponse, DocumentType } from '@/types/documents';
 import { VersionHistoryTab } from './VersionHistoryTab';
 import { CommentsTab } from './CommentsTab';
 import { WorkflowTab } from './WorkflowTab';
-import { CollaboratorsTab } from './CollaboratorsTab';
-import { BlockchainTab } from './BlockchainTab';
-import { SignaturesTab } from './SignaturesTab';
 import { AccessTab } from './AccessTab';
-import { CollaborationTab } from './CollaborationTab';
 import { documentsAPI } from '@/lib/api/documents';
 
 interface DocumentDetailDialogProps {
@@ -118,7 +114,7 @@ export function DocumentDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-9 h-auto">
+          <TabsList className="grid w-full grid-cols-5 h-auto">
             <TabsTrigger value="details" className="text-xs sm:text-sm">
               <FileText className="h-4 w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Details</span>
@@ -135,25 +131,9 @@ export function DocumentDetailDialog({
               <Activity className="h-4 w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Workflow</span>
             </TabsTrigger>
-            <TabsTrigger value="collaborators" className="text-xs sm:text-sm">
-              <Users className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Collaborators</span>
-            </TabsTrigger>
-            <TabsTrigger value="blockchain" className="text-xs sm:text-sm">
-              <Network className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Blockchain</span>
-            </TabsTrigger>
-            <TabsTrigger value="signatures" className="text-xs sm:text-sm">
-              <PenTool className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Signatures</span>
-            </TabsTrigger>
             <TabsTrigger value="access" className="text-xs sm:text-sm">
               <Lock className="h-4 w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Access</span>
-            </TabsTrigger>
-            <TabsTrigger value="collaboration" className="text-xs sm:text-sm">
-              <Users className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Activity</span>
             </TabsTrigger>
           </TabsList>
 
@@ -210,24 +190,8 @@ export function DocumentDetailDialog({
             <WorkflowTab documentId={document.id} onUpdate={onUpdate} />
           </TabsContent>
 
-          <TabsContent value="collaborators" className="mt-4">
-            <CollaboratorsTab documentId={document.id} />
-          </TabsContent>
-
-          <TabsContent value="blockchain" className="mt-4">
-            <BlockchainTab documentId={document.id} />
-          </TabsContent>
-
-          <TabsContent value="signatures" className="mt-4">
-            <SignaturesTab documentId={document.id} />
-          </TabsContent>
-
           <TabsContent value="access" className="mt-4">
             <AccessTab documentId={document.id} />
-          </TabsContent>
-
-          <TabsContent value="collaboration" className="mt-4">
-            <CollaborationTab documentId={document.id} />
           </TabsContent>
         </Tabs>
       </DialogContent>

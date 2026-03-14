@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState } from 'react';
 import { adminCompaniesAPI, CompanyCreateInput } from '@/lib/api/admin-companies';

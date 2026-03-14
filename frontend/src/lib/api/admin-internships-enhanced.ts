@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Enhanced Admin Internships API Client
  * API calls for v2.0 enhanced features

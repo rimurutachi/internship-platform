@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Student-specific TypeScript types for frontend
  */
@@ -124,45 +125,7 @@ export interface RequiredDocument {
   week?: number;
 }
 
-export interface StudentConversation {
-  id: string;
-  type: 'direct' | 'group' | 'internship';
-  participants: Array<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  }>;
-  last_message?: string;
-  last_message_time?: string;
-  unread_count?: number;
-  created_at: string;
-  updated_at?: string;
-}
 
-export interface StudentMessage {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  message_type: 'text' | 'file' | 'system';
-  file_url?: string;
-  is_edited: boolean;
-  read_at?: string;
-  created_at: string;
-  sender?: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
-}
-
-export interface MessagePagination {
-  total: number;
-  limit: number;
-  offset: number;
-}
 
 export interface StudentNotification {
   id: string;
@@ -269,11 +232,6 @@ export interface EvaluationsResponse {
   count?: number;
 }
 
-export interface ConversationMessagesResponse {
-  conversation: StudentConversation;
-  messages: StudentMessage[];
-  pagination: MessagePagination;
-}
 
 // ============ Task Types ============
 

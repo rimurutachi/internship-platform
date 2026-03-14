@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Enhanced Internship Management Types
  * Type definitions for v2.0 enhanced features
@@ -6,7 +7,7 @@
 export type ReminderType =
   | 'approaching_end_date'
   | 'pending_documents'
-  | 'pending_weekly_report'
+  | 'pending_daily_report'
   | 'evaluation_due'
   | 'missing_supervisor'
   | 'custom';
@@ -58,7 +59,10 @@ export interface DocumentStatusInfo {
 
 export interface DocumentSubmissionStatus {
   required_documents: DocumentStatusInfo[];
-  weekly_reports: DocumentStatusInfo[];
+  daily_reports_progress: {
+    total_hours: number;
+    total_days_reported: number;
+  };
   submitted_documents: any[];
 }
 

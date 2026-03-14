@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus } from "lucide-react";
+
 import Link from "next/link";
 
 interface WeeklyLogsCardProps {
@@ -11,7 +11,7 @@ export const WeeklyLogsCard = ({ logsCount = 0 }: WeeklyLogsCardProps) => {
   return (
     <Card className="bg-card border-border shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-foreground">Weekly Logs</CardTitle>
+        <CardTitle className="text-xl font-bold text-foreground">Daily Logs</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-center py-6">
@@ -23,7 +23,7 @@ export const WeeklyLogsCard = ({ logsCount = 0 }: WeeklyLogsCardProps) => {
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 text-base"
           asChild
         >
-          <Link href="/dashboard/student/weekly-reports">
+          <Link href="/dashboard/student/daily-reports">
             Add new log
           </Link>
         </Button>

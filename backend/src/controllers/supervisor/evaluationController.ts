@@ -463,14 +463,14 @@ export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
       });
     }
 
-    // Submit and auto-approve evaluation (one-time submission, no approval needed)
+    // Submit evaluation - sends directly to advisor for review
+    // Status changes to 'submitted' (pending advisor approval)
     const now = new Date().toISOString();
     const { data: submittedEval, error: updateError } = await supabase
       .from('evaluations')
       .update({
-        status: 'approved', // Auto-approved on submission
+        status: 'submitted', // Pending advisor review
         submitted_at: now,
-        approved_at: now, // Automatically approved
         updated_at: now,
       })
       .eq('id', id)
@@ -491,7 +491,7 @@ export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
       action: 'evaluation_submitted',
       entity_type: 'evaluation',
       entity_id: id,
-      description: `Final evaluation submitted and approved for student`,
+      description: `Final evaluation submitted to advisor for review`,
       metadata: {
         internship_id: evaluation.internship_id,
         student_id: evaluation.student_id,
@@ -500,13 +500,13 @@ export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
       },
     });
 
-    // Notify advisor - evaluation has been submitted (auto-approved)
+    // Notify advisor - evaluation submitted for their review/approval
     if (evaluation.internship.advisor_id) {
       await supabase.from('notifications').insert({
         user_id: evaluation.internship.advisor_id,
-        type: 'evaluation_submitted',
-        title: 'New Final Evaluation Submitted',
-        message: 'A supervisor has submitted a final evaluation for one of your students. You can now view the evaluation details.',
+        type: 'evaluation_pending_review',
+        title: 'Evaluation Pending Your Review',
+        message: 'A supervisor has submitted a final evaluation that requires your review and approval.',
         reference_id: id,
         reference_type: 'evaluation',
         metadata: {
@@ -516,45 +516,12 @@ export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
       });
     }
 
-    // Notify admin - new evaluation submitted
-    const { data: admins } = await supabase
-      .from('users')
-      .select('id')
-      .eq('role', 'admin');
-
-    if (admins && admins.length > 0) {
-      const adminNotifications = admins.map((admin) => ({
-        user_id: admin.id,
-        type: 'evaluation_submitted',
-        title: 'New Final Evaluation Submitted',
-        message: 'A supervisor has submitted a final evaluation.',
-        reference_id: id,
-        reference_type: 'evaluation',
-        metadata: {
-          evaluation_id: id,
-          internship_id: evaluation.internship_id,
-        },
-      }));
-      await supabase.from('notifications').insert(adminNotifications);
-    }
-
-    // Notify student - evaluation submitted
-    await supabase.from('notifications').insert({
-      user_id: evaluation.internship.student_id,
-      type: 'evaluation_submitted',
-      title: 'Final Evaluation Submitted',
-      message: 'Your supervisor has submitted your final evaluation.',
-      reference_id: id,
-      reference_type: 'evaluation',
-      metadata: {
-        evaluation_id: id,
-      },
-    });
+    // Note: Admin and student notifications will be sent when advisor approves the evaluation
 
     return res.status(200).json({
       success: true,
       data: submittedEval,
-      message: 'Evaluation submitted successfully.',
+      message: 'Evaluation submitted to advisor for review.',
     });
   } catch (error: any) {
     console.error('Submit evaluation error:', error);

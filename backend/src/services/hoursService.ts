@@ -2,7 +2,7 @@
  * Hours Tracking Service
  * 
  * Handles all internship hours calculation logic including:
- * - Total hours worked from weekly reports
+ * - Total hours worked from daily reports
  * - Progress percentage calculation
  * - Projected end date estimation
  * - Remaining hours calculation
@@ -38,14 +38,14 @@ export interface InternshipHoursSummary {
   remaining_hours: number;
   progress_percentage: number;
   projected_end_date: string | null;
-  weeks_completed: number;
+  days_reported: number;
   start_date: string;
   is_completed: boolean;
 }
 
-export interface WeeklyHoursBreakdown {
-  week_number: number;
-  hours_rendered: number;
+export interface DailyHoursBreakdown {
+  report_date: string;
+  hours_worked: number;
   created_at: string;
 }
 
@@ -223,19 +223,19 @@ export async function getInternshipHoursSummary(
       return { success: false, error: 'Internship not found' };
     }
 
-    // Get weekly reports count
-    const { count: weeksCompleted } = await supabase
-      .from('student_weekly_accomplishments')
+    // Get daily reports count
+    const { count: daysReported } = await supabase
+      .from('student_daily_reports')
       .select('*', { count: 'exact', head: true })
       .eq('internship_id', internshipId);
 
-    // Calculate total hours from weekly reports (for accuracy, recalculate)
+    // Calculate total hours from daily reports (for accuracy, recalculate)
     const { data: reports } = await supabase
-      .from('student_weekly_accomplishments')
-      .select('hours_rendered')
+      .from('student_daily_reports')
+      .select('hours_worked')
       .eq('internship_id', internshipId);
 
-    const totalHoursWorked = reports?.reduce((sum, r) => sum + (r.hours_rendered || 0), 0) || 0;
+    const totalHoursWorked = reports?.reduce((sum, r) => sum + (r.hours_worked || 0), 0) || 0;
     const requiredHours = internship.required_hours || 240; // Default to 240 if not set
     const remainingHours = Math.max(requiredHours - totalHoursWorked, 0);
     const progressPercentage = requiredHours > 0 
@@ -256,7 +256,7 @@ export async function getInternshipHoursSummary(
       remaining_hours: remainingHours,
       progress_percentage: progressPercentage,
       projected_end_date: projectedEndDate,
-      weeks_completed: weeksCompleted || 0,
+      days_reported: daysReported || 0,
       start_date: internship.start_date,
       is_completed: progressPercentage >= 100,
     };
@@ -277,26 +277,26 @@ export async function getInternshipHoursSummary(
 }
 
 /**
- * Get weekly hours breakdown for an internship
+ * Get daily hours breakdown for an internship
  */
-export async function getWeeklyHoursBreakdown(
+export async function getDailyHoursBreakdown(
   internshipId: string
-): Promise<{ success: boolean; data?: WeeklyHoursBreakdown[]; error?: string }> {
+): Promise<{ success: boolean; data?: DailyHoursBreakdown[]; error?: string }> {
   try {
-    console.log('🔵 [HoursService] Fetching weekly breakdown for:', internshipId);
+    console.log('🔵 [HoursService] Fetching daily breakdown for:', internshipId);
 
     const { data, error } = await supabase
-      .from('student_weekly_accomplishments')
-      .select('week_number, hours_rendered, created_at')
+      .from('student_daily_reports')
+      .select('report_date, hours_worked, created_at')
       .eq('internship_id', internshipId)
-      .order('week_number', { ascending: true });
+      .order('report_date', { ascending: true });
 
     if (error) {
       console.error('❌ [HoursService] Failed to fetch breakdown:', error.message);
       return { success: false, error: error.message };
     }
 
-    console.log('✅ [HoursService] Weekly breakdown fetched:', data?.length || 0, 'weeks');
+    console.log('✅ [HoursService] Daily breakdown fetched:', data?.length || 0, 'days');
     return { success: true, data: data || [] };
   } catch (error: any) {
     console.error('❌ [HoursService] Error fetching breakdown:', error.message);
@@ -326,10 +326,10 @@ export async function getBatchInternshipHoursSummary(
       return { success: false, error: internshipsError.message };
     }
 
-    // Get all weekly reports for these internships
+    // Get all daily reports for these internships
     const { data: allReports } = await supabase
-      .from('student_weekly_accomplishments')
-      .select('internship_id, hours_rendered')
+      .from('student_daily_reports')
+      .select('internship_id, hours_worked')
       .in('internship_id', internshipIds);
 
     // Group reports by internship
@@ -338,18 +338,13 @@ export async function getBatchInternshipHoursSummary(
       if (!reportsByInternship[report.internship_id]) {
         reportsByInternship[report.internship_id] = [];
       }
-      reportsByInternship[report.internship_id].push(report.hours_rendered || 0);
+      reportsByInternship[report.internship_id].push(report.hours_worked || 0);
     });
 
-    // Get week counts
-    const { data: weekCounts } = await supabase
-      .from('student_weekly_accomplishments')
-      .select('internship_id')
-      .in('internship_id', internshipIds);
-
-    const weekCountByInternship: Record<string, number> = {};
-    weekCounts?.forEach(w => {
-      weekCountByInternship[w.internship_id] = (weekCountByInternship[w.internship_id] || 0) + 1;
+    // Get day counts per internship
+    const dayCountByInternship: Record<string, number> = {};
+    allReports?.forEach(r => {
+      dayCountByInternship[r.internship_id] = (dayCountByInternship[r.internship_id] || 0) + 1;
     });
 
     // Calculate summary for each internship
@@ -373,7 +368,7 @@ export async function getBatchInternshipHoursSummary(
           remainingHours,
           totalHoursWorked
         ),
-        weeks_completed: weekCountByInternship[internship.id] || 0,
+        days_reported: dayCountByInternship[internship.id] || 0,
         start_date: internship.start_date,
         is_completed: progressPercentage >= 100,
       };
@@ -549,7 +544,7 @@ export default {
   
   // Hours calculation
   getInternshipHoursSummary,
-  getWeeklyHoursBreakdown,
+  getDailyHoursBreakdown,
   getBatchInternshipHoursSummary,
   
   // Date helpers

@@ -33,9 +33,12 @@ from models.schemas import (
     TrendAnalysisResponse,
     DashboardInsightRequest,
     DashboardInsightResponse,
-    HealthResponse
+    HealthResponse,
+    NarrativeGenerationRequest,
+    NarrativeGenerationResponse
 )
 from services.ai_engine import AIEngine
+from services.narrative_generator import narrative_generator
 
 # Load env vars
 load_dotenv()
@@ -496,6 +499,77 @@ async def evaluate_post_approval_legacy(request: Request, evaluations: list[dict
     except Exception as e:
         logger.error(f"❌ Legacy endpoint error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Analytics generation failed")
+
+
+# =============================================================================
+# NARRATIVE GENERATION ENDPOINT
+# =============================================================================
+
+@app.post("/api/generate-narrative", response_model=NarrativeGenerationResponse)
+@limiter.limit(RATE_LIMIT_ANALYSIS)
+async def generate_narrative(request: Request, data: NarrativeGenerationRequest):
+    """
+    Generate internship narrative from daily reports.
+    
+    Uses AI/NLP to compile daily accomplishments and learnings
+    into a cohesive narrative report that students can use as a starting point
+    for their OJT documentation.
+    
+    Request body:
+        - student_name: Student's full name
+        - company_name: Company where internship was done
+        - position: Internship position/role
+        - department: Department (optional)
+        - start_date: Internship start date
+        - end_date: Internship end date
+        - total_hours: Total hours completed (optional)
+        - daily_reports: List of daily report data
+    
+    Returns:
+        NarrativeGenerationResponse with draft narrative, sections, themes, skills
+    """
+    try:
+        report_count = len(data.daily_reports)
+        logger.info(f"🔵 POST /api/generate-narrative - Processing {report_count} daily reports for {data.student_name}")
+        
+        if report_count == 0:
+            logger.warning("⚠️ No daily reports provided")
+            raise HTTPException(status_code=400, detail="No daily reports provided")
+        
+        # Convert Pydantic models to dicts
+        daily_reports_data = [
+            {
+                "report_date": r.report_date,
+                "activities": r.activities,
+                "hours_worked": r.hours_worked,
+                "learnings": r.learnings
+            }
+            for r in data.daily_reports
+        ]
+        
+        # Generate narrative
+        result = narrative_generator.generate_narrative(
+            student_name=data.student_name,
+            company_name=data.company_name,
+            position=data.position,
+            department=data.department,
+            start_date=data.start_date,
+            end_date=data.end_date,
+            total_hours=data.total_hours,
+            daily_reports=daily_reports_data
+        )
+        
+        logger.info(f"✅ Narrative generated: {result.get('word_count', 0)} words")
+        return result
+        
+    except HTTPException:
+        raise
+    except ValidationError as e:
+        logger.error(f"❌ Validation error: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"❌ Narrative generation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate narrative")
 
 
 # =============================================================================

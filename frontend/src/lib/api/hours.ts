@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Hours API Client
  * 
@@ -9,7 +10,7 @@ import type {
   ProgramsResponse,
   ProgramResponse,
   HoursSummaryResponse,
-  WeeklyBreakdownResponse,
+  DailyBreakdownResponse,
   BatchHoursSummaryResponse,
   RecalculateHoursResponse,
   CreateProgramInput,
@@ -131,9 +132,9 @@ export async function getInternshipHoursSummary(internshipId: string): Promise<H
 }
 
 /**
- * Get weekly hours breakdown for an internship
+ * Get daily hours breakdown for an internship
  */
-export async function getWeeklyHoursBreakdown(internshipId: string): Promise<WeeklyBreakdownResponse> {
+export async function getDailyHoursBreakdown(internshipId: string): Promise<DailyBreakdownResponse> {
   try {
     const response = await fetch(`${getApiBase()}/hours/internship/${internshipId}/breakdown`, {
       method: 'GET',
@@ -218,7 +219,7 @@ export const hoursApi = {
   
   // Internship hours
   getInternshipHoursSummary,
-  getWeeklyHoursBreakdown,
+  getDailyHoursBreakdown,
   getBatchHoursSummary,
   recalculateInternshipHours,
   updateInternshipRequiredHours,

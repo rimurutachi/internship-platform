@@ -1,20 +1,18 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * React Hooks for Backend Socket Integration
  * 
  * Custom hooks for managing real-time socket connections
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   connectBackendSocket,
   disconnectBackendSocket,
   getBackendSocket,
   onSocketEvent,
-  joinConversation,
-  leaveConversation,
   watchEvaluation,
   unwatchEvaluation,
-  sendTypingIndicator,
   type BackendSocketEvents,
 } from '@/lib/backendSocket';
 
@@ -72,36 +70,6 @@ export function useSocketEvent<K extends keyof BackendSocketEvents>(
 }
 
 /**
- * Hook to manage conversation room subscription
- * Automatically joins on mount and leaves on unmount
- * 
- * @param conversationId - Conversation ID to join
- * @param enabled - Whether to enable the subscription (default: true)
- */
-export function useConversation(conversationId: string | null, enabled = true) {
-  useEffect(() => {
-    if (!enabled || !conversationId) return;
-
-    let mounted = true;
-
-    const join = async () => {
-      if (mounted) {
-        await joinConversation(conversationId);
-      }
-    };
-
-    join();
-
-    return () => {
-      mounted = false;
-      if (conversationId) {
-        leaveConversation(conversationId);
-      }
-    };
-  }, [conversationId, enabled]);
-}
-
-/**
  * Hook to manage evaluation watching
  * Automatically subscribes on mount and unsubscribes on unmount
  * 
@@ -129,46 +97,4 @@ export function useEvaluationWatch(evaluationId: string | null, enabled = true) 
       }
     };
   }, [evaluationId, enabled]);
-}
-
-/**
- * Hook to manage typing indicators
- * 
- * @param conversationId - Conversation ID
- * @returns Function to send typing indicator
- */
-export function useTypingIndicator(conversationId: string | null) {
-  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-
-  const setTyping = useCallback(
-    (isTyping: boolean) => {
-      if (!conversationId) return;
-
-      // Clear existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      sendTypingIndicator(conversationId, isTyping);
-
-      // Auto-stop typing after 3 seconds
-      if (isTyping) {
-        timeoutRef.current = setTimeout(() => {
-          sendTypingIndicator(conversationId, false);
-        }, 3000);
-      }
-    },
-    [conversationId]
-  );
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  return setTyping;
 }

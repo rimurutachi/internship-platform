@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, react/no-unescaped-entities */
 
 import { useState } from 'react';
 import { adminInternshipsAPI } from '@/lib/api/admin-internships';

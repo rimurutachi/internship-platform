@@ -22,6 +22,7 @@ import advisorRoutes from "./routes/advisor";
 import supervisorRoutes from "./routes/supervisor";
 import publicRoutes from "./routes/public";
 import hoursRoutes from "./routes/hours";
+import aiRoutes from "./routes/ai";
 import { startArchiveJob } from "./jobs/archiveJob";
 import { startAIServiceKeepAlive } from "./jobs/aiServiceKeepAlive";
 
@@ -236,8 +237,8 @@ app.use("/api/advisor", advisorRoutes);
 // Supervisor APIs
 app.use("/api/supervisor", supervisorRoutes);
 
-// Supervisor APIs
-app.use("/api/supervisor", supervisorRoutes);
+// AI Service APIs
+app.use("/api/ai", aiRoutes);
 
 // Hours Tracking APIs
 app.use("/api/hours", hoursRoutes);

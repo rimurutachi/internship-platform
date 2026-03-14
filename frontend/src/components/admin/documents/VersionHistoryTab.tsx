@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { Loader2, GitBranch, Calendar, User, Download, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';

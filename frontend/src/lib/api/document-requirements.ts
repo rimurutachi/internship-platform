@@ -316,3 +316,13 @@ export const getStudentSubmissionSignedUrl = async (
   const response = await apiClient.get(`/student/document-submissions/${submissionId}/signed-url`);
   return response.data;
 };
+
+/**
+ * Get a signed URL for an admin to download an MOA submission file
+ */
+export const getAdminMOASignedUrl = async (
+  submissionId: string
+): Promise<ApiResponse<{ signedUrl: string; expiresIn: number }>> => {
+  const response = await apiClient.get(`/admin/moa/submissions/${submissionId}/signed-url`);
+  return response.data;
+};

@@ -1,22 +1,21 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import { useState, useEffect, ReactNode } from 'react';
 import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle, Search, UserPlus, X, Users } from 'lucide-react';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { documentsAPI } from '@/lib/api/documents';
-import { connectForUpdates } from '@/lib/documentSocket';
 import { useUser } from '@/hooks/use-user';
 import type { DocumentWithDetails } from '@/types/documents';
-import type { Socket } from 'socket.io-client';
 
 interface DocumentsPageProps {
   sidebar: ReactNode;
@@ -42,10 +41,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-
-  // Real-time state
-  const [wsConnected, setWsConnected] = useState(false);
-  const [realtimeUpdate, setRealtimeUpdate] = useState<string | null>(null);
 
   // View document state
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -110,48 +105,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
     loadDocuments();
   }, []);
 
-  // WebSocket connection for real-time updates
-  useEffect(() => {
-    if (!user?.id) return;
 
-    let socket: Socket | null = null;
-
-    const setupSocket = async () => {
-      try {
-        socket = await connectForUpdates();
-
-        socket.on('connect', () => {
-          console.log('✅ [DocumentSocket] Connected successfully with authentication');
-          setWsConnected(true);
-        });
-
-        socket.on('disconnect', () => {
-          console.warn('⚠️ [DocumentSocket] Disconnected');
-          setWsConnected(false);
-        });
-
-        socket.on('document:update', (data: any) => {
-          setRealtimeUpdate(data.message || 'Document updated');
-          loadDocuments();
-          setTimeout(() => setRealtimeUpdate(null), 3000);
-        });
-
-        socket.on('document:error', (error: any) => {
-          console.error('[WebSocket] Error:', error);
-        });
-      } catch (error) {
-        console.error('❌ [DocumentSocket] Failed to connect:', error);
-      }
-    };
-
-    setupSocket();
-
-    return () => {
-      if (socket && socket.connected) {
-        socket.disconnect();
-      }
-    };
-  }, [user?.id]);
 
   const loadDocuments = async () => {
     try {
@@ -310,9 +264,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
 
       setUploadProgress(100);
 
-      // Show success notification
-      setRealtimeUpdate(`Document "${uploadTitle}" uploaded successfully`);
-      setTimeout(() => setRealtimeUpdate(null), 3000);
+
 
       setTimeout(() => {
         setUploadDialogOpen(false);
@@ -383,9 +335,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       setEditDialogOpen(false);
       setEditingDocument(null);
       loadDocuments();
-      
-      setRealtimeUpdate(`Document "${editTitle}" updated successfully`);
-      setTimeout(() => setRealtimeUpdate(null), 3000);
+
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update document');
     } finally {
@@ -462,9 +412,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       setShareSearchQuery('');
       setShareSearchResults([]);
       
-      // Show success feedback
-      setRealtimeUpdate(`Shared with ${selectedShareUser.first_name} ${selectedShareUser.last_name}`);
-      setTimeout(() => setRealtimeUpdate(null), 3000);
+
     } catch (err) {
       setShareError(err instanceof Error ? err.message : 'Failed to grant access');
     } finally {
@@ -528,8 +476,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
     try {
       await documentsAPI.revokeAccess(accessId);
       setDocumentAccessList(prev => prev.filter(a => a.id !== accessId));
-      setRealtimeUpdate(`Access removed for ${userName}`);
-      setTimeout(() => setRealtimeUpdate(null), 3000);
+
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to revoke access');
     }
@@ -553,9 +500,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      setRealtimeUpdate(`Downloading "${doc.title}"...`);
-      setTimeout(() => setRealtimeUpdate(null), 2000);
+
     } catch (err) {
       console.error('❌ [Download] Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to download document';
@@ -605,16 +550,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
 
   return (
     <div className="h-screen bg-background overflow-hidden">
-      {/* Real-time Update Notification */}
-      {realtimeUpdate && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top">
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">{realtimeUpdate}</AlertDescription>
-          </Alert>
-        </div>
-      )}
-
       {/* Desktop View */}
       <div className="hidden lg:flex h-full">
         {sidebar}
@@ -623,13 +558,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
           {header}
           
           <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
-            {/* WebSocket Status */}
-            <div className="mb-6 flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-primary' : 'bg-muted-foreground'}`} />
-              <span className="text-base text-muted-foreground">
-                {wsConnected ? 'Real-time updates enabled' : 'Connecting...'}
-              </span>
-            </div>
+
 
             {loading && (
               <div className="flex items-center justify-center h-64">

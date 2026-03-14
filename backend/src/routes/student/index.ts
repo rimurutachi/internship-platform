@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../../middleware/auth';
 import studentController from '../../controllers/student/studentController';
-import weeklyReportsRoutes from './weeklyReports';
+import dailyReportsRoutes from './dailyReports';
 import documentRequirementsRoutes from './documentRequirements';
 import tasksRoutes from './tasks';
 
@@ -58,8 +58,8 @@ router.post('/mentors/:id/message', studentController.messageMentor);
 // Task routes (new dedicated task management)
 router.use('/', tasksRoutes);
 
-// Weekly reports routes
-router.use('/', weeklyReportsRoutes);
+// Daily reports routes
+router.use('/', dailyReportsRoutes);
 
 // Dashboard route
 router.get('/dashboard', studentController.getDashboardOverview);

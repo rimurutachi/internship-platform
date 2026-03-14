@@ -47,9 +47,7 @@ const NOTIFICATION_TYPES = {
   ],
   important: [
     'evaluation_submitted',
-    'weekly_report_submitted',
-    'weekly_report_approved',
-    'weekly_report_rejected',
+    'daily_report_submitted',
     'internship_cancelled',
   ],
   transient: [
@@ -57,7 +55,7 @@ const NOTIFICATION_TYPES = {
     'internship_reminder',
     'approaching_end_date',
     'pending_documents',
-    'pending_weekly_report',
+    'pending_daily_report',
     'evaluation_due',
     'system',
   ],

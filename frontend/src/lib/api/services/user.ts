@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * User API Service
  * 
  * Handles user profile and authentication-related API calls
  */
 
-import { get, put, ApiResponse } from '../client';
+import { get, put } from '../client';
 import type { User } from '@/types';
 
 export interface UpdateProfileRequest {

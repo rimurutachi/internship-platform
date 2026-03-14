@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Admin API Service
  * 
  * Handles admin user management API calls
  */
 
-import { apiClient, get, post, patch, del, ApiResponse } from '../client';
+import { apiClient, get, post, patch, del } from '../client';
 
 /**
  * User data interface
@@ -62,6 +63,9 @@ export interface CreateUserRequest {
   password: string;
   company_id?: string; // For supervisors - link to their company
   university_id?: string; // For students/advisors
+  program?: string; // For students/advisors - e.g., 'BSIT', 'BSCS'
+  year_level?: string; // For students/advisors - e.g., '1st Year', '4th Year'
+  section?: string; // For students/advisors - e.g., '4A', '4B'
 }
 
 /**

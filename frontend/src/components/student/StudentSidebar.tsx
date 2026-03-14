@@ -8,18 +8,19 @@ import {
   BarChart3, 
   Briefcase, 
   FileText, 
-  MessageSquare, 
   FileCheck,
   ClipboardList,
-  Settings
+  Settings,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const menuItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/dashboard/student' },
   { icon: Briefcase, label: 'Current Internship', path: '/dashboard/student/current-internship' },
-  { icon: FileText, label: 'Weekly Reports', path: '/dashboard/student/weekly-reports' },
-  { icon: MessageSquare, label: 'Messages', path: '/dashboard/student/messages' },
+  { icon: FileText, label: 'Daily Reports', path: '/dashboard/student/daily-reports' },
+  { icon: Wand2, label: 'AI Narrative', path: '/dashboard/student/narrative' },
+
   { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents' },
   { icon: ClipboardList, label: 'Requirements', path: '/dashboard/student/requirements' },
   { icon: Settings, label: 'Settings', path: '/dashboard/student/settings' },

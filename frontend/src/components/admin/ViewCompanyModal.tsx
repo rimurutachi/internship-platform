@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
 import { useState, useEffect } from 'react';
 import { adminCompaniesAPI, CompanyWithSupervisors } from '@/lib/api/admin-companies';

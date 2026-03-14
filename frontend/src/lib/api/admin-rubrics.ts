@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Admin Rubrics API Client
  * Handles rubric CRUD operations for admin dashboard

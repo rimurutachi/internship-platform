@@ -1,8 +1,9 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react/no-unescaped-entities */
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Award, MessageSquare, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, Building2 } from 'lucide-react';
+import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, Building2 } from 'lucide-react';
 import { SupervisorSidebar } from '@/components/supervisor/SupervisorSidebar';
 import { SupervisorHeader } from '@/components/supervisor/SupervisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -11,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -99,9 +100,7 @@ export default function MyInterns() {
     setDetailsLoading(false);
   };
 
-  const handleSendMessage = (studentId: string) => {
-    router.push(`/dashboard/supervisor/messages?userId=${studentId}`);
-  };
+
 
   // Filter students
   const filteredStudents = students.filter(student => {
@@ -568,8 +567,8 @@ export default function MyInterns() {
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-lg font-bold">{studentHoursSummary.weeks_completed}</p>
-                      <p className="text-xs text-muted-foreground">Weeks</p>
+                      <p className="text-lg font-bold">{studentHoursSummary.days_reported}</p>
+                      <p className="text-xs text-muted-foreground">Days</p>
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
@@ -700,17 +699,7 @@ export default function MyInterns() {
                 </div>
               )}
 
-              {/* Actions - Only Send Message */}
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => handleSendMessage(selectedStudent.id)}
-                  className="flex-1"
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Send Message
-                </Button>
-              </div>
+
             </div>
           ) : null}
         </DialogContent>

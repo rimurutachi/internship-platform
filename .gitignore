@@ -26,13 +26,32 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv/
+*/venv/
+*/env/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Build outputs
 dist/
 build/
-*.egg-info/
 .next/
 out/
+/backend/dist
+/frontend/.next
+/frontend/.swc
+.turbo/
 
 # Logs
 logs/
@@ -43,6 +62,14 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+
+# PM2 logs
+.pm2
+pm2.log
+
+# Docker images and build artifacts
+*.tar
+internship-images.tar
 
 # IDE
 .vscode/
@@ -65,3 +92,12 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+# Yarn
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions

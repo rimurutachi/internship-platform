@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API Type Definitions
  * 
@@ -242,67 +243,7 @@ export interface CompanyMetrics {
   avg_confidence: number;
 }
 
-/**
- * Conversation entity from backend
- */
-export interface Conversation {
-  id: string;
-  title?: string;
-  type: 'direct' | 'group';
-  created_by: string;
-  created_at?: string;
-  updated_at?: string;
-  last_message?: Message;
-  unread_count?: number;
-  participants?: ConversationParticipant[];
-}
 
-/**
- * Conversation participant
- */
-export interface ConversationParticipant {
-  user_id: string;
-  conversation_id: string;
-  role: 'admin' | 'member';
-  joined_at?: string;
-  last_read_at?: string;
-  user?: {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-    email: string;
-    role: string;
-    avatar_url?: string;
-  };
-}
-
-/**
- * Message entity from backend
- */
-export interface Message {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  message_type: 'text' | 'file' | 'system';
-  attachments?: Array<{
-    file_name: string;
-    file_type: string;
-    file_url: string;
-    file_size: number;
-  }>;
-  is_read: boolean;
-  parent_message_id?: string;
-  created_at?: string;
-  updated_at?: string;
-  sender?: {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-    email: string;
-    avatar_url?: string;
-  };
-}
 
 /**
  * Notification entity

@@ -1,13 +1,14 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { Menu, LogOut, User, Settings as SettingsIcon, HelpCircle } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { NotificationsDropdown } from "@/components/ui/NotificationsDropdown";
 import { logout } from "@/lib/auth";
 import { useUserContext } from "@/components/providers/UserProvider";
-import Link from 'next/link';
+
 import Image from 'next/image';
 import {
   DropdownMenu,

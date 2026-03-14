@@ -1,4 +1,4 @@
-// @ts-ignore - file-saver types not available
+// @ts-expect-error - file-saver types not available
 import { saveAs } from 'file-saver';
 
 // Analytics data types

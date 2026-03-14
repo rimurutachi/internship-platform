@@ -1,10 +1,11 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { ChevronDown, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { NotificationsDropdown } from '@/components/ui/NotificationsDropdown';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { logout } from '@/lib/auth';
 import { useUserContext } from '@/components/providers/UserProvider';

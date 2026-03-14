@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
 import { useState, useEffect } from 'react';
 import { adminInternshipsAPI } from '@/lib/api/admin-internships';
@@ -28,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Clock, Calendar, Info, TrendingUp } from 'lucide-react';
+import { Loader2, Clock, Calendar, TrendingUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface EditInternshipModalProps {

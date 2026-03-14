@@ -12,7 +12,7 @@ export interface OJTDashboardMetrics {
   completed_internships: number;
   total_companies: number;
   companies_with_capacity: number;
-  pending_weekly_reports: number;
+  total_daily_reports: number;
   pending_supervisor_evaluations: number;
   pending_advisor_evaluations: number;
   completed_evaluations_this_month: number;
@@ -123,7 +123,7 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
       }
     }
 
-    // Pending weekly report approvals
+    // Daily reports tracking (no approval flow)
     const { data: supervisorInternships, error: supervisorInternshipsError } = await supabase
       .from('internships')
       .select('id')
@@ -134,18 +134,18 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
     }
     console.log('[adminDashboard] supervisorInternships rows', supervisorInternships?.length || 0);
 
+    // Daily reports count (for overall progress tracking)
     const internshipIds = supervisorInternships?.map(i => i.id) || [];
 
-    const { count: pendingWeeklyReports, error: pendingWeeklyReportsError } = await supabase
-      .from('student_weekly_accomplishments')
+    const { count: totalDailyReports, error: dailyReportsError } = await supabase
+      .from('student_daily_reports')
       .select('id', { count: 'exact', head: true })
-      .in('internship_id', internshipIds)
-      .eq('status', 'pending_approval');
+      .in('internship_id', internshipIds);
 
-    if (pendingWeeklyReportsError) {
-      console.error('[adminDashboard] pendingWeeklyReports query error', pendingWeeklyReportsError);
+    if (dailyReportsError) {
+      console.error('[adminDashboard] totalDailyReports query error', dailyReportsError);
     }
-    console.log('[adminDashboard] pendingWeeklyReports count', pendingWeeklyReports || 0, { internshipIdsCount: internshipIds.length });
+    console.log('[adminDashboard] totalDailyReports count', totalDailyReports || 0);
 
     // Pending supervisor evaluations (drafts not submitted)
     const { count: pendingSupervisorEvaluations, error: pendingSupervisorEvaluationsError } = await supabase
@@ -192,7 +192,7 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
       completed_internships: completedInternships || 0,
       total_companies: totalCompanies || 0,
       companies_with_capacity: companiesWithCapacity,
-      pending_weekly_reports: pendingWeeklyReports || 0,
+      total_daily_reports: totalDailyReports || 0,
       pending_supervisor_evaluations: pendingSupervisorEvaluations || 0,
       pending_advisor_evaluations: pendingAdvisorEvaluations || 0,
       completed_evaluations_this_month: completedEvaluationsThisMonth || 0,
@@ -225,7 +225,7 @@ export async function storeMetricsSnapshot(universityId: string) {
         completed_internships: metrics.completed_internships,
         total_companies: metrics.total_companies,
         companies_with_capacity: metrics.companies_with_capacity,
-        pending_weekly_reports: metrics.pending_weekly_reports,
+        total_daily_reports: metrics.total_daily_reports,
         pending_supervisor_evaluations: metrics.pending_supervisor_evaluations,
         pending_advisor_evaluations: metrics.pending_advisor_evaluations,
         completed_evaluations_this_month: metrics.completed_evaluations_this_month,
@@ -359,10 +359,10 @@ export async function getAdminDashboardOverview(universityId: string) {
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - 7);
 
-    const { count: recentWeeklyReports } = await supabase
-      .from('student_weekly_accomplishments')
+    const { count: recentDailyReports } = await supabase
+      .from('student_daily_reports')
       .select('id', { count: 'exact', head: true })
-      .gte('submitted_at', startOfWeek.toISOString());
+      .gte('created_at', startOfWeek.toISOString());
 
     const { count: recentEvaluations } = await supabase
       .from('evaluations')
@@ -375,7 +375,7 @@ export async function getAdminDashboardOverview(universityId: string) {
         metrics,
         insights: insights || [],
         recent_activity: {
-          weekly_reports_this_week: recentWeeklyReports || 0,
+          daily_reports_this_week: recentDailyReports || 0,
           evaluations_this_week: recentEvaluations || 0,
         },
       },
@@ -436,25 +436,7 @@ export async function getQuickActionItems(universityId: string) {
       });
     }
 
-    // Overdue weekly reports
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    const { count: overdueReports } = await supabase
-      .from('student_weekly_accomplishments')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending_approval')
-      .lt('submitted_at', oneWeekAgo.toISOString());
-
-    if (overdueReports && overdueReports > 0) {
-      actionItems.push({
-        type: 'report',
-        priority: 'medium',
-        count: overdueReports,
-        message: `${overdueReports} weekly report(s) pending approval for over 1 week`,
-        link: '/supervisor/reports?status=overdue',
-      });
-    }
+    // No longer tracking overdue weekly reports - daily reports have no approval flow
 
     return {
       success: true,

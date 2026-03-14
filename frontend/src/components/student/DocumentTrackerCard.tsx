@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, CheckCircle, Clock } from "lucide-react";
+import { FileText } from "lucide-react";
 
 interface Document {
   name: string;

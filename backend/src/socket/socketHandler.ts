@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { setupMessageHandlers } from "./handlers/messageHandler";
+
 import { setupNotificationHandlers } from "./handlers/notificationHandler";
 import { setupEvaluationHandlers } from "./handlers/evaluationHandler";
 import { setupStudentHandlers } from "./handlers/studentHandler";
@@ -21,7 +21,7 @@ export const setupSocketHandlers = (io: Server) => {
     console.log(`User connected: ${userEmail} (${userId}) - Role: ${userRole}`);
 
     // Setup handlers for different features
-    setupMessageHandlers(io, socket);
+
     setupNotificationHandlers(io, socket);
     setupEvaluationHandlers(io, socket);
     

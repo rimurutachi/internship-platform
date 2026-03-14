@@ -50,7 +50,7 @@ export class InternshipsEnhancedController {
       const validTypes = [
         'approaching_end_date',
         'pending_documents',
-        'pending_weekly_report',
+        'pending_daily_report',
         'evaluation_due',
         'missing_supervisor',
         'custom'
@@ -259,10 +259,10 @@ export class InternshipsEnhancedController {
           notificationMessage = notificationMessage || `Please submit your evaluation for ${internship.student?.name} before ${new Date(internship.end_date).toLocaleDateString()}.`;
           break;
 
-        case 'pending_weekly_report':
-          recipients.push(internship.student?.id, internship.advisor?.id);
-          notificationTitle = 'Weekly Report Due';
-          notificationMessage = notificationMessage || 'Your weekly progress report is due. Please submit it.';
+        case 'pending_daily_report':
+          recipients.push(internship.student?.id);
+          notificationTitle = 'Daily Report Reminder';
+          notificationMessage = notificationMessage || 'Please remember to submit your daily report.';
           break;
 
         default:
@@ -467,23 +467,6 @@ export class InternshipsEnhancedController {
             submitted_at: doc?.created_at || null
           };
         }),
-        weekly_reports: Array(weeksOfInternship)
-          .fill(null)
-          .map((_, i) => {
-            const weekNum = i + 1;
-            const expectedBy = new Date(startDate.getTime() + weekNum * 7 * 24 * 60 * 60 * 1000);
-            const doc = (documents || []).find((d: any) => d.type === `Weekly Report - Week ${weekNum}`);
-            const isPastDue = expectedBy < new Date() && !doc;
-
-            return {
-              type: `Weekly Report - Week ${weekNum}`,
-              required: true,
-              expected_by: expectedBy.toISOString(),
-              status: doc ? 'submitted' : (isPastDue ? 'overdue' : 'pending'),
-              submitted_by: doc?.owner?.name || null,
-              submitted_at: doc?.created_at || null
-            };
-          }),
         submitted_documents: documents || []
       };
 

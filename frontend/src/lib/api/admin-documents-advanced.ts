@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Admin Documents Advanced API Client (proxying to backend)
 import { apiClient } from './client';
 

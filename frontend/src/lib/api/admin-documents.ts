@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Admin Documents API Client
 import { apiClient } from './client';
 import {
@@ -6,7 +7,6 @@ import {
   DocumentVersion,
   DocumentComment,
   DocumentWorkflow,
-  CollaborationInfo,
   StatsResponse,
   DocumentFilters,
   DocumentSortOptions,
@@ -126,18 +126,7 @@ export const adminDocumentsAPI = {
     }
   },
 
-  /**
-   * Get active collaborators
-   */
-  async getCollaborators(documentId: string): Promise<CollaborationInfo> {
-    try {
-      const response = await apiClient.get(`${DOCUMENTS_ENDPOINT}/${documentId}/collaboration-info`);
-      return response.data;
-    } catch (error: any) {
-      console.error('Get collaborators error:', error);
-      throw error;
-    }
-  },
+
 
   /**
    * Update document status

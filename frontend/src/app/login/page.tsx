@@ -74,8 +74,8 @@ export default function LoginPage() {
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
-          {/* Login Card - Keeping the gold/yellow branding */}
-          <div className="bg-secondary rounded-2xl border-4 border-foreground p-8 shadow-xl">
+          {/* Login Card - Subtle card with accent border */}
+          <div className="bg-card rounded-2xl border-2 border-primary/30 p-8 shadow-xl dark:bg-card/95 dark:border-primary/40">
             {/* Logo and Title */}
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
@@ -87,19 +87,19 @@ export default function LoginPage() {
                   className="object-contain"
                 />
               </div>
-              <h1 className="text-2xl font-bold text-secondary-foreground mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+              <h1 className="text-2xl font-bold text-foreground mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                 CAVITE STATE UNIVERSITY<br />
                 BACOOR CITY CAMPUS
               </h1>
-              <h2 className="text-3xl font-bold text-secondary-foreground mb-2">Welcome Back</h2>
-              <p className="text-secondary-foreground">Sign in to access your dashboard.</p>
+              <h2 className="text-3xl font-bold text-primary mb-2">Welcome Back</h2>
+              <p className="text-muted-foreground">Sign in to access your dashboard.</p>
             </div>
 
             {/* Login Form */}
             <LoginForm />
 
             <div className="text-center mt-6">
-              <Link href="/forgot-password" className="text-secondary-foreground hover:underline font-medium">
+              <Link href="/forgot-password" className="text-primary hover:text-primary/80 hover:underline font-medium transition-colors">
                 Forgot your password?
               </Link>
             </div>

@@ -12,7 +12,8 @@ import {
   Briefcase,
   Building2,
   FileCheck,
-  ClipboardList
+  ClipboardList,
+  FileSignature
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
@@ -23,9 +24,9 @@ const menuItems = [
   { icon: Building2, label: 'Companies', path: '/dashboard/admin/companies' },
   { icon: Briefcase, label: 'Internships', path: '/dashboard/admin/internships' },
   { icon: FileCheck, label: 'Evaluations', path: '/dashboard/admin/evaluations' },
-  { icon: ClipboardList, label: 'Weekly Reports', path: '/dashboard/admin/weekly-reports' },
   { icon: ClipboardList, label: 'Rubrics', path: '/dashboard/admin/rubrics' },
   { icon: FileText, label: 'Documents', path: '/dashboard/admin/documents' },
+  { icon: FileSignature, label: 'MOA', path: '/dashboard/admin/moa' },
   { icon: BarChart3, label: 'Reports', path: '/dashboard/admin/reports' },
   { icon: Settings, label: 'Settings', path: '/dashboard/admin/settings' },
 ];
