@@ -53,4 +53,10 @@ export declare function archiveUser(req: AuthRequest, res: Response): Promise<Re
  * @route POST /api/admin/users/:id/unarchive
  */
 export declare function unarchiveUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
+/**
+ * Graduate student
+ * Mark a student as graduated after internship completion and evaluation approval
+ * Body: { graduation_notes?: string }
+ */
+export declare function graduateStudent(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=adminController.d.ts.map

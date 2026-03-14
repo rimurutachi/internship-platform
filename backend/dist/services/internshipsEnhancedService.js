@@ -12,10 +12,14 @@
  *
  * @deprecated Consider using InternshipServiceFacade for new code
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InternshipsEnhancedService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const json2csv_1 = require("json2csv");
+const notificationService_1 = __importDefault(require("./notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class InternshipsEnhancedService {
     /**
@@ -200,19 +204,21 @@ class InternshipsEnhancedService {
                 notificationMessage = reminder.custom_message || 'You have a pending task for your internship.';
                 break;
         }
-        // Insert notifications for each recipient
-        const notifications = recipients.map(user_id => ({
-            user_id,
-            type: 'internship_reminder',
-            title: notificationTitle,
-            message: notificationMessage,
-            action_url: `/internships/${internship.id}`,
-            reference_id: internship.id,
-            reference_type: 'internship',
-            created_at: new Date().toISOString()
-        }));
-        if (notifications.length > 0) {
-            await supabase.from('notifications').insert(notifications);
+        // Send notifications using notificationService (with real-time socket delivery)
+        for (const userId of recipients) {
+            try {
+                await notificationService_1.default.createNotification({
+                    user_id: userId,
+                    type: 'internship_reminder',
+                    title: notificationTitle,
+                    message: notificationMessage,
+                    action_url: `/dashboard/student/internship`,
+                    reference_type: 'internship',
+                });
+            }
+            catch (notifError) {
+                console.error(`Failed to send notification to ${userId}:`, notifError);
+            }
         }
         // TODO: Integrate with email service if notification_channel includes 'email'
         if (reminder.notification_channel === 'email' || reminder.notification_channel === 'both') {

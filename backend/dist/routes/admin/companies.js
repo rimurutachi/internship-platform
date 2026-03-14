@@ -19,6 +19,12 @@ router.get('/', companiesController_1.getCompanies);
  */
 router.get('/stats', companiesController_1.getCompanyStats);
 /**
+ * GET /api/admin/companies/all-supervisors
+ * Get all supervisors (optionally filter by unassigned)
+ * Query params: unassigned (boolean) - if true, only return supervisors without a company
+ */
+router.get('/all-supervisors', companiesController_1.getAllSupervisors);
+/**
  * GET /api/admin/companies/:id
  * Get single company by ID
  */
@@ -28,6 +34,17 @@ router.get('/:id', companiesController_1.getCompany);
  * Get supervisors for a specific company
  */
 router.get('/:id/supervisors', companiesController_1.getCompanySupervisors);
+/**
+ * POST /api/admin/companies/:id/supervisors
+ * Assign a supervisor to a company
+ * Body: { supervisor_id: string }
+ */
+router.post('/:id/supervisors', companiesController_1.assignSupervisorToCompany);
+/**
+ * DELETE /api/admin/companies/:id/supervisors/:supervisor_id
+ * Remove a supervisor from a company
+ */
+router.delete('/:id/supervisors/:supervisor_id', companiesController_1.removeSupervisorFromCompany);
 /**
  * POST /api/admin/companies
  * Create new company

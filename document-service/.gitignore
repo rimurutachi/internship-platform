@@ -3,6 +3,11 @@
 .env.local
 .env.*
 !.env.example
+!.env.production.example
+
+# Production environment files (NEVER commit these!)
+.env.production
+.env.production.local
 
 # dependencies
 /node_modules
@@ -26,3 +31,6 @@ lerna-debug.log*
 # PM2 logs
 .pm2
 pm2.log
+
+# build outputs
+dist/

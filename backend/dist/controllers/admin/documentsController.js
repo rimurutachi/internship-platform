@@ -20,7 +20,7 @@ const getAllDocuments = async (req, res) => {
             .select(`
         *,
         owner:users!documents_owner_id_fkey(id, first_name, last_name, email),
-        versions:document_versions(count),
+        versions:document_file_versions(count),
         comments:document_comments(count)
       `, { count: 'exact' });
         // Apply filters
@@ -67,7 +67,7 @@ const getDocument = async (req, res) => {
             .select(`
         *,
         owner:users!documents_owner_id_fkey(id, first_name, last_name, email),
-        versions:document_versions(*, created_by:users(id, first_name, last_name, email)),
+        versions:document_file_versions(*, uploaded_by:users(id, first_name, last_name, email)),
         comments:document_comments(*, user:users!document_comments_user_id_fkey(id, first_name, last_name, email), resolved_by_user:users!document_comments_resolved_by_fkey(id, first_name, last_name, email), replies:document_comments(*, user:users!document_comments_user_id_fkey(id, first_name, last_name, email))),
         workflow:document_workflows(*, approvals:document_approvals(*, approver:users(id, first_name, last_name, email)))
       `)
@@ -99,10 +99,10 @@ const getVersions = async (req, res) => {
     try {
         const { id } = req.params;
         const { data: versions, error } = await supabaseAdmin
-            .from('document_versions')
+            .from('document_file_versions')
             .select(`
         *,
-        created_by:users(id, first_name, last_name, email)
+        uploaded_by:users(id, first_name, last_name, email)
       `)
             .eq('document_id', id)
             .order('created_at', { ascending: false });

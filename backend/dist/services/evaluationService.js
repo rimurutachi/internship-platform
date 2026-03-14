@@ -15,6 +15,8 @@ exports.EvaluationService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const axios_1 = __importDefault(require("axios"));
 const emitters_1 = require("../socket/emitters");
+const notificationService_1 = __importDefault(require("./notificationService"));
+const archiveService_1 = require("./archiveService");
 // NOTE: aiService is now used only for admin trend analysis (admin dashboard/analytics)
 // Individual evaluation analysis removed in v2.0.0
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -163,7 +165,7 @@ class EvaluationService {
         };
     }
     async submit(evaluationId) {
-        // Step 1: Fetch existing evaluation record
+        // Step 1: Fetch existing evaluation record with full relationships
         const evaluation = await this.getById(evaluationId);
         if (!evaluation) {
             throw new Error('Evaluation not found');
@@ -189,12 +191,45 @@ class EvaluationService {
             event: 'evaluation_submitted',
             evaluation: updatedEvaluation,
         });
+        // Step 4: Notify advisor that evaluation was submitted (using getById result which has relationships)
+        const advisorId = evaluation.internship?.advisor_id;
+        if (advisorId) {
+            try {
+                const student = evaluation.internship?.student;
+                const studentName = student
+                    ? `${student.first_name} ${student.last_name}`
+                    : 'A student';
+                await notificationService_1.default.createNotification({
+                    user_id: advisorId,
+                    type: 'evaluation_submitted',
+                    title: 'New Evaluation Submitted',
+                    message: `An evaluation for ${studentName} has been submitted by the supervisor and is awaiting your approval.`,
+                    action_url: `/dashboard/advisor/evaluations`,
+                    reference_type: 'evaluation',
+                });
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to send evaluation notification:', notifError);
+            }
+        }
         console.log(`✅ Evaluation ${evaluationId} submitted successfully`);
+        // Step 5: Check if supervisor has completed all evaluations (for auto-archive)
+        if (evaluation.evaluation_type === 'final' && evaluation.supervisor_id) {
+            try {
+                await archiveService_1.archiveService.checkSupervisorEvaluationCompletion(evaluation.supervisor_id);
+            }
+            catch (archiveError) {
+                console.error('⚠️ Failed to check supervisor evaluation completion:', archiveError);
+                // Don't throw - this shouldn't block evaluation submission
+            }
+        }
         return {
             evaluation: updatedEvaluation,
         };
     }
     async approve(evaluationId, finalGrade) {
+        // First get evaluation with internship info (getById includes full relationships)
+        const evaluation = await this.getById(evaluationId);
         const { data, error } = await supabase
             .from("evaluations")
             .update({
@@ -212,6 +247,23 @@ class EvaluationService {
             evaluation: data,
             finalGrade,
         });
+        // Notify student that their evaluation has been approved (using getById result which has relationships)
+        const studentId = evaluation?.internship?.student?.id;
+        if (studentId) {
+            try {
+                await notificationService_1.default.createNotification({
+                    user_id: studentId,
+                    type: 'evaluation_approved',
+                    title: 'Evaluation Approved',
+                    message: `Your internship evaluation has been approved with a final grade of ${finalGrade}.`,
+                    action_url: `/dashboard/student/evaluations`,
+                    reference_type: 'evaluation',
+                });
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to send approval notification:', notifError);
+            }
+        }
         return data;
     }
     async getByInternship(internshipId) {

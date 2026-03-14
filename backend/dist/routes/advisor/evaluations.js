@@ -242,5 +242,39 @@ router.get('/weekly-reports/internship/:internship_id', async (req, res) => {
         });
     }
 });
+/**
+ * GET /api/advisor/weekly-reports
+ * Get all weekly reports for students under this advisor
+ * Query params: status (pending_approval | approved | rejected), student_id, page, limit
+ */
+router.get('/weekly-reports', async (req, res) => {
+    try {
+        const advisorId = req.user?.id;
+        const { status, student_id, page = '1', limit = '20' } = req.query;
+        if (!advisorId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized',
+            });
+        }
+        const result = await advisorEvaluationService.getAllWeeklyReportsForAdvisor(advisorId, {
+            status: status,
+            studentId: student_id,
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+        });
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        return res.status(200).json(result);
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message,
+        });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=evaluations.js.map

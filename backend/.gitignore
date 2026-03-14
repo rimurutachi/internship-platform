@@ -2,6 +2,11 @@
 .env.local
 .env.*
 !.env.example
+!.env.production.example
+
+# Production environment files (NEVER commit these!)
+.env.production
+.env.production.local
 
 # Logs
 logs/
@@ -26,3 +31,6 @@ node_modules/
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# build outputs
+dist/

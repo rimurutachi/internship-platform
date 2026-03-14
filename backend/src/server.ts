@@ -24,8 +24,15 @@ import publicRoutes from "./routes/public";
 import hoursRoutes from "./routes/hours";
 import aiRoutes from "./routes/ai";
 import { startArchiveJob } from "./jobs/archiveJob";
+import { startAIServiceKeepAlive } from "./jobs/aiServiceKeepAlive";
 
 const app = express();
+
+// =============================================================================
+// FIX #1: Trust Proxy (Render/Production Deployment)
+// =============================================================================
+// Trust first proxy (Render) for proper rate limiting and IP detection
+app.set('trust proxy', 1);
 
 // Disable ETag to prevent 304 responses for dynamic APIs
 app.set("etag", false);
@@ -72,10 +79,33 @@ app.use(helmet({
   }
 }));
 
+// =============================================================================
+// FIX #2: Enhanced CORS Configuration
+// =============================================================================
+const allowedOrigins = process.env.FRONTEND_URL?.split(',').map(url => url.trim()) || ['http://localhost:3000'];
+console.log('🌐 CORS Allowed Origins:', allowedOrigins);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
+      if (!origin) {
+        console.log('✅ CORS: Request with no origin (curl/Postman/server)');
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.includes(origin)) {
+        console.log('✅ CORS: Allowed origin:', origin);
+        callback(null, true);
+      } else {
+        console.warn('🚫 CORS: Blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count']
   })
 );
 app.use(morgan("combined"));
@@ -167,10 +197,21 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
-// Routes
+// =============================================================================
+// FIX #3: Enhanced Health Check Route
+// =============================================================================
 app.get("/health", (req, res) => {
-  res.json({ status: "OK", message: "Intern-Galing API is running smoothly." });
+  res.status(200).json({ 
+    status: "ok", 
+    service: "internship-platform-backend",
+    message: "Intern-Galing API is running smoothly.",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0'
+  });
 });
+
+// Routes
 
 // Internship APIs
 app.use("/api/internships", internshipRoutes);
@@ -205,10 +246,53 @@ app.use("/api/hours", hoursRoutes);
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes);
 
+// =============================================================================
+// FIX #4: Improved 404 Handler (catch-all for undefined routes)
+// =============================================================================
+app.use((req, res, next) => {
+  console.warn('⚠️ 404 Not Found:', req.method, req.originalUrl, '| IP:', req.ip);
+  res.status(404).json({ 
+    success: false,
+    error: 'Not Found', 
+    message: `Route ${req.method} ${req.originalUrl} not found`,
+    availableRoutes: [
+      'GET /health',
+      'POST /api/auth/login',
+      'GET /api/internships',
+      'GET /api/evaluations',
+      'GET /api/communications',
+      'GET /api/admin/*',
+      'GET /api/student/*',
+      'GET /api/advisor/*',
+      'GET /api/supervisor/*'
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Error Handling Middleware
 app.use((err: any, req: any, res: any, next: any) => {
+  console.error('🔴 Server Error:', err.message);
   console.error(err.stack);
-  res.status(500).json({ error: "Something went wrong." });
+  
+  // Handle CORS errors specifically
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ 
+      success: false,
+      error: 'CORS Error',
+      message: 'Origin not allowed. Please check CORS configuration.',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  res.status(500).json({ 
+    success: false,
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Something went wrong. Please try again later.' 
+      : err.message,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Start Server only if not in test environment
@@ -220,6 +304,9 @@ if (process.env.NODE_ENV !== "test") {
     // Start archive job (runs every hour)
     startArchiveJob();
     console.log("✅ Archive job scheduler started");
+    
+    // Start AI service keep-alive (runs every 10 minutes to prevent Render shutdown)
+    startAIServiceKeepAlive();
   });
 }
 

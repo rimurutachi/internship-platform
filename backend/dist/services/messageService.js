@@ -1,9 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MessageService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const emitters_1 = require("../socket/emitters");
 const uuid_1 = require("uuid");
+const notificationService_1 = __importDefault(require("./notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 class MessageService {
     // Upload file to Supabase Storage
@@ -87,6 +91,21 @@ class MessageService {
                     last_message_at: new Date().toISOString(),
                     last_message: message.content,
                 });
+                // Send notification to participants (except sender)
+                if (participant.user_id !== senderId) {
+                    notificationService_1.default
+                        .createNotification({
+                        user_id: participant.user_id,
+                        type: "message_received",
+                        title: "New Message",
+                        message: message.content.substring(0, 100) + (message.content.length > 100 ? "..." : ""),
+                        action_url: `/dashboard/messages?conversation=${data.conversation_id}`,
+                        reference_type: "message",
+                    })
+                        .catch((notifError) => {
+                        console.error("⚠️ Failed to send message notification:", notifError);
+                    });
+                }
             });
         }
         return message;

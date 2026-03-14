@@ -39,6 +39,7 @@ exports.getHistoricalMetrics = getHistoricalMetrics;
 exports.getAIInsights = getAIInsights;
 exports.getAdminDashboardOverview = getAdminDashboardOverview;
 exports.getQuickActionItems = getQuickActionItems;
+exports.getCompanyCapacityBreakdown = getCompanyCapacityBreakdown;
 const supabase_js_1 = require("@supabase/supabase-js");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
@@ -63,8 +64,7 @@ async function calculateDashboardMetrics(universityId) {
         const { data: studentsWithInternships, error: internshipsForStudentsError } = await supabase
             .from('internships')
             .select('student_id')
-            .eq('status', 'active')
-            .or('status.eq.ongoing');
+            .in('status', ['active', 'ongoing']);
         if (internshipsForStudentsError) {
             console.error('[adminDashboard] studentsWithInternships query error', internshipsForStudentsError);
         }
@@ -426,6 +426,64 @@ async function getQuickActionItems(universityId) {
         return {
             success: true,
             data: actionItems,
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: error.message,
+        };
+    }
+}
+/**
+ * Get company capacity breakdown
+ * Shows which companies have slots and utilization percentage
+ */
+async function getCompanyCapacityBreakdown(universityId) {
+    try {
+        // Get all companies with their capacity and current students
+        const { data: companies, error } = await supabase
+            .from('companies')
+            .select('id, name, capacity_limit, current_students, is_verified')
+            .eq('is_archived', false)
+            .order('name', { ascending: true });
+        if (error) {
+            throw new Error(`Failed to fetch companies: ${error.message}`);
+        }
+        // Calculate capacity breakdown
+        const capacityBreakdown = (companies || []).map(company => {
+            const capacityLimit = company.capacity_limit || 10;
+            const currentStudents = company.current_students || 0;
+            const availableSlots = Math.max(0, capacityLimit - currentStudents);
+            const utilizationPercent = capacityLimit > 0
+                ? Math.round((currentStudents / capacityLimit) * 100)
+                : 0;
+            return {
+                id: company.id,
+                name: company.name,
+                capacity_limit: capacityLimit,
+                current_students: currentStudents,
+                available_slots: availableSlots,
+                utilization_percent: utilizationPercent,
+                is_full: availableSlots === 0,
+                is_verified: company.is_verified,
+            };
+        });
+        // Summary statistics
+        const summary = {
+            total_companies: capacityBreakdown.length,
+            companies_with_capacity: capacityBreakdown.filter(c => c.available_slots > 0).length,
+            companies_full: capacityBreakdown.filter(c => c.is_full).length,
+            total_capacity: capacityBreakdown.reduce((sum, c) => sum + c.capacity_limit, 0),
+            total_deployed: capacityBreakdown.reduce((sum, c) => sum + c.current_students, 0),
+            total_available: capacityBreakdown.reduce((sum, c) => sum + c.available_slots, 0),
+        };
+        return {
+            success: true,
+            data: {
+                companies: capacityBreakdown,
+                summary,
+            },
         };
     }
     catch (error) {

@@ -7,6 +7,7 @@ exports.requestRevision = requestRevision;
 exports.getWeeklyReportsForContext = getWeeklyReportsForContext;
 exports.getEvaluationStatistics = getEvaluationStatistics;
 exports.getEvaluationWithContext = getEvaluationWithContext;
+exports.getAllWeeklyReportsForAdvisor = getAllWeeklyReportsForAdvisor;
 const supabase_js_1 = require("@supabase/supabase-js");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
@@ -116,11 +117,12 @@ async function getEvaluationsByStatus(advisorId, status) {
 /**
  * Approve evaluation
  * Optionally override final grade with justification
+ * Optionally set grade reveal date for scheduled visibility
  * AI analytics will be triggered AFTER approval
  */
 async function approveEvaluation(evaluationId, advisorId, approvalData) {
     try {
-        const { approval_comments } = approvalData;
+        const { approval_comments, grade_override, grade_override_reason, grade_reveal_date } = approvalData;
         // Get evaluation
         const { data: evaluation, error: fetchError } = await supabase
             .from('evaluations')
@@ -143,6 +145,15 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
         if (evaluation.status !== 'submitted' && evaluation.status !== 'revision_requested') {
             throw new Error('Evaluation is not in a state that can be released');
         }
+        // Validate grade override if provided
+        if (grade_override !== undefined) {
+            if (!grade_override_reason || grade_override_reason.trim().length < 10) {
+                throw new Error('Grade override requires a reason (minimum 10 characters)');
+            }
+            if (grade_override < 1 || grade_override > 100) {
+                throw new Error('Grade override must be between 1 and 100');
+            }
+        }
         // Prepare update data
         const updates = {
             status: 'approved',
@@ -151,6 +162,20 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
             advisor_comments: approval_comments?.trim() || null,
             updated_at: new Date().toISOString(),
         };
+        // Handle grade override
+        if (grade_override !== undefined) {
+            updates.advisor_grade_override = grade_override;
+            updates.advisor_override_reason = grade_override_reason?.trim();
+            updates.final_grade = grade_override; // Apply override to final grade
+        }
+        // Handle grade reveal date (for scheduled visibility to student)
+        if (grade_reveal_date) {
+            const revealDate = new Date(grade_reveal_date);
+            if (isNaN(revealDate.getTime())) {
+                throw new Error('Invalid grade reveal date format');
+            }
+            updates.grade_reveal_date = revealDate.toISOString();
+        }
         // Update evaluation
         const { data: approvedEval, error: updateError } = await supabase
             .from('evaluations')
@@ -170,7 +195,9 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
             details: {
                 internship_id: evaluation.internship_id,
                 student_id: evaluation.student_id,
-                final_grade: evaluation.final_grade,
+                final_grade: updates.final_grade || evaluation.final_grade,
+                grade_override: grade_override || null,
+                grade_reveal_date: updates.grade_reveal_date || null,
                 released_by_advisor: true,
             },
         });
@@ -425,6 +452,111 @@ async function getEvaluationWithContext(evaluationId, advisorId) {
             data: {
                 evaluation,
                 weekly_reports: weeklyReports || [],
+            },
+        };
+    }
+    catch (error) {
+        return {
+            success: false,
+            error: error.message,
+        };
+    }
+}
+/**
+ * Get all weekly reports for students under an advisor
+ * Standalone endpoint for advisor weekly reports page
+ */
+async function getAllWeeklyReportsForAdvisor(advisorId, options = {}) {
+    try {
+        const { status, studentId, page = 1, limit = 20 } = options;
+        const offset = (page - 1) * limit;
+        // Get all internships for this advisor
+        const { data: internships, error: internshipsError } = await supabase
+            .from('internships')
+            .select('id, student_id')
+            .eq('advisor_id', advisorId)
+            .or('is_archived.is.null,is_archived.eq.false');
+        if (internshipsError) {
+            throw new Error(`Failed to fetch internships: ${internshipsError.message}`);
+        }
+        if (!internships || internships.length === 0) {
+            return {
+                success: true,
+                data: [],
+                pagination: {
+                    page,
+                    limit,
+                    total: 0,
+                    totalPages: 0,
+                },
+                statistics: {
+                    total: 0,
+                    pending: 0,
+                    approved: 0,
+                    rejected: 0,
+                },
+            };
+        }
+        const internshipIds = internships.map(i => i.id);
+        // Build query for weekly reports
+        let query = supabase
+            .from('student_weekly_accomplishments')
+            .select(`
+        *,
+        student:users!student_id(id, first_name, last_name, email),
+        internship:internships(
+          id,
+          position,
+          company:companies(name)
+        )
+      `, { count: 'exact' })
+            .in('internship_id', internshipIds)
+            .order('created_at', { ascending: false });
+        // Apply filters
+        if (status) {
+            query = query.eq('status', status);
+        }
+        if (studentId) {
+            query = query.eq('student_id', studentId);
+        }
+        // Apply pagination
+        query = query.range(offset, offset + limit - 1);
+        const { data: reports, error: reportsError, count } = await query;
+        if (reportsError) {
+            throw new Error(`Failed to fetch weekly reports: ${reportsError.message}`);
+        }
+        // Get statistics
+        const [pendingCount, approvedCount, rejectedCount] = await Promise.all([
+            supabase
+                .from('student_weekly_accomplishments')
+                .select('id', { count: 'exact', head: true })
+                .in('internship_id', internshipIds)
+                .eq('status', 'pending_approval'),
+            supabase
+                .from('student_weekly_accomplishments')
+                .select('id', { count: 'exact', head: true })
+                .in('internship_id', internshipIds)
+                .eq('status', 'approved'),
+            supabase
+                .from('student_weekly_accomplishments')
+                .select('id', { count: 'exact', head: true })
+                .in('internship_id', internshipIds)
+                .eq('status', 'rejected'),
+        ]);
+        return {
+            success: true,
+            data: reports || [],
+            pagination: {
+                page,
+                limit,
+                total: count || 0,
+                totalPages: Math.ceil((count || 0) / limit),
+            },
+            statistics: {
+                total: (pendingCount.count || 0) + (approvedCount.count || 0) + (rejectedCount.count || 0),
+                pending: pendingCount.count || 0,
+                approved: approvedCount.count || 0,
+                rejected: rejectedCount.count || 0,
             },
         };
     }

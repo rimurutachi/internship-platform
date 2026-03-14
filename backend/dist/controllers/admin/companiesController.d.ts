@@ -52,4 +52,21 @@ export declare function unarchiveCompany(req: Request, res: Response): Promise<R
  * GET /admin/companies/:id/students-count
  */
 export declare function updateCompanyStudentsCount(req: Request, res: Response): Promise<void>;
+/**
+ * Assign a supervisor to a company
+ * POST /admin/companies/:id/supervisors
+ * Body: { supervisor_id: string }
+ */
+export declare function assignSupervisorToCompany(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
+/**
+ * Remove a supervisor from a company
+ * DELETE /admin/companies/:id/supervisors/:supervisor_id
+ */
+export declare function removeSupervisorFromCompany(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
+/**
+ * Get all supervisors (optionally filter by unassigned)
+ * GET /admin/companies/all-supervisors
+ * Query params: unassigned (boolean) - if true, only return supervisors without a company
+ */
+export declare function getAllSupervisors(req: Request, res: Response): Promise<void>;
 //# sourceMappingURL=companiesController.d.ts.map

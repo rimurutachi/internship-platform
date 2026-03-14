@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createWeeklyReport = createWeeklyReport;
 exports.getMyWeeklyReports = getMyWeeklyReports;
@@ -8,6 +11,7 @@ exports.getWeeklyReportById = getWeeklyReportById;
 exports.getNextReportDeadline = getNextReportDeadline;
 exports.deleteWeeklyReport = deleteWeeklyReport;
 const supabase_js_1 = require("@supabase/supabase-js");
+const notificationService_1 = __importDefault(require("./notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Create a new weekly accomplishment report
@@ -138,19 +142,22 @@ async function createWeeklyReport(studentId, reportData) {
             .single();
         if (supervisor?.supervisor_id) {
             console.log('📢 [WeeklyReportsService] Sending notification to supervisor:', supervisor.supervisor_id);
-            // Notify supervisor
-            await supabase.from('notifications').insert({
-                user_id: supervisor.supervisor_id,
-                type: 'weekly_report_submitted',
-                title: 'New Weekly Report',
-                message: `A student has submitted a weekly report for week ${week_number}`,
-                data: {
-                    report_id: report.id,
-                    internship_id,
-                    week_number,
-                },
-            });
-            console.log('✅ [WeeklyReportsService] Notification sent');
+            // Notify supervisor using notification service (triggers socket emit)
+            try {
+                await notificationService_1.default.createNotification({
+                    user_id: supervisor.supervisor_id,
+                    type: 'weekly_report_submitted',
+                    title: 'New Weekly Report',
+                    message: `A student has submitted a weekly report for week ${week_number}`,
+                    action_url: `/dashboard/supervisor/weekly-reports/${report.id}`,
+                    reference_type: 'weekly_report',
+                });
+                console.log('✅ [WeeklyReportsService] Notification sent');
+            }
+            catch (notifError) {
+                console.error('⚠️ [WeeklyReportsService] Failed to send notification:', notifError);
+                // Don't fail the whole operation if notification fails
+            }
         }
         return {
             success: true,
