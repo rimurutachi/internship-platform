@@ -10,6 +10,107 @@ const supabase = createClient(
 const router = Router();
 
 /**
+ * GET /api/advisor/assigned-students
+ * Get ALL students pre-assigned to this advisor (via profile_data.assigned_advisor_id),
+ * including those who do NOT yet have an internship record.
+ * This is used by the advisor's My Students page to show the full roster.
+ */
+router.get('/assigned-students', async (req: AuthRequest, res: Response) => {
+  try {
+    const advisorId = req.user?.id;
+    if (!advisorId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // 1) Students with an internship assigned to this advisor (non-archived)
+    const { data: internships } = await supabase
+      .from('internships')
+      .select(`
+        id,
+        student_id,
+        position,
+        status,
+        start_date,
+        end_date,
+        progress,
+        company:companies(id, name),
+        student:users!internships_student_id_fkey(
+          id, email, first_name, last_name, profile_data, year_level
+        )
+      `)
+      .eq('advisor_id', advisorId)
+      .neq('is_archived', true);
+
+    const internshipStudentIds = new Set(
+      (internships || []).map((i: any) => i.student_id)
+    );
+
+    // 2) Students pre-assigned via profile_data.assigned_advisor_id but without internship
+    // Supabase can't filter JSONB directly, so fetch all students and filter in-memory
+    const { data: allStudents } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, profile_data, year_level')
+      .eq('role', 'student')
+      .eq('status', 'active');
+
+    const preAssigned = (allStudents || []).filter(
+      (s: any) =>
+        s.profile_data?.assigned_advisor_id === advisorId &&
+        !internshipStudentIds.has(s.id)
+    );
+
+    // Build unified list
+    const studentsFromInternships = (internships || []).map((internship: any) => {
+      const s = Array.isArray(internship.student) ? internship.student[0] : internship.student;
+      const company = Array.isArray(internship.company) ? internship.company[0] : internship.company;
+      return {
+        id: s?.id,
+        name: `${s?.first_name || ''} ${s?.last_name || ''}`.trim() || 'Unknown',
+        email: s?.email,
+        program: s?.profile_data?.program || s?.profile_data?.course || s?.profile_data?.department || 'N/A',
+        year_level: s?.year_level || s?.profile_data?.year_level || 'N/A',
+        section: s?.profile_data?.section || 'N/A',
+        internship: {
+          id: internship.id,
+          company: company?.name || 'N/A',
+          position: internship.position,
+          status: internship.status,
+          startDate: internship.start_date,
+          endDate: internship.end_date,
+          progress: internship.progress || 0,
+        },
+      };
+    });
+
+    const studentsPreAssigned = preAssigned.map((s: any) => ({
+      id: s.id,
+      name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unknown',
+      email: s.email,
+      program: s.profile_data?.program || s.profile_data?.course || s.profile_data?.department || 'N/A',
+      year_level: s.year_level || s.profile_data?.year_level || 'N/A',
+      section: s.profile_data?.section || 'N/A',
+      internship: null, // no internship yet
+    }));
+
+    const allResult = [...studentsFromInternships, ...studentsPreAssigned];
+
+    return res.status(200).json({
+      success: true,
+      data: allResult,
+      count: allResult.length,
+    });
+  } catch (error: any) {
+    console.error('Error in GET /api/advisor/assigned-students:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+    });
+  }
+});
+
+
+/**
  * GET /api/advisor/students
  * Get all students assigned to this advisor
  */

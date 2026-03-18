@@ -68,7 +68,7 @@ export function CreateInternshipModal({
     advisor_id: '',
     supervisor_id: '',
     start_date: '',
-    end_date: '', // Will be calculated from required_hours
+    end_date: '',
     status: 'pending',
     required_hours: 0,
     program_code: '',
@@ -116,7 +116,7 @@ export function CreateInternshipModal({
     }
   };
 
-  // Fetch available students
+  // Fetch available students + companies + programs + advisors when modal opens
   useEffect(() => {
     if (open) {
       fetchAvailableStudents();
@@ -167,12 +167,10 @@ export function CreateInternshipModal({
     return current.toISOString().split('T')[0];
   };
 
-  // Fetch advisors when student is selected (for legacy support)
-  useEffect(() => {
-    if (selectedStudent?.university_id) {
-      fetchAdvisors(selectedStudent.university_id);
-    }
-  }, [selectedStudent]);
+  // NOTE: Advisor fetching is done once on modal open (fetchCVSUAdvisors in the open useEffect).
+  // We do NOT re-fetch advisors when selectedStudent changes because:
+  // 1. All advisors belong to CVSU-BC (already fetched)
+  // 2. Re-fetching on selectedStudent change caused an infinite re-render loop
 
   // Fetch supervisors when company is selected
   useEffect(() => {
@@ -225,29 +223,6 @@ export function CreateInternshipModal({
     }
   };
 
-  const fetchAdvisors = async (universityId: string) => {
-    try {
-      console.log('Fetching advisors for university:', universityId);
-      const response = await adminInternshipsAPI.getAdvisorsByUniversity(universityId);
-      console.log('Advisors fetched:', response.data.advisors);
-      setAdvisors(response.data.advisors);
-      
-      if (response.data.advisors.length === 0) {
-        toast({
-          title: 'No Advisors Found',
-          description: 'There are no advisors registered for this university yet.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching advisors:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch advisors',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const fetchSupervisors = async (companyId: string) => {
     try {
@@ -275,11 +250,23 @@ export function CreateInternshipModal({
 
   const handleStudentChange = (studentId: string) => {
     const student = availableStudents.find((s) => s.id === studentId);
-    console.log('Selected student:', student);
-    console.log('Student university_id:', student?.university_id);
     setSelectedStudent(student || null);
-    setFormData({ ...formData, student_id: studentId, advisor_id: '' });
-    setAdvisors([]); // Reset advisors when student changes
+
+    // Check if student has a pre-assigned advisor
+    const assignedAdvisorId = student?.profile_data?.assigned_advisor_id;
+    const assignedAdvisorName = student?.profile_data?.assigned_advisor_name;
+
+    if (assignedAdvisorId) {
+      // Auto-select the pre-assigned advisor — use functional updater to avoid stale closure
+      setFormData(prev => ({ ...prev, student_id: studentId, advisor_id: assignedAdvisorId }));
+      toast({
+        title: '✅ Advisor Auto-Selected',
+        description: `${assignedAdvisorName || 'Assigned advisor'} has been automatically selected based on the student's program assignment.`,
+      });
+    } else {
+      // No pre-assigned advisor – clear the advisor field and let admin pick
+      setFormData(prev => ({ ...prev, student_id: studentId, advisor_id: '' }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -317,7 +304,7 @@ export function CreateInternshipModal({
     try {
       setLoading(true);
       
-      // Create internship with required_hours and calculated end_date
+      // Create internship — include required_hours so the backend saves the correct value
       const internshipData = {
         student_id: formData.student_id,
         company_id: formData.company_id,
@@ -326,9 +313,10 @@ export function CreateInternshipModal({
         advisor_id: formData.advisor_id,
         supervisor_id: formData.supervisor_id,
         start_date: formData.start_date,
-        end_date: formData.end_date, // Calculated projected end date
+        end_date: formData.end_date,
         status: formData.status,
-        // Note: required_hours and program_code will be handled by backend
+        required_hours: formData.required_hours,   // ← was missing before!
+        program_code: formData.program_code || '',  // ← was missing before!
       };
       
       await adminInternshipsAPI.createInternship(internshipData);
@@ -484,14 +472,14 @@ export function CreateInternshipModal({
             <Select
               value={formData.advisor_id}
               onValueChange={(value) => setFormData({ ...formData, advisor_id: value })}
-              disabled={loading || !selectedStudent || advisors.length === 0}
+              disabled={loading || !selectedStudent}
             >
               <SelectTrigger>
                 <SelectValue placeholder={
                   !selectedStudent 
                     ? "Select a student first" 
                     : advisors.length === 0 
-                    ? "No advisors available"
+                    ? "Loading advisors..."
                     : "Select an advisor"
                 } />
               </SelectTrigger>
@@ -513,9 +501,9 @@ export function CreateInternshipModal({
               <p className="text-sm text-muted-foreground">
                 Select a student first to see available advisors
               </p>
-            ) : !selectedStudent.university_id ? (
-              <p className="text-sm text-yellow-600">
-                ⚠️ This student has no university assigned. Please update student profile first.
+            ) : selectedStudent.profile_data?.assigned_advisor_id && formData.advisor_id === selectedStudent.profile_data.assigned_advisor_id ? (
+              <p className="text-sm text-green-600 flex items-center gap-1">
+                ✅ Auto-selected: {selectedStudent.profile_data.assigned_advisor_name || 'Assigned advisor'} (based on student&apos;s program)
               </p>
             ) : advisors.length === 0 ? (
               <p className="text-sm text-yellow-600">
@@ -523,10 +511,11 @@ export function CreateInternshipModal({
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                {advisors.length} advisor{advisors.length !== 1 ? 's' : ''} available from student's university
+                {advisors.length} advisor{advisors.length !== 1 ? 's' : ''} available from student&apos;s university
               </p>
             )}
           </div>
+
 
           {/* Supervisor Selection */}
           <div className="space-y-2">

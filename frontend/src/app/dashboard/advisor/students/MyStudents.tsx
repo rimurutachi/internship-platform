@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp } from 'lucide-react';
+import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, BookOpen, Hash } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -117,7 +117,11 @@ export default function MyStudents() {
       student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.program.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || student.internship?.status === statusFilter;
+    // For status filter: null internship students show under 'all' and 'no_internship'
+    const matchesStatus = 
+      statusFilter === 'all' ||
+      (statusFilter === 'no_internship' && !student.internship) ||
+      (statusFilter !== 'no_internship' && student.internship?.status === statusFilter);
     const matchesProgram = programFilter === 'all' || student.program === programFilter;
     
     return matchesSearch && matchesStatus && matchesProgram;
@@ -128,19 +132,26 @@ export default function MyStudents() {
     total: students.length,
     active: students.filter(s => s.internship?.status === 'active').length,
     pending: students.filter(s => s.internship?.status === 'pending').length,
-    completed: students.filter(s => s.internship?.status === 'completed').length
+    completed: students.filter(s => s.internship?.status === 'completed').length,
+    noInternship: students.filter(s => !s.internship).length,
   };
 
   // Get unique programs for filter
   const programs = Array.from(new Set(students.map(s => s.program)));
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
+    if (!status) return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400';
     switch (status) {
       case 'active': return 'bg-primary/10 text-primary border-primary/20';
       case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'completed': return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400';
       default: return 'bg-muted text-muted-foreground';
     }
+  };
+
+  const getStatusLabel = (student: typeof students[0]) => {
+    if (!student.internship) return 'No Internship Yet';
+    return student.internship.status.charAt(0).toUpperCase() + student.internship.status.slice(1);
   };
 
   const getInitials = (name: string) => {
@@ -188,7 +199,7 @@ export default function MyStudents() {
               )}
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <Card>
                   <CardContent className="p-5">
                     <div className="text-2xl font-bold text-foreground">{stats.total}</div>
@@ -198,7 +209,7 @@ export default function MyStudents() {
                 <Card>
                   <CardContent className="p-5">
                     <div className="text-2xl font-bold text-primary">{stats.active}</div>
-                    <div className="text-sm text-muted-foreground mt-1">Active Internships</div>
+                    <div className="text-sm text-muted-foreground mt-1">Active</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -211,6 +222,12 @@ export default function MyStudents() {
                   <CardContent className="p-5">
                     <div className="text-2xl font-bold text-blue-600">{stats.completed}</div>
                     <div className="text-sm text-muted-foreground mt-1">Completed</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="text-2xl font-bold text-slate-500">{stats.noInternship}</div>
+                    <div className="text-sm text-muted-foreground mt-1">No Internship Yet</div>
                   </CardContent>
                 </Card>
               </div>
@@ -237,6 +254,7 @@ export default function MyStudents() {
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="no_internship">No Internship Yet</SelectItem>
                       </SelectContent>
                     </Select>
                     <Select value={programFilter} onValueChange={setProgramFilter}>
@@ -282,14 +300,12 @@ export default function MyStudents() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="text-lg font-bold text-foreground">{student.name}</h3>
-                                {student.internship && (
-                                  <Badge className={`${getStatusColor(student.internship.status)} text-xs border`}>
-                                    {student.internship.status.charAt(0).toUpperCase() + student.internship.status.slice(1)}
-                                  </Badge>
-                                )}
+                                <Badge className={`${getStatusColor(student.internship?.status)} text-xs border`}>
+                                  {getStatusLabel(student)}
+                                </Badge>
                               </div>
                               
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-2">
                                 <span className="flex items-center gap-1">
                                   <Mail className="h-3 w-3" />
                                   {student.email}
@@ -298,10 +314,21 @@ export default function MyStudents() {
                                   <Award className="h-3 w-3" />
                                   {student.program}
                                 </span>
+                                {student.year_level && student.year_level !== 'N/A' && (
+                                  <span className="flex items-center gap-1">
+                                    <BookOpen className="h-3 w-3" />
+                                    {student.year_level}
+                                  </span>
+                                )}
+                                {student.section && student.section !== 'N/A' && (
+                                  <span className="flex items-center gap-1">
+                                    <Hash className="h-3 w-3" />
+                                    Section {student.section}
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Internship Info with Progress */}
-                              {student.internship && (
+                              {student.internship ? (
                                 <div className="bg-muted rounded-lg p-3 space-y-2">
                                   <div className="flex items-center justify-between">
                                     <div>
@@ -327,21 +354,28 @@ export default function MyStudents() {
                                     />
                                   </div>
                                 </div>
+                              ) : (
+                                <div className="bg-muted/50 border border-dashed border-muted-foreground/30 rounded-lg p-3">
+                                  <p className="text-sm text-muted-foreground">
+                                    ⏳ Student is pre-assigned to you but has no active internship yet.
+                                  </p>
+                                </div>
                               )}
                             </div>
                           </div>
 
                           {/* Actions */}
                           <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewDetails(student.id)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Details
-                            </Button>
-
+                            {student.internship && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewDetails(student.id)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Details
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -406,17 +440,18 @@ export default function MyStudents() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-bold text-sm truncate">{student.name}</h3>
-                        {student.internship && (
-                          <Badge className={`${getStatusColor(student.internship.status)} text-xs border`}>
-                            {student.internship.status}
-                          </Badge>
-                        )}
+                        <Badge className={`${getStatusColor(student.internship?.status)} text-xs border`}>
+                          {getStatusLabel(student)}
+                        </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{student.program}</p>
+                      {student.year_level && student.year_level !== 'N/A' && (
+                        <p className="text-xs text-muted-foreground">{student.year_level}{student.section && student.section !== 'N/A' ? ` · Section ${student.section}` : ''}</p>
+                      )}
                     </div>
                   </div>
 
-                  {student.internship && (
+                  {student.internship ? (
                     <div className="bg-muted rounded p-3 mb-3 space-y-2">
                       <p className="font-semibold text-sm">{student.internship.company}</p>
                       <div>
@@ -432,19 +467,24 @@ export default function MyStudents() {
                         />
                       </div>
                     </div>
+                  ) : (
+                    <div className="bg-muted/50 border border-dashed border-muted-foreground/30 rounded p-2 mb-3">
+                      <p className="text-xs text-muted-foreground">⏳ No internship assigned yet</p>
+                    </div>
                   )}
 
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewDetails(student.id)}
-                      className="flex-1 text-xs"
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      View
-                    </Button>
-
+                    {student.internship && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(student.id)}
+                        className="flex-1 text-xs"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        View
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -483,7 +523,12 @@ export default function MyStudents() {
                   <p className="text-muted-foreground">{selectedStudent.email}</p>
                   <div className="flex gap-2 mt-2">
                     <Badge variant="outline">{selectedStudent.program}</Badge>
-                    {selectedStudent.year && <Badge variant="outline">Year {selectedStudent.year}</Badge>}
+                    {selectedStudent.year_level && selectedStudent.year_level !== 'N/A' && (
+                      <Badge variant="outline">{selectedStudent.year_level}</Badge>
+                    )}
+                    {selectedStudent.section && selectedStudent.section !== 'N/A' && (
+                      <Badge variant="outline">Section {selectedStudent.section}</Badge>
+                    )}
                   </div>
                 </div>
               </div>
