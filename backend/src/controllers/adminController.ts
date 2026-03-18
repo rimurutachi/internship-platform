@@ -266,7 +266,13 @@ export async function createUser(req: AuthRequest, res: Response) {
         }
 
         if (matchingAdvisor) {
-          dbInsert.advisor_id = matchingAdvisor.id;
+          // advisor_id is NOT a column on users — store it in profile_data so it can
+          // be referenced when an internship record is later created for this student.
+          dbInsert.profile_data = {
+            ...(dbInsert.profile_data || {}),
+            assigned_advisor_id: matchingAdvisor.id,
+            assigned_advisor_name: matchingAdvisor.name,
+          };
           console.log(`✅ Auto-assigned student ${fullName} to advisor ${matchingAdvisor.name} (program: ${program}, year: ${year_level})`);
         } else {
           console.log(`⚠️ No matching advisor found for student ${fullName} (program: ${program}, year: ${year_level}, section: ${section})`);

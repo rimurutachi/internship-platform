@@ -37,6 +37,8 @@ interface ProfileData {
     faculty_id?: string;
     year_level?: string;
     course?: string;
+    program?: string;
+    section?: string;
     bio?: string;
     position?: string;
     company?: string;
@@ -78,6 +80,8 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
   const [facultyId, setFacultyId] = useState('');
   const [yearLevel, setYearLevel] = useState('');
   const [course, setCourse] = useState('');
+  const [program, setProgram] = useState('');
+  const [section, setSection] = useState('');
   const [bio, setBio] = useState('');
   const [position, setPosition] = useState('');
   const [company, setCompany] = useState('');
@@ -152,8 +156,11 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
     setDepartment(userData.profile_data?.department || '');
     setStudentId(userData.profile_data?.student_id || '');
     setFacultyId(userData.profile_data?.faculty_id || '');
-    setYearLevel(userData.profile_data?.year_level || '');
+    // year_level is a direct column on users, not inside profile_data
+    setYearLevel((userData as any).year_level || userData.profile_data?.year_level || '');
     setCourse(userData.profile_data?.course || '');
+    setProgram(userData.profile_data?.program || '');
+    setSection(userData.profile_data?.section || '');
     setBio(userData.profile_data?.bio || '');
     setPosition(userData.profile_data?.position || '');
     setCompany(userData.profile_data?.company || '');
@@ -190,9 +197,10 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
       };
 
       if (userType === 'student') {
+        // Only student_id is editable; program/year_level/section are admin-assigned (read-only)
         profileData.profile_data.student_id = studentId;
-        profileData.profile_data.year_level = yearLevel;
-        profileData.profile_data.course = course;
+        // Remove department/course from student saves — not relevant for students
+        delete profileData.profile_data.department;
         
         const response = await studentAPI.updateProfile(profileData);
         if (response.success) {
@@ -445,28 +453,34 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-sm font-medium">Department</Label>
+                              <Label className="text-sm font-medium">Program</Label>
                               <Input 
-                                value={department} 
-                                onChange={(e) => setDepartment(e.target.value)}
-                                placeholder="e.g., Computer Science"
+                                value={program}
+                                disabled
+                                className="bg-muted/50 cursor-not-allowed"
+                                placeholder="Assigned by admin"
                               />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm font-medium">Course</Label>
-                              <Input 
-                                value={course} 
-                                onChange={(e) => setCourse(e.target.value)}
-                                placeholder="e.g., BS Computer Science"
-                              />
+                              <p className="text-xs text-muted-foreground">Auto-assigned by admin based on your program</p>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Year Level</Label>
                               <Input 
-                                value={yearLevel} 
-                                onChange={(e) => setYearLevel(e.target.value)}
-                                placeholder="e.g., 4th Year"
+                                value={yearLevel}
+                                disabled
+                                className="bg-muted/50 cursor-not-allowed"
+                                placeholder="Assigned by admin"
                               />
+                              <p className="text-xs text-muted-foreground">Auto-assigned by admin</p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Section</Label>
+                              <Input 
+                                value={section}
+                                disabled
+                                className="bg-muted/50 cursor-not-allowed"
+                                placeholder="Assigned by admin"
+                              />
+                              <p className="text-xs text-muted-foreground">Auto-assigned by admin</p>
                             </div>
                           </>
                         )}
@@ -928,44 +942,49 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                     {userType === 'student' && (
                       <>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Student ID</Label>
+                          <Input 
+                            value={studentId} 
+                            onChange={(e) => setStudentId(e.target.value)}
+                            className="h-10"
+                          />
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium">Student ID</Label>
+                            <Label className="text-xs font-medium">Program</Label>
                             <Input 
-                              value={studentId} 
-                              onChange={(e) => setStudentId(e.target.value)}
-                              className="h-10"
+                              value={program}
+                              disabled
+                              className="h-10 bg-muted/50 cursor-not-allowed"
+                              placeholder="Assigned by admin"
                             />
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-xs font-medium">Year Level</Label>
                             <Input 
-                              value={yearLevel} 
-                              onChange={(e) => setYearLevel(e.target.value)}
-                              className="h-10"
-                              placeholder="e.g., 4th Year"
+                              value={yearLevel}
+                              disabled
+                              className="h-10 bg-muted/50 cursor-not-allowed"
+                              placeholder="Assigned by admin"
                             />
                           </div>
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-medium">Department</Label>
+                          <Label className="text-xs font-medium">Section</Label>
                           <Input 
-                            value={department} 
-                            onChange={(e) => setDepartment(e.target.value)}
-                            className="h-10"
+                            value={section}
+                            disabled
+                            className="h-10 bg-muted/50 cursor-not-allowed"
+                            placeholder="Assigned by admin"
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium">Course</Label>
-                          <Input 
-                            value={course} 
-                            onChange={(e) => setCourse(e.target.value)}
-                            className="h-10"
-                            placeholder="e.g., BS Computer Science"
-                          />
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Program, Year Level, and Section are auto-assigned by the admin.
+                        </p>
                       </>
                     )}
+
 
                     {userType === 'advisor' && (
                       <>

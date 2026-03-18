@@ -67,37 +67,46 @@ export interface StudentPerformance {
   workEthic: number;
 }
 
+/**
+ * Unified student list item that covers both:
+ * - students with an active internship (internship !== null)
+ * - students pre-assigned to this advisor but no internship yet (internship === null)
+ */
 export interface StudentListItem {
   id: string;
   name: string;
   email: string;
   program: string;
-  year: string | number;
+  year_level: string;
+  section: string;
   avatar_url?: string;
-  internship: StudentInternship;
-  performance: StudentPerformance;
-  lastEvaluation: string | null;
-  evaluationCount: number;
+  /** null when student has no internship yet */
+  internship: StudentInternship | null;
+  performance?: StudentPerformance;
+  lastEvaluation?: string | null;
+  evaluationCount?: number;
 }
 
 export interface StudentDetails extends StudentListItem {
   student_id?: string;
-  joined: string;
-  internship: StudentInternship & {
+  joined?: string;
+  internship: (StudentInternship & {
     companyLocation?: string;
     companyIndustry?: string;
-  };
-  evaluations: any[];
-  recentReports: any[];
+  }) | null;
+  evaluations?: any[];
+  recentReports?: any[];
 }
 
 export const advisorStudentsAPI = {
   /**
-   * Get all students assigned to this advisor
+   * Get ALL students assigned to this advisor:
+   * - Students with an internship (from the internships table)
+   * - Students pre-assigned via profile_data.assigned_advisor_id (no internship yet)
    */
   getMyStudents: async (): Promise<{ students: StudentListItem[]; count: number }> => {
-    console.log('🟢 [API] Calling /advisor/students...');
-    const result = await apiCall<StudentListItem[]>('/advisor/students');
+    console.log('🟢 [API] Calling /advisor/assigned-students...');
+    const result = await apiCall<StudentListItem[]>('/advisor/assigned-students');
     console.log('🟢 [API] Raw result:', result);
     
     if (!result.success || !result.data) {

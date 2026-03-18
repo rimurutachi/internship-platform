@@ -213,7 +213,10 @@ export class InternshipsController {
         start_date,
         end_date,
         status = 'pending',
+        required_hours,
+        program_code,
       } = req.body;
+
 
       // Validate required fields
       if (
@@ -255,7 +258,7 @@ export class InternshipsController {
         });
       }
 
-      // Create internship
+      // Create internship — include required_hours and program_code so custom hours are preserved
       const { data: internship, error } = await supabase
         .from('internships')
         .insert({
@@ -268,6 +271,8 @@ export class InternshipsController {
           start_date,
           end_date,
           status,
+          ...(required_hours ? { required_hours: Number(required_hours) } : {}),
+          ...(program_code ? { program_code } : {}),
         })
         .select()
         .single();
@@ -314,7 +319,7 @@ export class InternshipsController {
     console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: (req as any).user?.id });
     try {
       const id = ensureString(req.params.id, 'id');
-      const { position, department, advisor_id, supervisor_id, start_date, end_date, status } =
+      const { position, department, advisor_id, supervisor_id, start_date, end_date, status, required_hours, program_code } =
         req.body;
 
       // Get current internship
@@ -340,6 +345,9 @@ export class InternshipsController {
       if (start_date !== undefined) updateData.start_date = start_date;
       if (end_date !== undefined) updateData.end_date = end_date;
       if (status !== undefined) updateData.status = status;
+      if (required_hours !== undefined) updateData.required_hours = Number(required_hours);   // ← was missing!
+      if (program_code !== undefined) updateData.program_code = program_code;                 // ← was missing!
+
 
       // Validate new date range if provided
       const finalStartDate = start_date || currentInternship.start_date;
@@ -681,7 +689,7 @@ export class InternshipsController {
       // Get all students not in active internships list
       let query = supabase
         .from('users')
-        .select('id, name, email, university_id')
+        .select('id, name, email, university_id, profile_data')
         .eq('role', 'student');
 
       if (activeStudentIds.length > 0) {

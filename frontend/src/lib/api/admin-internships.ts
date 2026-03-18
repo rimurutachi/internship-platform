@@ -109,6 +109,14 @@ export interface User {
   email: string;
   university_id?: string;
   company_id?: string;
+  profile_data?: {
+    assigned_advisor_id?: string;
+    assigned_advisor_name?: string;
+    program?: string;
+    year_level?: string;
+    section?: string;
+    [key: string]: any;
+  };
 }
 
 /**
