@@ -456,7 +456,7 @@ export class DocumentSubmissionsService {
         type: 'document_submitted',
         title,
         message,
-        action_url: `/dashboard/advisor/document-requirements/${submission.requirement_id}/submissions`,
+        action_url: `/dashboard/advisor/requirements/${submission.requirement_id}`,
         reference_type: 'document_submission',
       });
     } catch (error) {
@@ -503,7 +503,7 @@ export class DocumentSubmissionsService {
         type: 'document_reviewed',
         title,
         message,
-        action_url: `/dashboard/student/document-requirements/${submission.requirement_id}`,
+        action_url: `/dashboard/student/requirements/${submission.requirement_id}`,
         reference_type: 'document_submission',
       });
     } catch (error) {

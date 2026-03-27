@@ -18,6 +18,7 @@ import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { useUser } from '@/hooks/use-user';
 import { studentAPI } from '@/lib/api/student';
 import { advisorAPI } from '@/lib/api/advisor';
+import { createSupabaseClient } from '@/lib/supabase';
 
 interface SettingsPageProps {
   sidebar: ReactNode;
@@ -91,7 +92,6 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
   // Notification preferences state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(false);
   const [notifyEvaluations, setNotifyEvaluations] = useState(true);
   const [notifyReports, setNotifyReports] = useState(true);
 
@@ -164,13 +164,13 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
     setBio(userData.profile_data?.bio || '');
     setPosition(userData.profile_data?.position || '');
     setCompany(userData.profile_data?.company || '');
+    setPhone((userData as any).phone || userData.profile_data?.phone || '');
     setAvatarUrl(userData.avatar_url || null);
     
     // Load notification preferences
     const notifPrefs = userData.profile_data?.notification_preferences || {};
     setEmailNotifications(notifPrefs.email_notifications ?? true);
     setPushNotifications(notifPrefs.push_notifications ?? true);
-    setSmsNotifications(notifPrefs.sms_notifications ?? false);
     
     const notifTypes = notifPrefs.notification_types || {};
     setNotifyEvaluations(notifTypes.evaluations ?? true);
@@ -190,6 +190,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
       const profileData: any = {
         first_name: firstName,
         last_name: lastName,
+        phone,
         profile_data: {
           ...profile?.profile_data,
           department,
@@ -240,7 +241,6 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
       const notificationPrefs = {
         email_notifications: emailNotifications,
         push_notifications: pushNotifications,
-        sms_notifications: smsNotifications,
         notification_types: {
           evaluations: notifyEvaluations,
           reports: notifyReports,
@@ -297,7 +297,15 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
       setError(null);
       setSuccess(null);
 
-      // Password change logic would go here
+      const supabase = createSupabaseClient();
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
       setSuccess('Password changed successfully!');
       setCurrentPassword('');
       setNewPassword('');
@@ -390,9 +398,15 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                 <TabsContent value="profile" className="space-y-6 mt-0">
                   <Card className="border-0 shadow-sm">
                     <CardHeader className="pb-4">
-                      <CardTitle className="text-lg">Profile Information</CardTitle>
+                      <CardTitle className="text-lg">
+                        {userType === 'student' && 'Student Profile'}
+                        {userType === 'advisor' && 'Advisor Profile'}
+                        {userType === 'supervisor' && 'Supervisor Profile'}
+                      </CardTitle>
                       <CardDescription>
-                        Update your personal {userType === 'supervisor' ? 'and company ' : ''}information
+                        {userType === 'student' && 'Manage your student account information'}
+                        {userType === 'advisor' && 'Manage your advisor account information'}
+                        {userType === 'supervisor' && 'Manage your supervisor account and company information'}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -413,37 +427,59 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                       </div>
 
                       {/* Basic Info */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">First Name</Label>
-                          <Input 
-                            value={firstName} 
-                            onChange={(e) => setFirstName(e.target.value)}
-                            placeholder="Enter first name"
-                          />
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Basic Information</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">First Name</Label>
+                            <Input 
+                              value={firstName} 
+                              onChange={(e) => setFirstName(e.target.value)}
+                              placeholder="Enter first name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Last Name</Label>
+                            <Input 
+                              value={lastName} 
+                              onChange={(e) => setLastName(e.target.value)}
+                              placeholder="Enter last name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Email</Label>
+                            <Input 
+                              type="email" 
+                              value={email} 
+                              disabled
+                              className="bg-muted/50"
+                            />
+                            <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Phone (Optional)</Label>
+                            <Input 
+                              type="tel" 
+                              value={phone} 
+                              onChange={(e) => setPhone(e.target.value)}
+                              placeholder="+1 (555) 000-0000"
+                            />
+                            <p className="text-xs text-muted-foreground">Your contact number</p>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Last Name</Label>
-                          <Input 
-                            value={lastName} 
-                            onChange={(e) => setLastName(e.target.value)}
-                            placeholder="Enter last name"
-                          />
-                        </div>
-                        <div className="sm:col-span-2 space-y-2">
-                          <Label className="text-sm font-medium">Email</Label>
-                          <Input 
-                            type="email" 
-                            value={email} 
-                            disabled
-                            className="bg-muted/50"
-                          />
-                          <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-                        </div>
+                      </div>
 
-                        {/* Role-specific fields */}
+                      <Separator className="my-6" />
+
+                      {/* Role-specific fields */}
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                          {userType === 'student' && 'Academic Information'}
+                          {userType === 'advisor' && 'Faculty Information'}
+                          {userType === 'supervisor' && 'Professional Information'}
+                        </h3>
                         {userType === 'student' && (
-                          <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Student ID</Label>
                               <Input 
@@ -482,11 +518,11 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                               />
                               <p className="text-xs text-muted-foreground">Auto-assigned by admin</p>
                             </div>
-                          </>
+                          </div>
                         )}
 
                         {userType === 'advisor' && (
-                          <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Faculty ID</Label>
                               <Input 
@@ -503,11 +539,11 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                                 placeholder="e.g., Computer Science"
                               />
                             </div>
-                          </>
+                          </div>
                         )}
 
                         {userType === 'supervisor' && (
-                          <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Position</Label>
                               <Input 
@@ -532,7 +568,7 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                                 placeholder="e.g., Tech Company Inc."
                               />
                             </div>
-                          </>
+                          </div>
                         )}
                       </div>
 
@@ -585,35 +621,25 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                       {/* Channels */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Notification Channels</h3>
-                        <div className="grid gap-4">
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground">Email Notifications</p>
-                              <p className="text-sm text-muted-foreground">Receive notifications via email</p>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="font-semibold">Email Notifications</Label>
+                              <p className="text-sm text-muted-foreground mt-1">Receive notifications via email</p>
                             </div>
                             <Switch 
                               checked={emailNotifications}
                               onCheckedChange={setEmailNotifications}
                             />
                           </div>
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground">Push Notifications</p>
-                              <p className="text-sm text-muted-foreground">Receive push notifications in the app</p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="font-semibold">Push Notifications</Label>
+                              <p className="text-sm text-muted-foreground mt-1">Receive push notifications in the app</p>
                             </div>
                             <Switch 
                               checked={pushNotifications}
                               onCheckedChange={setPushNotifications}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground">SMS Notifications</p>
-                              <p className="text-sm text-muted-foreground">Receive text message notifications</p>
-                            </div>
-                            <Switch 
-                              checked={smsNotifications}
-                              onCheckedChange={setSmsNotifications}
                             />
                           </div>
                         </div>
@@ -624,21 +650,21 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                       {/* Notification Types */}
                       <div className="space-y-4">
                         <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Notification Types</h3>
-                        <div className="grid gap-4">
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground">Evaluation Updates</p>
-                              <p className="text-sm text-muted-foreground">Get notified about evaluation changes</p>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="font-semibold">Evaluation Updates</Label>
+                              <p className="text-sm text-muted-foreground mt-1">Get notified about evaluation changes</p>
                             </div>
                             <Switch 
                               checked={notifyEvaluations}
                               onCheckedChange={setNotifyEvaluations}
                             />
                           </div>
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground">Report Submissions</p>
-                              <p className="text-sm text-muted-foreground">Notifications for report activities</p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="font-semibold">Report Submissions</Label>
+                              <p className="text-sm text-muted-foreground mt-1">Notifications for report activities</p>
                             </div>
                             <Switch 
                               checked={notifyReports}
@@ -646,13 +672,12 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                             />
                           </div>
 
-                          
                           {/* Student-specific */}
                           {userType === 'student' && (
-                            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                              <div className="space-y-0.5">
-                                <p className="font-medium text-foreground">Internship Updates</p>
-                                <p className="text-sm text-muted-foreground">Updates about your internship status</p>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label className="font-semibold">Internship Updates</Label>
+                                <p className="text-sm text-muted-foreground mt-1">Updates about your internship status</p>
                               </div>
                               <Switch 
                                 checked={notifyInternship}
@@ -663,10 +688,10 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
 
                           {/* Advisor-specific */}
                           {userType === 'advisor' && (
-                            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                              <div className="space-y-0.5">
-                                <p className="font-medium text-foreground">Student Activities</p>
-                                <p className="text-sm text-muted-foreground">Updates about your students</p>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label className="font-semibold">Student Activities</Label>
+                                <p className="text-sm text-muted-foreground mt-1">Updates about your students</p>
                               </div>
                               <Switch 
                                 checked={notifyStudents}
@@ -675,10 +700,10 @@ export function SettingsPage({ sidebar, header, userType }: SettingsPageProps) {
                             </div>
                           )}
 
-                          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground">System Announcements</p>
-                              <p className="text-sm text-muted-foreground">Important platform updates</p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="font-semibold">System Announcements</Label>
+                              <p className="text-sm text-muted-foreground mt-1">Important platform updates</p>
                             </div>
                             <Switch 
                               checked={notifySystem}

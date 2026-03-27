@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
+import * as analyticsService from './analyticsService';const supabaseAdmin = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_KEY as string
 );
@@ -346,6 +345,17 @@ class ReportsService {
     if (metrics.includes('performance')) {
       reportData.performance = await this.generatePerformanceMetrics();
     }
+    if (metrics.includes('ai_insights')) {
+      try {
+        reportData.ai_insights = await analyticsService.getTrendAnalysis({
+          include_recommendations: true,
+          top_n_skills: 5,
+          top_n_companies: 5
+        });
+      } catch (err) {
+        console.error('Failed to fetch AI Insights for report export:', err);
+      }
+    }
     // Convert to requested format
     if (format === 'json') {
       return JSON.stringify(reportData, null, 2);
@@ -390,14 +400,42 @@ class ReportsService {
 
   private static async convertToPDF(data: any): Promise<Buffer> {
     const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument();
+    const path = require('path');
+    const fs = require('fs');
+    const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => {});
+    
+    // Custom Header for Cavite State University
+    const logoPath = path.resolve(__dirname, '../../../frontend/public/cvsu-logo.png');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, 50, 45, { width: 60 });
+    }
+
+    const pageWidth = doc.page.width;
+    doc.font('Helvetica');
+    doc.fontSize(10).text('Republic of the Philippines', 0, 50, { align: 'center', width: pageWidth });
+    doc.font('Helvetica-Bold');
+    doc.fontSize(14).text('CAVITE STATE UNIVERSITY', 0, 65, { align: 'center', width: pageWidth });
+    doc.font('Helvetica-Bold');
+    doc.fontSize(12).text('Bacoor City Campus', 0, 82, { align: 'center', width: pageWidth });
+    doc.font('Helvetica');
+    doc.fontSize(10).text('SHIV, Molino VI, City of Bacoor', 0, 98, { align: 'center', width: pageWidth });
+    doc.fontSize(10).text('(046) 476-5029', 0, 112, { align: 'center', width: pageWidth });
+    doc.fontSize(10).text('cvsubacoor@cvsu.edu.ph', 0, 126, { align: 'center', width: pageWidth, link: 'mailto:cvsubacoor@cvsu.edu.ph' });
+    
+    doc.moveTo(50, 150).lineTo(pageWidth - 50, 150).stroke();
+    
     // Title
-    doc.fontSize(20).text('Intern-Galing Analytics Report', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+    doc.y = 170;
+    doc.x = 50;
+    doc.font('Helvetica-Bold').fontSize(18).text(data.title || 'Intern-Galing Analytics Report', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.font('Helvetica').fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+    if (data.date_range) {
+       doc.text(`Date Range: ${data.date_range}`, { align: 'center' });
+    }
     doc.moveDown(2);
     // Overview
     if (data.overview) {
@@ -431,6 +469,44 @@ class ReportsService {
       doc.text(`Average Work Ethic Rating: ${data.evaluation_metrics.avg_ratings.work_ethic}`);
       doc.text(`Quality Score: ${data.evaluation_metrics.quality_score}`);
       doc.moveDown(2);
+    }
+    // AI Insights
+    if (data.ai_insights && data.ai_insights.status !== 'error') {
+      doc.addPage();
+      doc.font('Helvetica-Bold').fontSize(16).text('AI Trend Analysis', { underline: true });
+      doc.moveDown();
+      
+      const insightsList = data.ai_insights.insights || [];
+      if (insightsList.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(14).text('Key Insights');
+        doc.moveDown(0.5);
+        doc.font('Helvetica').fontSize(10);
+        insightsList.forEach((insight: any) => {
+          doc.font('Helvetica-Bold').text(`• ${insight.title}`);
+          doc.font('Helvetica').text(`  ${insight.description}`);
+          doc.moveDown(0.5);
+        });
+        doc.moveDown(1);
+      }
+
+      if (data.ai_insights.skill_trends && data.ai_insights.skill_trends.most_demanded_overall) {
+        doc.font('Helvetica-Bold').fontSize(14).text('Top Skill Demands');
+        doc.moveDown(0.5);
+        doc.font('Helvetica').fontSize(10);
+        data.ai_insights.skill_trends.most_demanded_overall.slice(0, 5).forEach((item: any) => {
+          doc.text(`• ${item.name} (${item.percentage}%)`);
+        });
+        doc.moveDown(1);
+      }
+
+      if (data.ai_insights.company_performance && data.ai_insights.company_performance.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(14).text('Top Company Performance Tracking');
+        doc.moveDown(0.5);
+        doc.font('Helvetica').fontSize(10);
+        data.ai_insights.company_performance.slice(0, 5).forEach((c: any, index: number) => {
+           doc.text(`${index + 1}. ${c.company_name} - Avg Grade: ${c.average_grade} (${c.performance_rating})`);
+        });
+      }
     }
     doc.end();
     return new Promise((resolve) => {

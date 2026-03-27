@@ -272,32 +272,6 @@ export async function getDailyReportById(reportId: string, studentId: string) {
 }
 
 /**
- * Get daily reports for AI narrative generation (student-only)
- * Returns all reports for an internship ordered by date
- */
-export async function getDailyReportsForNarrative(
-  studentId: string,
-  internshipId: string
-) {
-  try {
-    const { data: reports, error } = await supabase
-      .from('student_daily_reports')
-      .select('report_date, activities, learnings, hours_worked')
-      .eq('student_id', studentId)
-      .eq('internship_id', internshipId)
-      .order('report_date', { ascending: true });
-
-    if (error) {
-      throw new Error(`Failed to fetch reports: ${error.message}`);
-    }
-
-    return { success: true, data: reports || [] };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
  * Recalculate and update total_hours_worked on the internship
  */
 async function recalculateTotalHours(internshipId: string) {

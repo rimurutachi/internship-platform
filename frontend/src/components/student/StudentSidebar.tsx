@@ -10,8 +10,7 @@ import {
   FileText, 
   FileCheck,
   ClipboardList,
-  Settings,
-  Wand2
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +18,6 @@ const menuItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/dashboard/student' },
   { icon: Briefcase, label: 'Current Internship', path: '/dashboard/student/current-internship' },
   { icon: FileText, label: 'Daily Reports', path: '/dashboard/student/daily-reports' },
-  { icon: Wand2, label: 'AI Narrative', path: '/dashboard/student/narrative' },
 
   { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents' },
   { icon: ClipboardList, label: 'Requirements', path: '/dashboard/student/requirements' },
