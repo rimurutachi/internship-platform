@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, User, FileText, GitBranch, MessageSquare, Users, Activity, Lock, PenTool, Network, Download, Loader2 } from 'lucide-react';
+import { Calendar, User, FileText, GitBranch, MessageSquare, Activity, Lock, Download, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';

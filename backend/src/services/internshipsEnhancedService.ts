@@ -272,7 +272,7 @@ export class InternshipsEnhancedService {
           type: 'internship_reminder',
           title: notificationTitle,
           message: notificationMessage,
-          action_url: `/dashboard/student/internship`,
+          action_url: `/dashboard/student/current-internship`,
           reference_type: 'internship',
         });
       } catch (notifError) {

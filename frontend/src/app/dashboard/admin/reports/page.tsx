@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -466,7 +467,7 @@ export default function ReportsPage() {
     try {
       const blob = await adminReportsAPI.exportReport({
         format,
-        metrics: ['overview', 'monthly_stats', 'user_growth', 'internship_status', 'evaluation_metrics'],
+        metrics: ['overview', 'monthly_stats', 'user_growth', 'internship_status', 'evaluation_metrics', 'ai_insights'],
       });
       
       const url = window.URL.createObjectURL(blob);
@@ -548,8 +549,25 @@ export default function ReportsPage() {
 
   const ReportsContent = () => (
     <div className="space-y-6">
+      {/* Print-only Header */}
+      <div className="hidden print:flex flex-col items-center justify-center text-center pb-6 border-b border-black mb-6 w-full">
+        <div className="flex items-center gap-4 mb-2">
+          <Image src="/cvsu-logo.png" alt="CvSU Logo" width={64} height={64} className="w-16 h-16" />
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-normal text-black font-sans">Republic of the Philippines</span>
+            <span className="text-lg font-bold text-black font-sans tracking-wide">CAVITE STATE UNIVERSITY</span>
+            <span className="text-md font-bold text-black font-sans">Bacoor City Campus</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-center text-sm font-normal text-black font-sans">
+            <span>SHIV, Molino VI, City of Bacoor</span>
+            <span>(046) 476-5029</span>
+            <span>cvsubacoor@cvsu.edu.ph</span>
+        </div>
+      </div>
+
       {/* Modern Page Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 border">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 border print:hidden">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">

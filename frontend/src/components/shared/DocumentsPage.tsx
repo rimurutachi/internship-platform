@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { useState, useEffect, ReactNode } from 'react';
 import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle, Search, UserPlus, X, Users } from 'lucide-react';

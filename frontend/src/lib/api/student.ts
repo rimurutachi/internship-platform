@@ -464,40 +464,7 @@ export const studentAPI = {
     }>('/student/dashboard');
   },
 
-  // ============ AI Narrative API ============
 
-  /**
-   * Generate narrative from daily reports using AI
-   */
-  generateNarrative: async (data: {
-    student_name: string;
-    company_name: string;
-    position: string;
-    department?: string;
-    start_date: string;
-    end_date: string;
-    total_hours?: number;
-    daily_reports: Array<{
-      report_date: string;
-      activities: string;
-      hours_worked?: number;
-      learnings?: string;
-    }>;
-  }) => {
-    return apiCall<{
-      success: boolean;
-      narrative_draft: string;
-      sections: Record<string, string>;
-      word_count: number;
-      key_themes: string[];
-      skills_mentioned: string[];
-      suggestions: string[];
-      generated_at: string;
-    }>('/ai/generate-narrative', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
 };
 
 export default studentAPI;

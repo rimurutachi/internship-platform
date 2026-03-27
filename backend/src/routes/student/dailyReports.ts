@@ -151,29 +151,4 @@ router.delete('/daily-reports/:id', async (req: AuthRequest, res) => {
   }
 });
 
-/**
- * GET /api/student/daily-reports/narrative/:internship_id
- * Get reports formatted for AI narrative generation
- */
-router.get('/daily-reports/narrative/:internship_id', async (req: AuthRequest, res) => {
-  try {
-    const studentId = req.user?.id;
-    const internship_id = ensureString(req.params.internship_id, 'internship_id');
-
-    if (!studentId) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    const result = await dailyReportsService.getDailyReportsForNarrative(studentId, internship_id);
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    return res.status(200).json(result);
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: 'Internal server error', message: error.message });
-  }
-});
-
 export default router;

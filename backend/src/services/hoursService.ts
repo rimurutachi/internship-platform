@@ -507,11 +507,11 @@ export async function recalculateTotalHours(internshipId: string): Promise<{ suc
     console.log('🔵 [HoursService] Recalculating total hours for:', internshipId);
 
     const { data: reports } = await supabase
-      .from('student_weekly_accomplishments')
-      .select('hours_rendered')
+      .from('student_daily_reports')
+      .select('hours_worked')
       .eq('internship_id', internshipId);
 
-    const total = reports?.reduce((sum, r) => sum + (r.hours_rendered || 0), 0) || 0;
+    const total = reports?.reduce((sum, r) => sum + (Number(r.hours_worked) || 0), 0) || 0;
 
     const { error } = await supabase
       .from('internships')
