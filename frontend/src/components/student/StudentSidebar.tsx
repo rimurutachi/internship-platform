@@ -10,6 +10,7 @@ import {
   FileText, 
   FileCheck,
   ClipboardList,
+  MessageSquare,
   Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ const menuItems = [
 
   { icon: FileCheck, label: 'Documents', path: '/dashboard/student/documents' },
   { icon: ClipboardList, label: 'Requirements', path: '/dashboard/student/requirements' },
+  { icon: MessageSquare, label: 'Messages', path: '/dashboard/student/messages' },
   { icon: Settings, label: 'Settings', path: '/dashboard/student/settings' },
 ];
 

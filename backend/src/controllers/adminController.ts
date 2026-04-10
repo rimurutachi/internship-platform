@@ -14,7 +14,16 @@ const supabase = createClient(
  */
 export async function getAllUsers(req: AuthRequest, res: Response) {
   try {
-    const { role, status, search, page = '1', limit = '10' } = req.query;
+    const { 
+      role, 
+      status, 
+      search, 
+      page = '1', 
+      limit = '10',
+      program,
+      year_level,
+      section 
+    } = req.query;
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const offset = (pageNum - 1) * limitNum;
@@ -31,6 +40,21 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
 
     if (status) {
       query = query.eq('status', status);
+    }
+
+    // Filter by program (stored in profile_data JSONB)
+    if (program) {
+      query = query.or(`profile_data->>program.eq."${program}",profile_data->>course.eq."${program}",profile_data->>department.eq."${program}"`);
+    }
+
+    // Filter by year_level (stored in dedicated column or profile_data JSONB)
+    if (year_level) {
+      query = query.or(`year_level.ilike."%${year_level}%",profile_data->>year_level.ilike."%${year_level}%"`);
+    }
+
+    // Filter by section (stored in profile_data JSONB)
+    if (section) {
+      query = query.ilike('profile_data->>section', `%${section}%`);
     }
 
     // Apply search
@@ -195,9 +219,8 @@ export async function createUser(req: AuthRequest, res: Response) {
       dbInsert.company_id = company_id;
     }
     
-    // Handle students and advisors - add program, section, university
-    if (role === 'student' || role === 'advisor') {
-      // Get CVSU-BC university ID
+    // Assign default university (CVSU-BC) to standard users
+    if (['student', 'advisor', 'supervisor'].includes(role)) {
       const { data: university } = await supabase
         .from('universities')
         .select('id')
@@ -210,7 +233,10 @@ export async function createUser(req: AuthRequest, res: Response) {
         // Fallback to provided university_id if CVSU-BC not found
         dbInsert.university_id = university_id;
       }
+    }
 
+    // Handle students and advisors - add program, section
+    if (role === 'student' || role === 'advisor') {
       // year_level is a direct column on users
       if (year_level) dbInsert.year_level = year_level;
 
@@ -224,6 +250,8 @@ export async function createUser(req: AuthRequest, res: Response) {
 
       // Auto-assign advisor for students: fetch all active advisors, filter in memory
       // (program/section are in profile_data jsonb, so we filter client-side)
+      // Advisors may handle multiple sections stored as comma-separated values (e.g. "4A, 4B")
+      // Advisors may also handle multiple year levels stored as comma-separated values (e.g. "2nd Year, 4th Year")
       if (role === 'student' && program) {
         const { data: activeAdvisors } = await supabase
           .from('users')
@@ -232,6 +260,31 @@ export async function createUser(req: AuthRequest, res: Response) {
           .eq('status', 'active');
 
         let matchingAdvisor: { id: string; name: string } | null = null;
+
+        // Helper: parse advisor's section field (comma-separated) into an array
+        const parseAdvisorSections = (advisorProfileData: any): string[] => {
+          const raw = advisorProfileData?.section;
+          if (!raw || typeof raw !== 'string') return [];
+          return raw.split(',').map((s: string) => s.trim()).filter(Boolean);
+        };
+
+        // Helper: check if a student's single section matches any of the advisor's sections
+        const advisorHasSection = (advisorProfileData: any, studentSection: string): boolean => {
+          const sections = parseAdvisorSections(advisorProfileData);
+          return sections.some((s: string) => s === studentSection);
+        };
+
+        // Helper: parse advisor's year_level field (comma-separated) into an array
+        const parseAdvisorYearLevels = (advisorYearLevel: string | null | undefined): string[] => {
+          if (!advisorYearLevel || typeof advisorYearLevel !== 'string') return [];
+          return advisorYearLevel.split(',').map((s: string) => s.trim()).filter(Boolean);
+        };
+
+        // Helper: check if a student's single year level matches any of the advisor's year levels
+        const advisorHasYearLevel = (advisorYearLevel: string | null | undefined, studentYearLevel: string): boolean => {
+          const yearLevels = parseAdvisorYearLevels(advisorYearLevel);
+          return yearLevels.some((yl: string) => yl === studentYearLevel);
+        };
 
         if (activeAdvisors && activeAdvisors.length > 0) {
           const sameProgram = activeAdvisors.filter((a) => {
@@ -242,20 +295,20 @@ export async function createUser(req: AuthRequest, res: Response) {
           // Priority 1: program + year_level + section
           if (!matchingAdvisor && year_level && section) {
             const found = sameProgram.find(
-              (a) => a.year_level === year_level && a.profile_data?.section === section
+              (a) => advisorHasYearLevel(a.year_level, year_level) && advisorHasSection(a.profile_data, section)
             );
             if (found) matchingAdvisor = { id: found.id, name: found.name };
           }
 
           // Priority 2: program + year_level
           if (!matchingAdvisor && year_level) {
-            const found = sameProgram.find((a) => a.year_level === year_level);
+            const found = sameProgram.find((a) => advisorHasYearLevel(a.year_level, year_level));
             if (found) matchingAdvisor = { id: found.id, name: found.name };
           }
 
           // Priority 3: program + section
           if (!matchingAdvisor && section) {
-            const found = sameProgram.find((a) => a.profile_data?.section === section);
+            const found = sameProgram.find((a) => advisorHasSection(a.profile_data, section));
             if (found) matchingAdvisor = { id: found.id, name: found.name };
           }
 
@@ -312,15 +365,15 @@ export async function createUser(req: AuthRequest, res: Response) {
 }
 
 /**
- * Update user information (firstName, lastName, email, company_id, university_id)
- * Body: { firstName?, lastName?, email?, company_id?, university_id? }
+ * Update user information (firstName, lastName, email, company_id, university_id, year_level, section)
+ * Body: { firstName?, lastName?, email?, company_id?, university_id?, year_level?, section? }
  */
 export async function updateUser(req: AuthRequest, res: Response) {
   try {
     const id = ensureString(req.params.id, 'id');
-    const { firstName, lastName, email, company_id, university_id } = req.body;
+    const { firstName, lastName, email, company_id, university_id, year_level, section } = req.body;
 
-    if (!firstName && !lastName && !email && !company_id && !university_id) {
+    if (!firstName && !lastName && !email && !company_id && !university_id && year_level === undefined && section === undefined) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
@@ -351,6 +404,27 @@ export async function updateUser(req: AuthRequest, res: Response) {
     if (email) updates.email = email;
     if (company_id !== undefined) updates.company_id = company_id;
     if (university_id !== undefined) updates.university_id = university_id;
+
+    // Handle year_level update (stored as a column)
+    if (year_level !== undefined) {
+      updates.year_level = year_level || null;
+    }
+
+    // Handle section update — merge into profile_data JSONB so other fields are preserved
+    if (section !== undefined) {
+      // Fetch existing profile_data to merge cleanly
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('profile_data')
+        .eq('id', id)
+        .single();
+
+      const existingProfileData = currentUser?.profile_data || {};
+      updates.profile_data = {
+        ...existingProfileData,
+        section: section || null,
+      };
+    }
 
     // Update database
     const { data: user, error } = await supabase
@@ -397,6 +471,7 @@ export async function updateUser(req: AuthRequest, res: Response) {
     });
   }
 }
+
 
 /**
  * Update user status

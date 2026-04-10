@@ -31,6 +31,8 @@ export default function MyStudents() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [programFilter, setProgramFilter] = useState('all');
+  const [sectionFilter, setSectionFilter] = useState('all');
+  const [yearLevelFilter, setYearLevelFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<StudentDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -51,7 +53,13 @@ export default function MyStudents() {
       setLoading(true);
       setError(null);
       const { students: fetchedStudents } = await advisorStudentsAPI.getMyStudents();
-      setStudents(fetchedStudents);
+      // Sort students alphabetically by last name (extract last word from name)
+      const sortedStudents = [...fetchedStudents].sort((a, b) => {
+        const lastNameA = a.name.split(' ').slice(-1)[0]?.toLowerCase() || '';
+        const lastNameB = b.name.split(' ').slice(-1)[0]?.toLowerCase() || '';
+        return lastNameA.localeCompare(lastNameB);
+      });
+      setStudents(sortedStudents);
       
       // Fetch hours data for all students with internships
       const progressMap: Record<string, number> = {};
@@ -123,8 +131,10 @@ export default function MyStudents() {
       (statusFilter === 'no_internship' && !student.internship) ||
       (statusFilter !== 'no_internship' && student.internship?.status === statusFilter);
     const matchesProgram = programFilter === 'all' || student.program === programFilter;
+    const matchesSection = sectionFilter === 'all' || student.section === sectionFilter;
+    const matchesYearLevel = yearLevelFilter === 'all' || student.year_level === yearLevelFilter;
     
-    return matchesSearch && matchesStatus && matchesProgram;
+    return matchesSearch && matchesStatus && matchesProgram && matchesSection && matchesYearLevel;
   });
 
   // Calculate stats
@@ -138,6 +148,12 @@ export default function MyStudents() {
 
   // Get unique programs for filter
   const programs = Array.from(new Set(students.map(s => s.program)));
+
+  // Get unique sections for filter (exclude N/A and empty)
+  const sections = Array.from(new Set(students.map(s => s.section).filter(s => s && s !== 'N/A'))).sort();
+
+  // Get unique year levels for filter (exclude N/A and empty)
+  const yearLevels = Array.from(new Set(students.map(s => s.year_level).filter(s => s && s !== 'N/A'))).sort();
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status) return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400';
@@ -235,7 +251,7 @@ export default function MyStudents() {
               {/* Filters */}
               <Card>
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       <Input
@@ -268,6 +284,32 @@ export default function MyStudents() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {yearLevels.length > 0 && (
+                      <Select value={yearLevelFilter} onValueChange={setYearLevelFilter}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Year Level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Year Levels</SelectItem>
+                          {yearLevels.map(yl => (
+                            <SelectItem key={yl} value={yl}>{yl}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {sections.length > 0 && (
+                      <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Section" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Sections</SelectItem>
+                          {sections.map(section => (
+                            <SelectItem key={section} value={section}>Section {section}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -422,6 +464,36 @@ export default function MyStudents() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+
+            {/* Mobile Section Filter */}
+            {sections.length > 0 && (
+              <Select value={sectionFilter} onValueChange={setSectionFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Section" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sections</SelectItem>
+                  {sections.map(section => (
+                    <SelectItem key={section} value={section}>Section {section}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Mobile Year Level Filter */}
+            {yearLevels.length > 0 && (
+              <Select value={yearLevelFilter} onValueChange={setYearLevelFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Year Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Year Levels</SelectItem>
+                  {yearLevels.map(yl => (
+                    <SelectItem key={yl} value={yl}>{yl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Students List - Mobile */}
             {filteredStudents.map((student) => (

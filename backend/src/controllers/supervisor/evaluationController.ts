@@ -138,6 +138,27 @@ export async function createFinalEvaluation(req: AuthRequest, res: Response) {
 
     console.log('✅ Grade calculated:', { totalScore, gradeEquivalent, rubricId: rubric?.id });
 
+    // GUARD: Check if a submitted/processed/approved evaluation already exists
+    // If so, reject the request — supervisor cannot re-evaluate a student
+    const { data: existingSubmitted } = await supabase
+      .from('evaluations')
+      .select('id, status, submitted_at')
+      .eq('internship_id', internship_id)
+      .eq('supervisor_id', supervisorId)
+      .eq('evaluation_type', 'final')
+      .in('status', ['submitted', 'processed', 'approved'])
+      .limit(1)
+      .maybeSingle();
+
+    if (existingSubmitted) {
+      console.log('⚠️ Evaluation already submitted for this internship:', existingSubmitted);
+      return res.status(409).json({
+        success: false,
+        error: 'Evaluation already submitted',
+        message: 'A final evaluation has already been submitted for this internship. You cannot evaluate the same student again.',
+      });
+    }
+
     // Check if a draft already exists for this internship (most recent draft)
     const { data: existingDraft, error: existingDraftError } = await supabase
       .from('evaluations')

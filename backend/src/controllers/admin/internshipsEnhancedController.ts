@@ -435,10 +435,10 @@ export class InternshipsEnhancedController {
         return;
       }
 
-      // Get internship to check duration for expected weekly reports
+      // Verify internship exists
       const { data: internship, error: internshipError } = await supabase
         .from('internships')
-        .select('start_date, end_date, status')
+        .select('id, status')
         .eq('id', internship_id)
         .single();
 
@@ -446,11 +446,6 @@ export class InternshipsEnhancedController {
         res.status(404).json({ success: false, error: 'Internship not found' });
         return;
       }
-
-      // Calculate weeks and flag missing reports
-      const startDate = new Date(internship.start_date);
-      const endDate = new Date(internship.end_date);
-      const weeksOfInternship = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
       // Categorize documents
       const requiredDocs = ['MOA', 'Job Description', 'Final Evaluation'];

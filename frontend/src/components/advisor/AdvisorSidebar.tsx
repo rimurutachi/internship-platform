@@ -8,7 +8,8 @@ import {
   Brain,
   Settings,
   FileCheck,
-  ClipboardList
+  ClipboardList,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
@@ -19,6 +20,7 @@ const menuItems = [
 
   { icon: FileCheck, label: 'Documents', path: '/dashboard/advisor/documents' },
   { icon: ClipboardList, label: 'Requirements', path: '/dashboard/advisor/requirements' },
+  { icon: MessageSquare, label: 'Messages', path: '/dashboard/advisor/messages' },
   { icon: Settings, label: 'Settings', path: '/dashboard/advisor/settings' },
 ];
 

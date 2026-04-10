@@ -3,6 +3,7 @@ import { Server, Socket } from "socket.io";
 import { setupNotificationHandlers } from "./handlers/notificationHandler";
 import { setupEvaluationHandlers } from "./handlers/evaluationHandler";
 import { setupStudentHandlers } from "./handlers/studentHandler";
+import { setupMessageHandlers } from "./handlers/messageHandler";
 
 interface AuthenticatedSocket extends Socket {
   user?: {
@@ -22,8 +23,9 @@ export const setupSocketHandlers = (io: Server) => {
 
     // Setup handlers for different features
 
-    setupNotificationHandlers(io, socket);
-    setupEvaluationHandlers(io, socket);
+    setupNotificationHandlers(io, socket as any);
+    setupEvaluationHandlers(io, socket as any);
+    setupMessageHandlers(io, socket);
     
     // Setup student-specific handlers if user is a student
     if (userRole === 'student') {
