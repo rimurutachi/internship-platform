@@ -14,7 +14,10 @@ import {
     Building2,
     ArrowLeft,
     Info,
-    AlertTriangle
+    AlertTriangle,
+    Printer,
+    CheckCircle2,
+    ShieldCheck
   } from 'lucide-react';
   import { SupervisorSidebar } from '@/components/supervisor/SupervisorSidebar';
   import { SupervisorHeader } from '@/components/supervisor/SupervisorHeader';
@@ -30,14 +33,16 @@ import {
   import { useToast } from '@/hooks/use-toast';
   import { createSupabaseClient } from '@/lib/supabase';
   import supervisorStudentsAPI from '@/lib/api/supervisor-students';
-import { getActiveRubric, EvaluationRubric, RubricCriterion } from '@/lib/api/supervisor-rubrics';
+import { getActiveRubric, EvaluationRubric, RubricCriterion, GradingScaleRange } from '@/lib/api/supervisor-rubrics';
 import { post } from '@/lib/api/client';
+import PrintableEvaluationForm from '@/components/supervisor/PrintableEvaluationForm';
 
   interface Internship {
     id: string;
     student_id: string;
     student_name: string;
     student_email: string;
+    student_program?: string;
     position: string;
     company_name: string;
     start_date: string;
@@ -45,6 +50,8 @@ import { post } from '@/lib/api/client';
     latest_evaluation?: {
       id: string;
       status?: string;
+      total_score?: number;
+      final_grade?: number;
       attendance?: string;
       punctuality?: string;
       supervisor_comments?: string;
@@ -66,6 +73,8 @@ import { post } from '@/lib/api/client';
     const [submitting, setSubmitting] = useState(false);
     const [saving, setSaving] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [showPrintForm, setShowPrintForm] = useState(false);
+    const [supervisorName, setSupervisorName] = useState('');
   
     // Data state
     const [rubric, setRubric] = useState<EvaluationRubric | null>(null);
@@ -132,6 +141,16 @@ import { post } from '@/lib/api/client';
         if (!user) return;
         const currentUserId = user.id;
 
+        // Fetch supervisor's name for the print form
+        const { data: supervisorProfile } = await supabase
+          .from('users')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
+        if (supervisorProfile) {
+          setSupervisorName(`${supervisorProfile.first_name || ''} ${supervisorProfile.last_name || ''}`.trim());
+        }
+
         // Try PostgREST join first
         const { data: internshipsData, error } = await supabase
           .from('internships')
@@ -162,6 +181,7 @@ import { post } from '@/lib/api/client';
               student_id: student.id,
               student_name: `${student.first_name} ${student.last_name}`,
               student_email: student.email,
+              student_program: student.program || '',
               position: student.internship!.position || '',
               company_name: student.internship!.company?.name || 'Unknown Company',
               start_date: student.internship!.start_date || '',
@@ -590,11 +610,14 @@ import { post } from '@/lib/api/client';
                           disabled={status === 'submitted'}
                           className="w-full mt-2 p-2 border rounded-md"
                         >
-                          {internships.map((int) => (
+                          {internships.map((int) => {
+                            const isEvaluated = int.latest_evaluation?.status && ['submitted', 'processed', 'approved'].includes(int.latest_evaluation.status);
+                            return (
                             <option key={int.id} value={int.id}>
-                              {int.student_name} - {int.position} at {int.company_name}
+                              {int.student_name} - {int.position} at {int.company_name}{isEvaluated ? ' ✅ (Evaluated)' : ''}
                             </option>
-                          ))}
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -636,6 +659,90 @@ import { post } from '@/lib/api/client';
                   </CardContent>
                 </Card>
 
+                {/* Check if selected intern is already evaluated */}
+                {internship?.latest_evaluation?.status && ['submitted', 'processed', 'approved'].includes(internship.latest_evaluation.status) ? (
+                  <>
+                    {/* Already Evaluated Alert */}
+                    <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+                      <ShieldCheck className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800 dark:text-green-200">
+                        This student has already been evaluated. The evaluation has been <strong>{internship.latest_evaluation.status}</strong>.
+                        You cannot re-evaluate this student. You may print the evaluation form below.
+                      </AlertDescription>
+                    </Alert>
+
+                    {/* Read-only Evaluation Summary */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          Evaluation Summary
+                        </CardTitle>
+                        <CardDescription>Submitted evaluation results for {internship.student_name}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Criterion Scores */}
+                        <div className="space-y-3">
+                          <Label className="text-sm font-semibold">Performance Criteria Scores</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {internship.latest_evaluation.criterion_scores?.map((cs, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                <span className="text-sm font-medium">{cs.criterion_name}</span>
+                                <span className="text-lg font-bold text-primary">{cs.score}/10</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Total Score & Grade */}
+                        <div className="grid grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border">
+                          <div className="text-center">
+                            <div className="text-xs text-muted-foreground">Total Score</div>
+                            <div className="text-2xl font-bold text-primary">{internship.latest_evaluation.total_score || 'N/A'}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-muted-foreground">Grade Equivalent</div>
+                            <div className="text-2xl font-bold text-primary">{internship.latest_evaluation.final_grade || 'N/A'}</div>
+                          </div>
+                        </div>
+
+                        {/* Attendance & Punctuality */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="p-3 bg-muted/50 rounded-lg">
+                            <div className="text-xs text-muted-foreground">Attendance</div>
+                            <div className="font-medium capitalize">{internship.latest_evaluation.attendance || 'N/A'}</div>
+                          </div>
+                          <div className="p-3 bg-muted/50 rounded-lg">
+                            <div className="text-xs text-muted-foreground">Punctuality</div>
+                            <div className="font-medium capitalize">{internship.latest_evaluation.punctuality || 'N/A'}</div>
+                          </div>
+                        </div>
+
+                        {/* Comments */}
+                        {internship.latest_evaluation.supervisor_comments && (
+                          <div>
+                            <Label className="text-sm font-semibold">Supervisor Comments</Label>
+                            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap p-3 bg-muted/50 rounded-lg">
+                              {internship.latest_evaluation.supervisor_comments}
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Print Evaluation Form Button */}
+                    <div className="flex gap-4 justify-end pb-6">
+                      <Button
+                        onClick={() => setShowPrintForm(true)}
+                        className="min-w-[220px]"
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        Print Evaluation Form
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 {/* Rubric Criteria */}
                 <Card>
                   <CardHeader>
@@ -684,7 +791,7 @@ import { post } from '@/lib/api/client';
                   <Card>
                     <CardHeader>
                       <CardTitle>Attendance & Punctuality</CardTitle>
-                      <CardDescription>Select the trainee's attendance and punctuality status</CardDescription>
+                      <CardDescription>Select the trainee&apos;s attendance and punctuality status</CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -738,7 +845,7 @@ import { post } from '@/lib/api/client';
                   <CardHeader>
                     <CardTitle>Evaluation Comments</CardTitle>
                     <CardDescription>
-                      Provide detailed feedback on the intern's performance (minimum 50 characters)
+                      Provide detailed feedback on the intern&apos;s performance (minimum 50 characters)
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -792,6 +899,8 @@ import { post } from '@/lib/api/client';
                     )}
                   </Button>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -853,6 +962,27 @@ import { post } from '@/lib/api/client';
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Printable Evaluation Form Dialog */}
+        {internship && internship.latest_evaluation && rubric && (
+          <PrintableEvaluationForm
+            open={showPrintForm}
+            onClose={() => setShowPrintForm(false)}
+            studentName={internship.student_name}
+            studentProgram={internship.student_program || ''}
+            companyName={internship.company_name}
+            position={internship.position}
+            workPeriod={`${new Date(internship.start_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })} - ${new Date(internship.end_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            criterionScores={internship.latest_evaluation.criterion_scores || []}
+            totalScore={internship.latest_evaluation.total_score || 0}
+            gradeEquivalent={internship.latest_evaluation.final_grade || null}
+            attendance={internship.latest_evaluation.attendance || 'regular'}
+            punctuality={internship.latest_evaluation.punctuality || 'regular'}
+            supervisorComments={internship.latest_evaluation.supervisor_comments || ''}
+            supervisorName={supervisorName}
+            gradingScale={rubric.grading_scale || []}
+          />
+        )}
 
         {/* Mobile View */}
         <div className="lg:hidden flex flex-col h-full">

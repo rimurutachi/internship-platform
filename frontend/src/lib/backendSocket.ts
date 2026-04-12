@@ -19,6 +19,10 @@ export interface BackendSocketEvents {
   'notification:new': (notification: Notification) => void;
   'notification:read': (data: { notification_id: string }) => void;
   
+  // Message events
+  'receive_message': (message: any) => void;
+  'messages_marked_read': (data: { messageIds: string[] }) => void;
+  
   // Evaluation events
   'evaluation:created': (evaluation: Evaluation) => void;
   'evaluation:updated': (evaluation: Evaluation) => void;

@@ -7,7 +7,8 @@ import {
   FileText, 
   Settings,
   Users,
-  LayoutDashboard
+  LayoutDashboard,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserContext } from '@/components/providers/UserProvider';
@@ -17,6 +18,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/supervisor' },
   { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
   { icon: FileText, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
+  { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },
   { icon: Settings, label: 'Settings', path: '/dashboard/supervisor/settings' },
 ];
 

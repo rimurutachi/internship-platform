@@ -26,6 +26,16 @@ export interface AdminUser {
   last_login?: string;
   company_id?: string; // For supervisors
   university_id?: string; // For students/advisors
+  year_level?: string; // For students/advisors
+  profile_data?: {
+    program?: string;
+    course?: string;
+    department?: string;
+    section?: string;
+    assigned_advisor_id?: string;
+    assigned_advisor_name?: string;
+    [key: string]: any;
+  };
 }
 
 /**
@@ -37,6 +47,9 @@ export interface UserFilters {
   search?: string;
   page?: number;
   limit?: number;
+  program?: string;
+  year_level?: string;
+  section?: string;
 }
 
 /**
@@ -103,6 +116,9 @@ export const getUsers = async (filters?: UserFilters): Promise<PaginatedResponse
     if (filters?.search) params.append('search', filters.search);
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.program) params.append('program', filters.program);
+    if (filters?.year_level) params.append('year_level', filters.year_level);
+    if (filters?.section) params.append('section', filters.section);
 
     const queryString = params.toString();
     const endpoint = `/admin/users${queryString ? `?${queryString}` : ''}`;

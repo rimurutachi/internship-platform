@@ -23,6 +23,7 @@ import supervisorRoutes from "./routes/supervisor";
 import publicRoutes from "./routes/public";
 import hoursRoutes from "./routes/hours";
 import aiRoutes from "./routes/ai";
+import messagesRoutes from "./routes/messages";
 import { startArchiveJob } from "./jobs/archiveJob";
 import { startAIServiceKeepAlive } from "./jobs/aiServiceKeepAlive";
 
@@ -242,6 +243,9 @@ app.use("/api/ai", aiRoutes);
 
 // Hours Tracking APIs
 app.use("/api/hours", hoursRoutes);
+
+// Messages APIs
+app.use("/api/messages", messagesRoutes);
 
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes);

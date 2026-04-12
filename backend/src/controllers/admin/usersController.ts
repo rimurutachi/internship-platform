@@ -22,7 +22,10 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
       page = '1', 
       limit = '10',
       includeArchived = 'false',
-      verification_status
+      verification_status,
+      program,
+      year_level,
+      section,
     } = req.query;
     
     const pageNum = parseInt(page as string, 10);
@@ -50,6 +53,21 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
 
     if (verification_status) {
       query = query.eq('verification_status', verification_status);
+    }
+
+    // Filter by program (stored in profile_data JSONB)
+    if (program) {
+      query = query.or(`profile_data->>program.eq."${program}",profile_data->>course.eq."${program}",profile_data->>department.eq."${program}"`);
+    }
+
+    // Filter by year_level (stored in dedicated column or profile_data JSONB for legacy/some roles)
+    if (year_level) {
+      query = query.or(`year_level.ilike."%${year_level}%",profile_data->>year_level.ilike."%${year_level}%"`);
+    }
+
+    // Filter by section (stored in profile_data JSONB)
+    if (section) {
+      query = query.ilike('profile_data->>section', `%${section}%`);
     }
 
     // Apply search
