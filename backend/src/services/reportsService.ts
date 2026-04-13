@@ -146,12 +146,12 @@ class ReportsService {
   }
 
   static async generateInternshipStatus(groupBy = 'status') {
-    // Get all internships
-    let query = supabaseAdmin.from('internships').select('id, status');
-    // Optionally group by company or university (future enhancement)
-    // For now, just status breakdown
-    const { data: internships, error } = await query;
+    // Get all internships with program_code
+    const { data: internships, error } = await supabaseAdmin
+      .from('internships')
+      .select('id, status, program_code');
     if (error) throw new Error('DB error in internship status');
+
     // Count by status
     const statusCounts: Record<string, number> = {
       pending: 0,
@@ -172,7 +172,57 @@ class ReportsService {
     // Calculate avg completion rate
     const completed = statusCounts.completed || 0;
     const avg_completion_rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { statuses, avg_completion_rate };
+
+    // Per-program breakdown
+    const { data: programs } = await supabaseAdmin
+      .from('program_hours')
+      .select('program_code, program_name')
+      .eq('is_active', true)
+      .order('program_name');
+
+    const programMap: Record<string, { program_code: string; program_name: string; pending: number; active: number; completed: number; cancelled: number; total: number }> = {};
+
+    // Initialize program map
+    if (programs && programs.length > 0) {
+      programs.forEach((p: any) => {
+        programMap[p.program_code] = {
+          program_code: p.program_code,
+          program_name: p.program_name,
+          pending: 0,
+          active: 0,
+          completed: 0,
+          cancelled: 0,
+          total: 0,
+        };
+      });
+    }
+
+    // Populate per-program counts
+    internships.forEach((i: any) => {
+      const code = i.program_code;
+      if (code && programMap[code]) {
+        programMap[code].total++;
+        if (i.status === 'pending') programMap[code].pending++;
+        else if (i.status === 'active') programMap[code].active++;
+        else if (i.status === 'completed') programMap[code].completed++;
+        else if (i.status === 'cancelled') programMap[code].cancelled++;
+      } else if (code) {
+        // Program code exists but not in program_hours table - create entry
+        programMap[code] = {
+          program_code: code,
+          program_name: code, // Use code as fallback name
+          pending: i.status === 'pending' ? 1 : 0,
+          active: i.status === 'active' ? 1 : 0,
+          completed: i.status === 'completed' ? 1 : 0,
+          cancelled: i.status === 'cancelled' ? 1 : 0,
+          total: 1,
+        };
+      }
+    });
+
+    const by_program = Object.values(programMap).filter(p => p.total > 0);
+
+    return { statuses, avg_completion_rate, by_program };
   }
 
   static async generateEvaluationMetrics(dateRange?: { start?: string; end?: string }) {

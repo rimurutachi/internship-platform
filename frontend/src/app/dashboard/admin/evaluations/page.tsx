@@ -17,7 +17,7 @@ import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { useUserContext } from '@/components/providers/UserProvider';
 import { useToast } from '@/hooks/use-toast';
-import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   EvaluationStatsCards,
   EvaluationFilters as EvaluationFiltersComponent,
@@ -260,30 +260,7 @@ export default function AdminEvaluationsPage() {
     }
   };
 
-  const handleBulkExport = async (format: 'csv' | 'json') => {
-    console.log('🔵 handleBulkExport called with format:', format);
-    try {
-      console.log('📤 Sending bulk export request to API');
-      await adminEvaluationsAPI.bulkExport({
-        format,
-        filters,
-        include_ai_results: true,
-      });
-      
-      console.log('✅ API response: Export completed');
-      toast({
-        title: 'Success',
-        description: `Evaluations exported as ${format.toUpperCase()}`,
-      });
-    } catch (error: any) {
-      console.error('❌ Error exporting evaluations:', error.message);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to export evaluations',
-        variant: 'destructive',
-      });
-    }
-  };
+
 
   const handleFiltersChange = (newFilters: EvaluationFilters) => {
     setFilters(newFilters);
@@ -320,16 +297,6 @@ export default function AdminEvaluationsPage() {
                 <div>
                   <h1 className="text-3xl font-bold">Evaluations Management</h1>
                   <p className="text-muted-foreground">Monitor and validate internship evaluations</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => handleBulkExport('csv')}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Export CSV
-                  </Button>
-                  <Button variant="outline" onClick={() => handleBulkExport('json')}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Export JSON
-                  </Button>
                 </div>
               </div>
 
@@ -407,16 +374,6 @@ export default function AdminEvaluationsPage() {
               <div>
                 <h1 className="text-2xl font-bold">Evaluations</h1>
                 <p className="text-sm text-muted-foreground">Monitor and validate</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleBulkExport('csv')}>
-                  <Download className="mr-1 h-3 w-3" />
-                  CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleBulkExport('json')}>
-                  <Download className="mr-1 h-3 w-3" />
-                  JSON
-                </Button>
               </div>
             </div>
 

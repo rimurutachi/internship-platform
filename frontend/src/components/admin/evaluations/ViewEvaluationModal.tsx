@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EvaluationWithRelations } from '@/types/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { convertScoreToGrade, getGradeDescription } from './gradeUtils';
 
 interface ViewEvaluationModalProps {
   evaluation: EvaluationWithRelations | null;
@@ -66,7 +67,13 @@ export function ViewEvaluationModal({ evaluation, open, onClose }: ViewEvaluatio
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Final Grade</p>
-                    <p className="text-sm font-medium">{evaluation.final_grade ? evaluation.final_grade.toFixed(2) : 'N/A'}</p>
+                    <p className="text-sm font-medium">
+                      {evaluation.total_score
+                        ? `${convertScoreToGrade(evaluation.total_score).toFixed(2)} (${getGradeDescription(convertScoreToGrade(evaluation.total_score))})`
+                        : evaluation.final_grade 
+                          ? `${evaluation.final_grade.toFixed(2)} (${getGradeDescription(evaluation.final_grade)})`
+                          : 'N/A'}
+                    </p>
                   </div>
                 </div>
               </CardContent>
