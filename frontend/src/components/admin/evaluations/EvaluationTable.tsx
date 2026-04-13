@@ -148,10 +148,10 @@ export function EvaluationTable({
                 {getStatusBadge(evaluation.status)}
               </TableCell>
               <TableCell>
-                {evaluation.final_grade 
-                  ? `${evaluation.final_grade.toFixed(1)}`
-                  : evaluation.total_score
-                    ? `${convertScoreToGrade(evaluation.total_score).toFixed(2)}*`
+                {evaluation.total_score
+                  ? `${convertScoreToGrade(evaluation.total_score).toFixed(2)}`
+                  : evaluation.final_grade 
+                    ? `${evaluation.final_grade.toFixed(2)}`
                     : 'N/A'}
               </TableCell>
               <TableCell className="text-right">

@@ -18,6 +18,7 @@ import {
 import { emitEvaluationUpdate } from "../socket/emitters";
 import notificationService from './notificationService';
 import { archiveService } from './archiveService';
+import { convertScoreToGrade } from '../utils/gradeUtils';
 // NOTE: aiService is now used only for admin trend analysis (admin dashboard/analytics)
 // Individual evaluation analysis removed in v2.0.0
 
@@ -201,12 +202,23 @@ export class EvaluationService {
     // AI is now used for historical trend analysis on approved evaluations only
     // Not for individual evaluation assistance during submission
 
-    // Step 2: Update evaluation status to submitted
+    // Step 2: Calculate final grade from total_score using CvSU grade scale
+    const totalScore = (evaluation as any).total_score;
+    let finalGrade: number | null = null;
+    if (totalScore !== null && totalScore !== undefined && totalScore > 0) {
+      finalGrade = convertScoreToGrade(totalScore);
+      console.log(`📊 [EvaluationService] Calculated grade from total_score: ${totalScore} → ${finalGrade}`);
+    }
+
+    // Step 3: Auto-approve evaluation (skip manual approval workflow)
+    const now = new Date().toISOString();
     const { data: updatedEvaluation, error: updateError } = await supabase
       .from('evaluations')
       .update({
-        status: 'submitted',
-        submitted_at: new Date().toISOString(),
+        status: 'approved',
+        submitted_at: now,
+        approved_at: now,
+        ...(finalGrade !== null ? { final_grade: finalGrade } : {}),
       })
       .eq('id', evaluationId)
       .select()
@@ -216,13 +228,13 @@ export class EvaluationService {
       throw new Error(`Failed to update evaluation: ${updateError.message}`);
     }
 
-    // Step 3: Real-time emit
+    // Step 4: Real-time emit
     emitEvaluationUpdate(evaluationId, {
-      event: 'evaluation_submitted',
+      event: 'evaluation_approved',
       evaluation: updatedEvaluation,
     });
 
-    // Step 4: Notify advisor that evaluation was submitted (using getById result which has relationships)
+    // Step 5: Notify advisor that evaluation was submitted and auto-approved
     const advisorId = (evaluation as any).internship?.advisor_id;
     if (advisorId) {
       try {
@@ -234,8 +246,8 @@ export class EvaluationService {
         await notificationService.createNotification({
           user_id: advisorId,
           type: 'evaluation_submitted',
-          title: 'New Evaluation Submitted',
-          message: `An evaluation for ${studentName} has been submitted by the supervisor and is awaiting your approval.`,
+          title: 'Evaluation Submitted & Approved',
+          message: `An evaluation for ${studentName} has been submitted by the supervisor and automatically approved${finalGrade ? ` with a grade of ${finalGrade}` : ''}.`,
           action_url: `/dashboard/advisor/evaluations`,
           reference_type: 'evaluation',
         });
@@ -244,9 +256,26 @@ export class EvaluationService {
       }
     }
 
-    console.log(`✅ Evaluation ${evaluationId} submitted successfully`);
+    // Step 6: Notify student that their evaluation is approved
+    const studentId = (evaluation as any)?.internship?.student?.id;
+    if (studentId) {
+      try {
+        await notificationService.createNotification({
+          user_id: studentId,
+          type: 'evaluation_approved',
+          title: 'Evaluation Approved',
+          message: `Your internship evaluation has been approved${finalGrade ? ` with a final grade of ${finalGrade}` : ''}.`,
+          action_url: `/dashboard/student/evaluations`,
+          reference_type: 'evaluation',
+        });
+      } catch (notifError) {
+        console.error('⚠️ Failed to send student approval notification:', notifError);
+      }
+    }
 
-    // Step 5: Check if supervisor has completed all evaluations (for auto-archive)
+    console.log(`✅ Evaluation ${evaluationId} submitted and auto-approved successfully (grade: ${finalGrade})`);
+
+    // Step 7: Check if supervisor has completed all evaluations (for auto-archive)
     if (evaluation.evaluation_type === 'final' && evaluation.supervisor_id) {
       try {
         await archiveService.checkSupervisorEvaluationCompletion(evaluation.supervisor_id);

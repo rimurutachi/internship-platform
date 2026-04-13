@@ -368,7 +368,7 @@ export default function ReportsPage() {
         }
 
         // Show error if fallback also didn't return data
-        setAnalysisError('No approved evaluations available for analysis. Insights will be generated once supervisors submit and advisors approve evaluations.');
+        setAnalysisError('No evaluations available for analysis yet. Insights will be generated once supervisors submit evaluations.');
       }
 
     } catch (error) {
@@ -524,17 +524,20 @@ export default function ReportsPage() {
   };
 
   // Prepare chart data
-  const submissionStatsData = evaluationMetrics ? [
-    { name: 'On Time', value: evaluationMetrics.submission_stats.on_time, fill: CHART_COLORS.success },
-    { name: 'Late', value: evaluationMetrics.submission_stats.late, fill: CHART_COLORS.warning },
-    { name: 'Pending', value: evaluationMetrics.submission_stats.pending, fill: CHART_COLORS.muted },
-  ] : [];
-
   const internshipStatusData = internshipStatus?.statuses.map(s => ({
     name: s.status.charAt(0).toUpperCase() + s.status.slice(1),
     value: s.count,
     percentage: s.percentage
   })) || [];
+
+  const programStatusData = internshipStatus?.by_program || [];
+
+  const STATUS_COLORS: Record<string, string> = {
+    pending: 'text-amber-600 dark:text-amber-400 bg-amber-500/10',
+    active: 'text-blue-600 dark:text-blue-400 bg-blue-500/10',
+    completed: 'text-green-600 dark:text-green-400 bg-green-500/10',
+    cancelled: 'text-red-600 dark:text-red-400 bg-red-500/10',
+  };
 
   if (loading) {
     return (
@@ -813,56 +816,69 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
+            {/* Per-Program Internship Status Breakdown */}
             <Card className="border-0 shadow-sm lg:col-span-2">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary" />
-                  Submission Statistics
+                  <GraduationCap className="w-5 h-5 text-primary" />
+                  Internship Status by Program
                 </CardTitle>
-                <CardDescription>Evaluation submission timing breakdown</CardDescription>
+                <CardDescription>Detailed status breakdown per academic program</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-green-500/10 text-center">
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                      {evaluationMetrics?.submission_stats.on_time || 0}
-                    </p>
-                    <p className="text-sm text-muted-foreground">On Time</p>
+                {programStatusData.length > 0 ? (
+                  <div className="space-y-4">
+                    {programStatusData.map((program) => (
+                      <div key={program.program_code} className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {program.program_code}
+                            </Badge>
+                            <span className="font-medium text-sm">{program.program_name}</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {program.total} total
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div className={`p-2 rounded-lg text-center ${STATUS_COLORS.pending}`}>
+                            <p className="text-lg font-bold">{program.pending}</p>
+                            <p className="text-[10px] font-medium uppercase tracking-wider">Pending</p>
+                          </div>
+                          <div className={`p-2 rounded-lg text-center ${STATUS_COLORS.active}`}>
+                            <p className="text-lg font-bold">{program.active}</p>
+                            <p className="text-[10px] font-medium uppercase tracking-wider">Active</p>
+                          </div>
+                          <div className={`p-2 rounded-lg text-center ${STATUS_COLORS.completed}`}>
+                            <p className="text-lg font-bold">{program.completed}</p>
+                            <p className="text-[10px] font-medium uppercase tracking-wider">Completed</p>
+                          </div>
+                          <div className={`p-2 rounded-lg text-center ${STATUS_COLORS.cancelled}`}>
+                            <p className="text-lg font-bold">{program.cancelled}</p>
+                            <p className="text-[10px] font-medium uppercase tracking-wider">Cancelled</p>
+                          </div>
+                        </div>
+                        {/* Progress bar showing completion rate */}
+                        {program.total > 0 && (
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                              <span>Completion Rate</span>
+                              <span className="font-medium">{Math.round((program.completed / program.total) * 100)}%</span>
+                            </div>
+                            <Progress value={(program.completed / program.total) * 100} className="h-1.5" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <div className="p-4 rounded-xl bg-amber-500/10 text-center">
-                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
-                      {evaluationMetrics?.submission_stats.late || 0}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Late</p>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <GraduationCap className="w-10 h-10 text-muted-foreground/40 mb-3" />
+                    <p className="text-sm text-muted-foreground">No program data available yet.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Program breakdown will appear once internships have program codes assigned.</p>
                   </div>
-                  <div className="p-4 rounded-xl bg-blue-500/10 text-center">
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      {evaluationMetrics?.submission_stats.pending || 0}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Pending</p>
-                  </div>
-                </div>
-                <div className="h-[150px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={submissionStatsData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                      <XAxis type="number" stroke={textColor} fontSize={12} />
-                      <YAxis type="category" dataKey="name" stroke={textColor} fontSize={12} width={80} />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: resolvedTheme === 'dark' ? '#1e293b' : '#fff',
-                          border: 'none',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                        {submissionStatsData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -880,7 +896,7 @@ export default function ReportsPage() {
                 <div className="flex-1">
                   <h2 className="text-xl font-bold text-foreground">AI-Powered Decision Support</h2>
                   <p className="text-sm text-muted-foreground">
-                    Historical trend analysis from approved evaluations for informed internship placement decisions
+                    Historical trend analysis from evaluations for informed internship placement decisions
                   </p>
                 </div>
                 {trendAnalysis && (
@@ -993,7 +1009,7 @@ export default function ReportsPage() {
                       <Alert>
                         <Sparkles className="w-4 h-4" />
                         <AlertDescription>
-                          No insights available yet. Insights are generated from approved evaluations.
+                          No insights available yet. Insights are generated once supervisors submit evaluations.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -1032,7 +1048,7 @@ export default function ReportsPage() {
                       <Alert>
                         <GraduationCap className="w-4 h-4" />
                         <AlertDescription>
-                          No skill data available yet. Skills are extracted from approved evaluation feedback.
+                          No skill data available yet. Skills are extracted from evaluation feedback.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -1110,7 +1126,7 @@ export default function ReportsPage() {
                     <Alert>
                       <Building2 className="w-4 h-4" />
                       <AlertDescription>
-                        No company performance data available yet. Data will appear after evaluations are approved.
+                        No company performance data available yet. Data will appear after evaluations are submitted.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -1158,8 +1174,20 @@ export default function ReportsPage() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-primary" />
                   12-Month Performance Trends
+                  {trendAnalysis && (
+                    <Badge variant="outline" className="ml-2 text-xs font-normal">
+                      {trendAnalysis.total_evaluations_analyzed} evaluations
+                    </Badge>
+                  )}
                 </CardTitle>
-                <CardDescription>Historical performance tracking across key metrics</CardDescription>
+                <CardDescription>
+                  Historical performance tracking across key metrics
+                  {trendAnalysis?.analysis_period && (
+                    <span className="ml-1">
+                      ({trendAnalysis.analysis_period.start_date} — {trendAnalysis.analysis_period.end_date})
+                    </span>
+                  )}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[350px]">

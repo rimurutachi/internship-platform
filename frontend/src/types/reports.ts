@@ -26,9 +26,20 @@ export interface InternshipStatusItem {
   percentage: number;
 }
 
+export interface ProgramInternshipStatus {
+  program_code: string;
+  program_name: string;
+  pending: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+  total: number;
+}
+
 export interface InternshipStatusData {
   statuses: InternshipStatusItem[];
   avg_completion_rate: number;
+  by_program?: ProgramInternshipStatus[];
 }
 
 export interface EvaluationMetrics {
