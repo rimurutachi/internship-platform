@@ -103,30 +103,6 @@ export interface DocumentTemplate {
     created_at: Date;
     updated_at: Date;
 }
-export interface BlockchainEntry {
-    id: string;
-    document_id: string;
-    block_hash: string;
-    previous_hash: string;
-    content_hash: string;
-    merkle_root?: string;
-    action_type: string;
-    action_by: string;
-    timestamp: string;
-    metadata?: any;
-}
-export interface DigitalSignature {
-    id: string;
-    document_id: string;
-    signature_data: string;
-    certificate_data: string;
-    signature_hash: string;
-    signer_id: string;
-    verification_status: 'valid' | 'invalid' | 'revoked';
-    signed_at: string;
-    created_at: string;
-    metadata?: any;
-}
 export interface AccessControl {
     id: string;
     document_id: string;
@@ -166,34 +142,6 @@ export interface EnhancedDocumentWorkflow extends DocumentWorkflow {
     workflow_definition: WorkflowDefinition;
     approvals?: DocumentApproval[];
     current_stage_index?: number;
-}
-export interface UserPresence {
-    userId: string;
-    userName: string;
-    userEmail: string;
-    color: string;
-    cursorPosition?: {
-        x: number;
-        y: number;
-    };
-    isEditing: boolean;
-    lastActive: string;
-}
-export interface DocumentChange {
-    id?: string;
-    documentId: string;
-    userId: string;
-    operation: string;
-    index: number;
-    content?: string;
-    timestamp: string;
-    metadata?: any;
-}
-export interface StackStatus {
-    canUndo: boolean;
-    canRedo: boolean;
-    undoCount: number;
-    redoCount: number;
 }
 export interface DocumentTemplateWithFields extends DocumentTemplate {
     fields: DocumentField[];
@@ -259,16 +207,5 @@ export interface UpdateStatusData {
 export interface UpdateWorkflowData {
     action: 'approve' | 'reject' | 'advance';
     comments?: string;
-}
-export interface CollaborationInfo {
-    active_users: Array<{
-        user_id: string;
-        name: string;
-        email: string;
-        user_color: string;
-        cursor_position: number;
-        last_seen: Date;
-    }>;
-    sessions: CollaborationSession[];
 }
 //# sourceMappingURL=documents.d.ts.map

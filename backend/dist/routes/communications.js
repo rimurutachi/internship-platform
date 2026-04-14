@@ -4,77 +4,54 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const multer_1 = __importDefault(require("multer"));
 const auth_1 = require("../middleware/auth");
 const communicationController_1 = __importDefault(require("../controllers/communicationController"));
 const communciationValidators_1 = require("../middleware/communciationValidators");
-// Configure multer for file uploads (memory storage)
-const upload = (0, multer_1.default)({
-    storage: multer_1.default.memoryStorage(),
-    limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB max file size
-    },
-    fileFilter: (req, file, cb) => {
-        // Allow common file types
-        const allowedMimes = [
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/plain",
-            "application/zip",
-        ];
-        if (allowedMimes.includes(file.mimetype)) {
-            cb(null, true);
-        }
-        else {
-            cb(new Error("Invalid file type. Only images, PDFs, and documents are allowed."));
-        }
-    },
-});
+const supabase_js_1 = require("@supabase/supabase-js");
 const router = (0, express_1.Router)();
 // All routes require authentication
 router.use(auth_1.authenticateToken);
-/* Message Routes */
-// Send message (with optional file upload)
-router.post("/messages", (req, res, next) => {
-    upload.single("file")(req, res, (err) => {
-        if (err) {
-            console.error("Multer error:", err);
-            return res.status(400).json({
-                success: false,
-                error: err.message || "File upload error",
-            });
+// ===== USER SEARCH (for document sharing) =====
+/**
+ * @route   GET /api/communications/users/search
+ * @desc    Search users by name or email for document sharing
+ * @query   q (search term, min 2 chars), role (optional filter)
+ * @access  Any authenticated user (excludes supervisors, admins, archived)
+ */
+router.get("/users/search", async (req, res) => {
+    try {
+        const { q, role } = req.query;
+        const requestingUserId = req.user?.id;
+        if (!q || String(q).trim().length < 2) {
+            return res.status(200).json({ success: true, data: [] });
         }
-        next();
-    });
-}, communciationValidators_1.sanitizeMessageInput, communciationValidators_1.validateCreateMessage, communciationValidators_1.validateConversationAccess, communicationController_1.default.sendMessage);
-// Get conversation message
-router.get("/messages/:conversationId", communciationValidators_1.validateGetMessages, communciationValidators_1.validateConversationAccess, communicationController_1.default.getMessages);
-// Edit message
-router.patch("/messages/:messageId", communciationValidators_1.sanitizeMessageInput, communciationValidators_1.validateEditMessage, communciationValidators_1.validateMessageOwnership, communicationController_1.default.editMessage);
-// Delete message
-router.delete("/messages/:messageId", communciationValidators_1.validateDeleteMessage, communciationValidators_1.validateMessageOwnership, communicationController_1.default.deleteMessage);
-/* Conversation Routes */
-// Create conversation
-router.post("/conversations", communciationValidators_1.sanitizeConversationName, communciationValidators_1.validateCreateConversation, communicationController_1.default.createConversation);
-// Get user conversations
-router.get("/conversations", communicationController_1.default.getUserConversations);
-// Search users for new conversations
-router.get("/users/search", communicationController_1.default.searchUsers);
-// Create or get direct conversation
-router.post("/conversations/direct", communicationController_1.default.createDirectConversation);
-// Get single conversation
-router.get("/conversations/:conversationId", communciationValidators_1.validateGetConversation, communciationValidators_1.validateConversationAccess, communicationController_1.default.getConversation);
-// Mark conversation as read
-router.patch("/conversations/:conversationId/read", communciationValidators_1.validateMarkAsRead, communciationValidators_1.validateConversationAccess, communicationController_1.default.markAsRead);
-// Get unread count
-router.get("/conversations/unread/count", communicationController_1.default.getUnreadCount);
+        const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+        const searchTerm = `%${String(q).trim()}%`;
+        let query = supabase
+            .from("users")
+            .select("id, first_name, last_name, email, role")
+            .or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`)
+            .not("id", "eq", requestingUserId) // exclude self
+            .not("role", "in", '("supervisor","admin")') // exclude supervisor and admin
+            .or("is_archived.is.null,is_archived.eq.false") // exclude archived
+            .eq("status", "active")
+            .limit(15);
+        // Optional role filter (e.g., only students or only advisors)
+        if (role && !["supervisor", "admin"].includes(String(role))) {
+            query = query.eq("role", role);
+        }
+        const { data: users, error } = await query;
+        if (error) {
+            console.error("❌ [Users Search] Supabase error:", error.message);
+            return res.status(500).json({ success: false, error: "Failed to search users" });
+        }
+        return res.status(200).json({ success: true, data: users || [] });
+    }
+    catch (error) {
+        console.error("❌ [Users Search] Error:", error.message);
+        return res.status(500).json({ success: false, error: "Internal server error" });
+    }
+});
 /* Notification Routes */
 // Create notification (Admin only)
 router.post("/notifications", (0, auth_1.requireRole)(["admin"]), communciationValidators_1.validateCreateNotification, communicationController_1.default.createNotification);

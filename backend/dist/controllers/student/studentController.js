@@ -561,12 +561,6 @@ class StudentController {
                     status: status.job_description,
                     submitted_date: status.job_description === 'approved' ? internship.start_date : null,
                 },
-                ...status.weekly_reports.map((report, index) => ({
-                    type: 'Weekly Report',
-                    week: index + 1,
-                    status: report.status,
-                    submitted_date: report.date,
-                })),
                 {
                     type: 'Final Evaluation',
                     status: status.final_evaluation,

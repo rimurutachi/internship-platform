@@ -60,12 +60,17 @@ export declare function requestRevision(evaluationId: string, advisorId: string,
     message?: undefined;
 }>;
 /**
- * Get weekly reports for context
- * Advisor can view alongside evaluation
+ * Get daily reports progress summary for context
+ * Advisor can see overall progress (total hours, days reported) but NOT report content
  */
-export declare function getWeeklyReportsForContext(internshipId: string): Promise<{
+export declare function getDailyReportsProgressForContext(internshipId: string): Promise<{
     success: boolean;
-    data: any[];
+    data: {
+        total_hours: number;
+        total_days_reported: number;
+        first_report_date: any;
+        last_report_date: any;
+    };
     error?: undefined;
 } | {
     success: boolean;
@@ -96,44 +101,15 @@ export declare function getEvaluationWithContext(evaluationId: string, advisorId
     success: boolean;
     data: {
         evaluation: any;
-        weekly_reports: any[];
+        daily_reports_progress: {
+            total_hours: number;
+            total_days_reported: number;
+        };
     };
     error?: undefined;
 } | {
     success: boolean;
     error: any;
     data?: undefined;
-}>;
-/**
- * Get all weekly reports for students under an advisor
- * Standalone endpoint for advisor weekly reports page
- */
-export declare function getAllWeeklyReportsForAdvisor(advisorId: string, options?: {
-    status?: string;
-    studentId?: string;
-    page?: number;
-    limit?: number;
-}): Promise<{
-    success: boolean;
-    data: any[];
-    pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-    };
-    statistics: {
-        total: number;
-        pending: number;
-        approved: number;
-        rejected: number;
-    };
-    error?: undefined;
-} | {
-    success: boolean;
-    error: any;
-    data?: undefined;
-    pagination?: undefined;
-    statistics?: undefined;
 }>;
 //# sourceMappingURL=advisorEvaluationService.d.ts.map

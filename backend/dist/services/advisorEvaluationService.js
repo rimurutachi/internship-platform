@@ -4,10 +4,9 @@ exports.getPendingEvaluations = getPendingEvaluations;
 exports.getEvaluationsByStatus = getEvaluationsByStatus;
 exports.approveEvaluation = approveEvaluation;
 exports.requestRevision = requestRevision;
-exports.getWeeklyReportsForContext = getWeeklyReportsForContext;
+exports.getDailyReportsProgressForContext = getDailyReportsProgressForContext;
 exports.getEvaluationStatistics = getEvaluationStatistics;
 exports.getEvaluationWithContext = getEvaluationWithContext;
-exports.getAllWeeklyReportsForAdvisor = getAllWeeklyReportsForAdvisor;
 const supabase_js_1 = require("@supabase/supabase-js");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
@@ -321,25 +320,31 @@ async function requestRevision(evaluationId, advisorId, revisionReason) {
     }
 }
 /**
- * Get weekly reports for context
- * Advisor can view alongside evaluation
+ * Get daily reports progress summary for context
+ * Advisor can see overall progress (total hours, days reported) but NOT report content
  */
-async function getWeeklyReportsForContext(internshipId) {
+async function getDailyReportsProgressForContext(internshipId) {
     try {
         const { data: reports, error } = await supabase
-            .from('student_weekly_accomplishments')
-            .select(`
-        *,
-        student:users!student_id(first_name, last_name)
-      `)
+            .from('student_daily_reports')
+            .select('hours_worked, report_date')
             .eq('internship_id', internshipId)
-            .order('week_number', { ascending: true });
+            .order('report_date', { ascending: true });
         if (error) {
-            throw new Error(`Failed to fetch weekly reports: ${error.message}`);
+            throw new Error(`Failed to fetch daily reports progress: ${error.message}`);
         }
+        const totalHours = reports?.reduce((sum, r) => sum + (r.hours_worked || 0), 0) || 0;
+        const totalDays = reports?.length || 0;
+        const firstDate = reports?.[0]?.report_date || null;
+        const lastDate = reports?.[reports.length - 1]?.report_date || null;
         return {
             success: true,
-            data: reports || [],
+            data: {
+                total_hours: totalHours,
+                total_days_reported: totalDays,
+                first_report_date: firstDate,
+                last_report_date: lastDate,
+            },
         };
     }
     catch (error) {
@@ -441,17 +446,20 @@ async function getEvaluationWithContext(evaluationId, advisorId) {
         if (evaluation.internship.advisor_id !== advisorId) {
             throw new Error('Not authorized to view this evaluation');
         }
-        // Get weekly reports for context
-        const { data: weeklyReports } = await supabase
-            .from('student_weekly_accomplishments')
-            .select('*')
-            .eq('internship_id', evaluation.internship_id)
-            .order('week_number', { ascending: true });
+        // Get daily reports progress summary for context (no report content for advisors)
+        const { data: dailyProgress } = await supabase
+            .from('student_daily_reports')
+            .select('hours_worked')
+            .eq('internship_id', evaluation.internship_id);
+        const totalHours = dailyProgress?.reduce((sum, r) => sum + (r.hours_worked || 0), 0) || 0;
         return {
             success: true,
             data: {
                 evaluation,
-                weekly_reports: weeklyReports || [],
+                daily_reports_progress: {
+                    total_hours: totalHours,
+                    total_days_reported: dailyProgress?.length || 0,
+                },
             },
         };
     }
@@ -462,109 +470,6 @@ async function getEvaluationWithContext(evaluationId, advisorId) {
         };
     }
 }
-/**
- * Get all weekly reports for students under an advisor
- * Standalone endpoint for advisor weekly reports page
- */
-async function getAllWeeklyReportsForAdvisor(advisorId, options = {}) {
-    try {
-        const { status, studentId, page = 1, limit = 20 } = options;
-        const offset = (page - 1) * limit;
-        // Get all internships for this advisor
-        const { data: internships, error: internshipsError } = await supabase
-            .from('internships')
-            .select('id, student_id')
-            .eq('advisor_id', advisorId)
-            .or('is_archived.is.null,is_archived.eq.false');
-        if (internshipsError) {
-            throw new Error(`Failed to fetch internships: ${internshipsError.message}`);
-        }
-        if (!internships || internships.length === 0) {
-            return {
-                success: true,
-                data: [],
-                pagination: {
-                    page,
-                    limit,
-                    total: 0,
-                    totalPages: 0,
-                },
-                statistics: {
-                    total: 0,
-                    pending: 0,
-                    approved: 0,
-                    rejected: 0,
-                },
-            };
-        }
-        const internshipIds = internships.map(i => i.id);
-        // Build query for weekly reports
-        let query = supabase
-            .from('student_weekly_accomplishments')
-            .select(`
-        *,
-        student:users!student_id(id, first_name, last_name, email),
-        internship:internships(
-          id,
-          position,
-          company:companies(name)
-        )
-      `, { count: 'exact' })
-            .in('internship_id', internshipIds)
-            .order('created_at', { ascending: false });
-        // Apply filters
-        if (status) {
-            query = query.eq('status', status);
-        }
-        if (studentId) {
-            query = query.eq('student_id', studentId);
-        }
-        // Apply pagination
-        query = query.range(offset, offset + limit - 1);
-        const { data: reports, error: reportsError, count } = await query;
-        if (reportsError) {
-            throw new Error(`Failed to fetch weekly reports: ${reportsError.message}`);
-        }
-        // Get statistics
-        const [pendingCount, approvedCount, rejectedCount] = await Promise.all([
-            supabase
-                .from('student_weekly_accomplishments')
-                .select('id', { count: 'exact', head: true })
-                .in('internship_id', internshipIds)
-                .eq('status', 'pending_approval'),
-            supabase
-                .from('student_weekly_accomplishments')
-                .select('id', { count: 'exact', head: true })
-                .in('internship_id', internshipIds)
-                .eq('status', 'approved'),
-            supabase
-                .from('student_weekly_accomplishments')
-                .select('id', { count: 'exact', head: true })
-                .in('internship_id', internshipIds)
-                .eq('status', 'rejected'),
-        ]);
-        return {
-            success: true,
-            data: reports || [],
-            pagination: {
-                page,
-                limit,
-                total: count || 0,
-                totalPages: Math.ceil((count || 0) / limit),
-            },
-            statistics: {
-                total: (pendingCount.count || 0) + (approvedCount.count || 0) + (rejectedCount.count || 0),
-                pending: pendingCount.count || 0,
-                approved: approvedCount.count || 0,
-                rejected: rejectedCount.count || 0,
-            },
-        };
-    }
-    catch (error) {
-        return {
-            success: false,
-            error: error.message,
-        };
-    }
-}
+// Weekly reports for advisor removed - daily reports are student-only
+// Advisors see only progress summaries via getDailyReportsProgressForContext()
 //# sourceMappingURL=advisorEvaluationService.js.map

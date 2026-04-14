@@ -5,7 +5,7 @@ export interface OJTDashboardMetrics {
     completed_internships: number;
     total_companies: number;
     companies_with_capacity: number;
-    pending_weekly_reports: number;
+    total_daily_reports: number;
     pending_supervisor_evaluations: number;
     pending_advisor_evaluations: number;
     completed_evaluations_this_month: number;
@@ -75,7 +75,7 @@ export declare function getAdminDashboardOverview(universityId: string): Promise
             message: string;
         }[];
         recent_activity: {
-            weekly_reports_this_week: number;
+            daily_reports_this_week: number;
             evaluations_this_week: number;
         };
     };

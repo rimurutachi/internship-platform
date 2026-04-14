@@ -1,5 +1,8 @@
 declare class ReportsService {
-    static getOverview(): Promise<{
+    static getOverview(dateRange?: {
+        start?: string;
+        end?: string;
+    }): Promise<{
         total_users: number;
         active_internships: number;
         total_evaluations: number;
@@ -7,13 +10,25 @@ declare class ReportsService {
     }>;
     static generateMonthlyStats(months?: number, year?: number): Promise<any[]>;
     static generateUserGrowth(groupBy?: string, periods?: number): Promise<any[]>;
-    static generateInternshipStatus(groupBy?: string): Promise<{
+    static generateInternshipStatus(groupBy?: string, dateRange?: {
+        start?: string;
+        end?: string;
+    }): Promise<{
         statuses: {
             status: string;
             count: number;
             percentage: number;
         }[];
         avg_completion_rate: number;
+        by_program: {
+            program_code: string;
+            program_name: string;
+            pending: number;
+            active: number;
+            completed: number;
+            cancelled: number;
+            total: number;
+        }[];
     }>;
     static generateEvaluationMetrics(dateRange?: {
         start?: string;

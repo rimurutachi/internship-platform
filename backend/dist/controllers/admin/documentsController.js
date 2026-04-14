@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDocumentStats = exports.deleteDocument = exports.archiveDocument = exports.getCollaborators = exports.updateWorkflow = exports.updateStatus = exports.getWorkflow = exports.getComments = exports.getVersions = exports.getDocument = exports.getAllDocuments = void 0;
+exports.getDocumentStats = exports.deleteDocument = exports.archiveDocument = exports.updateWorkflow = exports.updateStatus = exports.getWorkflow = exports.getComments = exports.getVersions = exports.getDocument = exports.getAllDocuments = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 // Create admin client that bypasses RLS
 const supabaseAdmin = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
@@ -314,44 +314,6 @@ const updateWorkflow = async (req, res) => {
     }
 };
 exports.updateWorkflow = updateWorkflow;
-/**
- * Get active collaborators from collaboration sessions
- */
-const getCollaborators = async (req, res) => {
-    try {
-        const { id } = req.params;
-        // Get active sessions (active in last 5 minutes)
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-        const { data: sessions, error } = await supabaseAdmin
-            .from('collaboration_sessions')
-            .select(`
-        *,
-        user:users(id, first_name, last_name, email)
-      `)
-            .eq('document_id', id)
-            .gte('last_seen', fiveMinutesAgo)
-            .order('last_seen', { ascending: false });
-        if (error)
-            throw error;
-        const collaborationInfo = {
-            active_users: sessions.map(session => ({
-                user_id: session.user_id,
-                name: `${session.user.first_name} ${session.user.last_name}`,
-                email: session.user.email,
-                user_color: session.user_color,
-                cursor_position: session.cursor_position,
-                last_seen: session.last_seen
-            })),
-            sessions: sessions
-        };
-        res.json(collaborationInfo);
-    }
-    catch (error) {
-        console.error('Get collaborators error:', error);
-        res.status(500).json({ error: 'Failed to fetch collaborators', details: error.message });
-    }
-};
-exports.getCollaborators = getCollaborators;
 /**
  * Archive a document
  */

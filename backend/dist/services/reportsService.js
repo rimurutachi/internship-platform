@@ -1,6 +1,40 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const supabase_js_1 = require("@supabase/supabase-js");
+const analyticsService = __importStar(require("./analyticsService"));
 const supabaseAdmin = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 function getISOWeek(date) {
     const tempDate = new Date(date.getTime());
@@ -11,37 +45,36 @@ function getISOWeek(date) {
     return weekNo;
 }
 class ReportsService {
-    static async getOverview() {
-        // Count active users
-        const { count: total_users, error: usersError } = await supabaseAdmin
-            .from('users')
-            .select('id', { count: 'exact' })
-            .eq('status', 'active');
-        // Count active internships
-        const { count: active_internships, error: internshipsError } = await supabaseAdmin
-            .from('internships')
-            .select('id', { count: 'exact' })
-            .eq('status', 'active');
-        // Count total evaluations
-        const { count: total_evaluations, error: evaluationsError } = await supabaseAdmin
-            .from('evaluations')
-            .select('id', { count: 'exact' });
-        // Count completed internships
-        const { count: completed_internships } = await supabaseAdmin
-            .from('internships')
-            .select('id', { count: 'exact' })
-            .eq('status', 'completed');
-        // Count total internships
-        const { count: total_internships } = await supabaseAdmin
-            .from('internships')
-            .select('id', { count: 'exact' });
-        // Calculate completion rate
+    static async getOverview(dateRange) {
+        let usersQuery = supabaseAdmin.from('users').select('id', { count: 'exact' }).eq('status', 'active');
+        let internshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' }).eq('status', 'active');
+        let evaluationsQuery = supabaseAdmin.from('evaluations').select('id', { count: 'exact' });
+        let completedInternshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' }).eq('status', 'completed');
+        let totalInternshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' });
+        if (dateRange && dateRange.start) {
+            usersQuery = usersQuery.gte('created_at', dateRange.start);
+            internshipsQuery = internshipsQuery.gte('created_at', dateRange.start);
+            evaluationsQuery = evaluationsQuery.gte('created_at', dateRange.start);
+            completedInternshipsQuery = completedInternshipsQuery.gte('created_at', dateRange.start);
+            totalInternshipsQuery = totalInternshipsQuery.gte('created_at', dateRange.start);
+        }
+        if (dateRange && dateRange.end) {
+            usersQuery = usersQuery.lte('created_at', dateRange.end);
+            internshipsQuery = internshipsQuery.lte('created_at', dateRange.end);
+            evaluationsQuery = evaluationsQuery.lte('created_at', dateRange.end);
+            completedInternshipsQuery = completedInternshipsQuery.lte('created_at', dateRange.end);
+            totalInternshipsQuery = totalInternshipsQuery.lte('created_at', dateRange.end);
+        }
+        const { count: total_users, error: usersError } = await usersQuery;
+        const { count: active_internships, error: internshipsError } = await internshipsQuery;
+        const { count: total_evaluations, error: evaluationsError } = await evaluationsQuery;
+        const { count: completed_internships } = await completedInternshipsQuery;
+        const { count: total_internships } = await totalInternshipsQuery;
         let completion_rate = 0;
         const completed = completed_internships ?? 0;
         if (total_internships && total_internships > 0) {
             completion_rate = Math.round((completed / total_internships) * 100);
         }
-        // Error handling
         if (usersError || internshipsError || evaluationsError) {
             throw new Error('DB error in overview stats');
         }
@@ -133,11 +166,14 @@ class ReportsService {
         }
         return periodsArr;
     }
-    static async generateInternshipStatus(groupBy = 'status') {
-        // Get all internships
-        let query = supabaseAdmin.from('internships').select('id, status');
-        // Optionally group by company or university (future enhancement)
-        // For now, just status breakdown
+    static async generateInternshipStatus(groupBy = 'status', dateRange) {
+        let query = supabaseAdmin.from('internships').select('id, status, program_code');
+        if (dateRange && dateRange.start) {
+            query = query.gte('created_at', dateRange.start);
+        }
+        if (dateRange && dateRange.end) {
+            query = query.lte('created_at', dateRange.end);
+        }
         const { data: internships, error } = await query;
         if (error)
             throw new Error('DB error in internship status');
@@ -162,7 +198,56 @@ class ReportsService {
         // Calculate avg completion rate
         const completed = statusCounts.completed || 0;
         const avg_completion_rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-        return { statuses, avg_completion_rate };
+        // Per-program breakdown
+        const { data: programs } = await supabaseAdmin
+            .from('program_hours')
+            .select('program_code, program_name')
+            .eq('is_active', true)
+            .order('program_name');
+        const programMap = {};
+        // Initialize program map
+        if (programs && programs.length > 0) {
+            programs.forEach((p) => {
+                programMap[p.program_code] = {
+                    program_code: p.program_code,
+                    program_name: p.program_name,
+                    pending: 0,
+                    active: 0,
+                    completed: 0,
+                    cancelled: 0,
+                    total: 0,
+                };
+            });
+        }
+        // Populate per-program counts
+        internships.forEach((i) => {
+            const code = i.program_code;
+            if (code && programMap[code]) {
+                programMap[code].total++;
+                if (i.status === 'pending')
+                    programMap[code].pending++;
+                else if (i.status === 'active')
+                    programMap[code].active++;
+                else if (i.status === 'completed')
+                    programMap[code].completed++;
+                else if (i.status === 'cancelled')
+                    programMap[code].cancelled++;
+            }
+            else if (code) {
+                // Program code exists but not in program_hours table - create entry
+                programMap[code] = {
+                    program_code: code,
+                    program_name: code, // Use code as fallback name
+                    pending: i.status === 'pending' ? 1 : 0,
+                    active: i.status === 'active' ? 1 : 0,
+                    completed: i.status === 'completed' ? 1 : 0,
+                    cancelled: i.status === 'cancelled' ? 1 : 0,
+                    total: 1,
+                };
+            }
+        });
+        const by_program = Object.values(programMap).filter(p => p.total > 0);
+        return { statuses, avg_completion_rate, by_program };
     }
     static async generateEvaluationMetrics(dateRange) {
         // Build query with optional date range
@@ -330,7 +415,7 @@ class ReportsService {
         };
         // Fetch requested metrics
         if (metrics.includes('overview')) {
-            reportData.overview = await this.getOverview();
+            reportData.overview = await this.getOverview(dateRange);
         }
         if (metrics.includes('monthly_stats')) {
             reportData.monthly_stats = await this.generateMonthlyStats();
@@ -339,13 +424,21 @@ class ReportsService {
             reportData.user_growth = await this.generateUserGrowth(groupBy || 'month');
         }
         if (metrics.includes('internship_status')) {
-            reportData.internship_status = await this.generateInternshipStatus(groupBy || 'status');
+            reportData.internship_status = await this.generateInternshipStatus(groupBy || 'status', dateRange);
         }
-        if (metrics.includes('evaluation_metrics')) {
-            reportData.evaluation_metrics = await this.generateEvaluationMetrics(dateRange);
-        }
-        if (metrics.includes('performance')) {
-            reportData.performance = await this.generatePerformanceMetrics();
+        if (metrics.includes('ai_insights')) {
+            try {
+                reportData.ai_insights = await analyticsService.getTrendAnalysis({
+                    include_recommendations: true,
+                    top_n_skills: 5,
+                    top_n_companies: 5,
+                    date_range_start: dateRange?.start,
+                    date_range_end: dateRange?.end
+                });
+            }
+            catch (err) {
+                console.error('Failed to fetch AI Insights for report export:', err);
+            }
         }
         // Convert to requested format
         if (format === 'json') {
@@ -362,7 +455,11 @@ class ReportsService {
     static convertToCSV(data) {
         // Simple CSV conversion for overview and metrics
         let csv = 'Intern-Galing Analytics Report\n';
-        csv += `Generated: ${new Date().toISOString()}\n\n`;
+        csv += `Generated: ${new Date().toISOString()}\n`;
+        if (data.date_range && data.date_range.type) {
+            csv += `Date Range: ${data.date_range.type.toUpperCase()}\n`;
+        }
+        csv += '\n';
         if (data.overview) {
             csv += 'Overview\n';
             csv += 'Metric,Value\n';
@@ -370,6 +467,30 @@ class ReportsService {
             csv += `Active Internships,${data.overview.active_internships}\n`;
             csv += `Total Evaluations,${data.overview.total_evaluations}\n`;
             csv += `Completion Rate,${data.overview.completion_rate}%\n\n`;
+        }
+        if (data.internship_status && data.internship_status.by_program) {
+            csv += 'Internship Status by Program\n';
+            csv += 'Program,Pending,Active,Completed,Cancelled,Total\n';
+            data.internship_status.by_program.forEach((p) => {
+                csv += `${p.program_name || p.program_code},${p.pending},${p.active},${p.completed},${p.cancelled},${p.total}\n`;
+            });
+            csv += '\n';
+        }
+        if (data.ai_insights && data.ai_insights.skill_trends && data.ai_insights.skill_trends.most_demanded_overall) {
+            csv += 'Top Skill Demands\n';
+            csv += 'Skill,Frequency,Percentage\n';
+            data.ai_insights.skill_trends.most_demanded_overall.forEach((s) => {
+                csv += `"${s.name || s.skill}",${s.frequency},${s.percentage}%\n`;
+            });
+            csv += '\n';
+        }
+        if (data.ai_insights && data.ai_insights.company_performance) {
+            csv += 'Top Company Performance\n';
+            csv += 'Company,Evaluation Count,Average Grade,Average Score,Performance Rating\n';
+            data.ai_insights.company_performance.forEach((c) => {
+                csv += `"${c.company_name}",${c.evaluation_count},${c.average_grade},${c.avg_score || c.average_score || 0},"${c.performance_rating || c.performance_category || ''}"\n`;
+            });
+            csv += '\n';
         }
         if (data.monthly_stats) {
             csv += 'Monthly Statistics\n';
@@ -379,26 +500,42 @@ class ReportsService {
             });
             csv += '\n';
         }
-        if (data.evaluation_metrics) {
-            csv += 'Evaluation Metrics\n';
-            csv += 'Rating Type,Average\n';
-            csv += `Overall,${data.evaluation_metrics.avg_ratings.overall}\n`;
-            csv += `Technical,${data.evaluation_metrics.avg_ratings.technical}\n`;
-            csv += `Communication,${data.evaluation_metrics.avg_ratings.communication}\n`;
-            csv += `Work Ethic,${data.evaluation_metrics.avg_ratings.work_ethic}\n\n`;
-        }
         return csv;
     }
     static async convertToPDF(data) {
         const PDFDocument = require('pdfkit');
-        const doc = new PDFDocument();
+        const path = require('path');
+        const fs = require('fs');
+        const doc = new PDFDocument({ margin: 50 });
         const chunks = [];
         doc.on('data', (chunk) => chunks.push(chunk));
         doc.on('end', () => { });
+        // Custom Header for Cavite State University
+        const logoPath = path.resolve(__dirname, '../../../frontend/public/cvsu-logo.png');
+        if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, 50, 45, { width: 60 });
+        }
+        const pageWidth = doc.page.width;
+        doc.font('Helvetica');
+        doc.fontSize(10).text('Republic of the Philippines', 0, 50, { align: 'center', width: pageWidth });
+        doc.font('Helvetica-Bold');
+        doc.fontSize(14).text('CAVITE STATE UNIVERSITY', 0, 65, { align: 'center', width: pageWidth });
+        doc.font('Helvetica-Bold');
+        doc.fontSize(12).text('Bacoor City Campus', 0, 82, { align: 'center', width: pageWidth });
+        doc.font('Helvetica');
+        doc.fontSize(10).text('SHIV, Molino VI, City of Bacoor', 0, 98, { align: 'center', width: pageWidth });
+        doc.fontSize(10).text('(046) 476-5029', 0, 112, { align: 'center', width: pageWidth });
+        doc.fontSize(10).text('cvsubacoor@cvsu.edu.ph', 0, 126, { align: 'center', width: pageWidth, link: 'mailto:cvsubacoor@cvsu.edu.ph' });
+        doc.moveTo(50, 150).lineTo(pageWidth - 50, 150).stroke();
         // Title
-        doc.fontSize(20).text('Intern-Galing Analytics Report', { align: 'center' });
-        doc.moveDown();
-        doc.fontSize(12).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+        doc.y = 170;
+        doc.x = 50;
+        doc.font('Helvetica-Bold').fontSize(18).text(data.title || 'Intern-Galing Analytics Report', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.font('Helvetica').fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+        if (data.date_range && data.date_range.type) {
+            doc.text(`Date Range: ${data.date_range.type.toUpperCase()}`, { align: 'center' });
+        }
         doc.moveDown(2);
         // Overview
         if (data.overview) {
@@ -411,6 +548,18 @@ class ReportsService {
             doc.text(`Completion Rate: ${data.overview.completion_rate}%`);
             doc.moveDown(2);
         }
+        // Program Internship Status
+        if (data.internship_status && data.internship_status.by_program) {
+            doc.fontSize(16).text('Internship Status by Program', { underline: true });
+            doc.moveDown();
+            doc.fontSize(10);
+            data.internship_status.by_program.forEach((p) => {
+                doc.font('Helvetica-Bold').text(`${p.program_name || p.program_code}`);
+                doc.font('Helvetica').text(`Pending: ${p.pending}  |  Active: ${p.active}  |  Completed: ${p.completed}  |  Cancelled: ${p.cancelled}  |  Total: ${p.total}`);
+                doc.moveDown(0.5);
+            });
+            doc.moveDown(1);
+        }
         // Monthly Stats
         if (data.monthly_stats && data.monthly_stats.length) {
             doc.fontSize(16).text('Monthly Statistics', { underline: true });
@@ -421,17 +570,40 @@ class ReportsService {
             });
             doc.moveDown(2);
         }
-        // Evaluation Metrics
-        if (data.evaluation_metrics) {
-            doc.fontSize(16).text('Evaluation Metrics', { underline: true });
+        // AI Insights
+        if (data.ai_insights && data.ai_insights.status !== 'error') {
+            doc.addPage();
+            doc.font('Helvetica-Bold').fontSize(16).text('AI Trend Analysis', { underline: true });
             doc.moveDown();
-            doc.fontSize(12);
-            doc.text(`Average Overall Rating: ${data.evaluation_metrics.avg_ratings.overall}`);
-            doc.text(`Average Technical Rating: ${data.evaluation_metrics.avg_ratings.technical}`);
-            doc.text(`Average Communication Rating: ${data.evaluation_metrics.avg_ratings.communication}`);
-            doc.text(`Average Work Ethic Rating: ${data.evaluation_metrics.avg_ratings.work_ethic}`);
-            doc.text(`Quality Score: ${data.evaluation_metrics.quality_score}`);
-            doc.moveDown(2);
+            const insightsList = data.ai_insights.insights || [];
+            if (insightsList.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(14).text('Key Insights');
+                doc.moveDown(0.5);
+                doc.font('Helvetica').fontSize(10);
+                insightsList.forEach((insight) => {
+                    doc.font('Helvetica-Bold').text(`• ${insight.title}`);
+                    doc.font('Helvetica').text(`  ${insight.description}`);
+                    doc.moveDown(0.5);
+                });
+                doc.moveDown(1);
+            }
+            if (data.ai_insights.skill_trends && data.ai_insights.skill_trends.most_demanded_overall) {
+                doc.font('Helvetica-Bold').fontSize(14).text('Top Skill Demands');
+                doc.moveDown(0.5);
+                doc.font('Helvetica').fontSize(10);
+                data.ai_insights.skill_trends.most_demanded_overall.slice(0, 5).forEach((item) => {
+                    doc.text(`• ${item.name} (${item.percentage}%)`);
+                });
+                doc.moveDown(1);
+            }
+            if (data.ai_insights.company_performance && data.ai_insights.company_performance.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(14).text('Top Company Performance Tracking');
+                doc.moveDown(0.5);
+                doc.font('Helvetica').fontSize(10);
+                data.ai_insights.company_performance.slice(0, 5).forEach((c, index) => {
+                    doc.text(`${index + 1}. ${c.company_name} - Avg Grade: ${c.average_grade} (${c.performance_rating})`);
+                });
+            }
         }
         doc.end();
         return new Promise((resolve) => {

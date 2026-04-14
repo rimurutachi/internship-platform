@@ -110,6 +110,25 @@ async function createFinalEvaluation(req, res) {
             gradeEquivalent = await (0, rubricService_1.calculateGrade)(rubric.id, totalScore);
         }
         console.log('✅ Grade calculated:', { totalScore, gradeEquivalent, rubricId: rubric?.id });
+        // GUARD: Check if a submitted/processed/approved evaluation already exists
+        // If so, reject the request — supervisor cannot re-evaluate a student
+        const { data: existingSubmitted } = await supabase
+            .from('evaluations')
+            .select('id, status, submitted_at')
+            .eq('internship_id', internship_id)
+            .eq('supervisor_id', supervisorId)
+            .eq('evaluation_type', 'final')
+            .in('status', ['submitted', 'processed', 'approved'])
+            .limit(1)
+            .maybeSingle();
+        if (existingSubmitted) {
+            console.log('⚠️ Evaluation already submitted for this internship:', existingSubmitted);
+            return res.status(409).json({
+                success: false,
+                error: 'Evaluation already submitted',
+                message: 'A final evaluation has already been submitted for this internship. You cannot evaluate the same student again.',
+            });
+        }
         // Check if a draft already exists for this internship (most recent draft)
         const { data: existingDraft, error: existingDraftError } = await supabase
             .from('evaluations')
@@ -396,14 +415,14 @@ async function submitFinalEvaluation(req, res) {
                 message: 'Comments must be at least 50 characters',
             });
         }
-        // Submit and auto-approve evaluation (one-time submission, no approval needed)
+        // Submit evaluation - sends directly to advisor for review
+        // Status changes to 'submitted' (pending advisor approval)
         const now = new Date().toISOString();
         const { data: submittedEval, error: updateError } = await supabase
             .from('evaluations')
             .update({
-            status: 'approved', // Auto-approved on submission
+            status: 'submitted', // Pending advisor review
             submitted_at: now,
-            approved_at: now, // Automatically approved
             updated_at: now,
         })
             .eq('id', id)
@@ -422,7 +441,7 @@ async function submitFinalEvaluation(req, res) {
             action: 'evaluation_submitted',
             entity_type: 'evaluation',
             entity_id: id,
-            description: `Final evaluation submitted and approved for student`,
+            description: `Final evaluation submitted to advisor for review`,
             metadata: {
                 internship_id: evaluation.internship_id,
                 student_id: evaluation.student_id,
@@ -430,13 +449,13 @@ async function submitFinalEvaluation(req, res) {
                 final_grade: evaluation.final_grade,
             },
         });
-        // Notify advisor - evaluation has been submitted (auto-approved)
+        // Notify advisor - evaluation submitted for their review/approval
         if (evaluation.internship.advisor_id) {
             await supabase.from('notifications').insert({
                 user_id: evaluation.internship.advisor_id,
-                type: 'evaluation_submitted',
-                title: 'New Final Evaluation Submitted',
-                message: 'A supervisor has submitted a final evaluation for one of your students. You can now view the evaluation details.',
+                type: 'evaluation_pending_review',
+                title: 'Evaluation Pending Your Review',
+                message: 'A supervisor has submitted a final evaluation that requires your review and approval.',
                 reference_id: id,
                 reference_type: 'evaluation',
                 metadata: {
@@ -445,42 +464,11 @@ async function submitFinalEvaluation(req, res) {
                 },
             });
         }
-        // Notify admin - new evaluation submitted
-        const { data: admins } = await supabase
-            .from('users')
-            .select('id')
-            .eq('role', 'admin');
-        if (admins && admins.length > 0) {
-            const adminNotifications = admins.map((admin) => ({
-                user_id: admin.id,
-                type: 'evaluation_submitted',
-                title: 'New Final Evaluation Submitted',
-                message: 'A supervisor has submitted a final evaluation.',
-                reference_id: id,
-                reference_type: 'evaluation',
-                metadata: {
-                    evaluation_id: id,
-                    internship_id: evaluation.internship_id,
-                },
-            }));
-            await supabase.from('notifications').insert(adminNotifications);
-        }
-        // Notify student - evaluation submitted
-        await supabase.from('notifications').insert({
-            user_id: evaluation.internship.student_id,
-            type: 'evaluation_submitted',
-            title: 'Final Evaluation Submitted',
-            message: 'Your supervisor has submitted your final evaluation.',
-            reference_id: id,
-            reference_type: 'evaluation',
-            metadata: {
-                evaluation_id: id,
-            },
-        });
+        // Note: Admin and student notifications will be sent when advisor approves the evaluation
         return res.status(200).json({
             success: true,
             data: submittedEval,
-            message: 'Evaluation submitted successfully.',
+            message: 'Evaluation submitted to advisor for review.',
         });
     }
     catch (error) {

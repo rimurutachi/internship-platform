@@ -130,24 +130,16 @@ class StudentService {
         if (error) {
             throw error;
         }
-        const requiredTypes = ['MOA', 'Job Description', 'Weekly Report', 'Final Evaluation'];
+        const requiredTypes = ['MOA', 'Job Description', 'Final Evaluation'];
         const statusMap = {};
         documents?.forEach((doc) => {
             if (requiredTypes.includes(doc.type)) {
-                if (doc.type === 'Weekly Report') {
-                    if (!statusMap[doc.type])
-                        statusMap[doc.type] = [];
-                    statusMap[doc.type].push({ status: doc.status, date: doc.created_at });
-                }
-                else {
-                    statusMap[doc.type] = doc.status;
-                }
+                statusMap[doc.type] = doc.status;
             }
         });
         return {
             moa: statusMap['MOA'] || 'pending',
             job_description: statusMap['Job Description'] || 'pending',
-            weekly_reports: statusMap['Weekly Report'] || [],
             final_evaluation: statusMap['Final Evaluation'] || 'pending',
         };
     }

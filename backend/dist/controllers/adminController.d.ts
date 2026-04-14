@@ -11,12 +11,12 @@ export declare function getAllUsers(req: AuthRequest, res: Response): Promise<Re
 export declare function getUserById(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
  * Create new user (both Auth and database)
- * Body: { email, firstName, lastName, role, password }
+ * Body: { email, firstName, lastName, role, password, company_id?, university_id?, program?, year_level?, section? }
  */
 export declare function createUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**
- * Update user information (firstName, lastName, email, company_id, university_id)
- * Body: { firstName?, lastName?, email?, company_id?, university_id? }
+ * Update user information (firstName, lastName, email, company_id, university_id, year_level, section)
+ * Body: { firstName?, lastName?, email?, company_id?, university_id?, year_level?, section? }
  */
 export declare function updateUser(req: AuthRequest, res: Response): Promise<Response<any, Record<string, any>>>;
 /**

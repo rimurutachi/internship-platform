@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { 
   BarChart3, 
@@ -150,6 +150,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportRange, setExportRange] = useState<string>('all-time');
   const { toast } = useToast();
   const { resolvedTheme } = useTheme();
 
@@ -465,9 +466,31 @@ export default function ReportsPage() {
   const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
     setExporting(true);
     try {
+      let dateRangeOptions: { start?: string, end?: string, type?: string } = { type: exportRange };
+      
+      if (exportRange !== 'all-time') {
+        const now = new Date();
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+
+        if (exportRange === 'daily') {
+          // start is already beginning of today
+        } else if (exportRange === 'weekly') {
+          start.setDate(now.getDate() - 7);
+        } else if (exportRange === 'monthly') {
+          start.setMonth(now.getMonth() - 1);
+        } else if (exportRange === 'yearly') {
+          start.setFullYear(now.getFullYear() - 1);
+        }
+
+        dateRangeOptions.start = start.toISOString();
+        dateRangeOptions.end = now.toISOString();
+      }
+
       const blob = await adminReportsAPI.exportReport({
         format,
-        metrics: ['overview', 'monthly_stats', 'user_growth', 'internship_status', 'evaluation_metrics', 'ai_insights'],
+        metrics: ['overview', 'monthly_stats', 'user_growth', 'internship_status', 'ai_insights'],
+        dateRange: dateRangeOptions,
       });
       
       const url = window.URL.createObjectURL(blob);
@@ -531,6 +554,33 @@ export default function ReportsPage() {
   })) || [];
 
   const programStatusData = internshipStatus?.by_program || [];
+
+  // Calculate Growth statistics dynamically
+  const growthStats = useMemo(() => {
+    if (!monthlyStats || monthlyStats.length < 2) {
+      return {
+        userGrowth: 0,
+        internshipGrowth: 0,
+        evalGrowth: 0,
+        completionRate: overview?.completion_rate || 0,
+      };
+    }
+
+    const currentMonth = monthlyStats[monthlyStats.length - 1];
+    const previousMonth = monthlyStats[monthlyStats.length - 2];
+
+    const calculatePercentage = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    return {
+      userGrowth: calculatePercentage(currentMonth.users, previousMonth.users),
+      internshipGrowth: calculatePercentage(currentMonth.internships, previousMonth.internships),
+      evalGrowth: calculatePercentage(currentMonth.evaluations, previousMonth.evaluations),
+      completionRate: overview?.completion_rate || 0,
+    };
+  }, [monthlyStats, overview]);
 
   const STATUS_COLORS: Record<string, string> = {
     pending: 'text-amber-600 dark:text-amber-400 bg-amber-500/10',
@@ -597,15 +647,27 @@ export default function ReportsPage() {
               )}
               Refresh
             </Button>
+            <Select value={exportRange} onValueChange={setExportRange}>
+              <SelectTrigger className="w-[140px] bg-background/50">
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-time">All Time</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
             <Select onValueChange={(value) => handleExport(value as 'csv' | 'json' | 'pdf')} disabled={exporting}>
-              <SelectTrigger className="w-[160px] bg-background/50">
+              <SelectTrigger className="w-[140px] bg-background/50">
                 <Download className="w-4 h-4 mr-2" />
                 <SelectValue placeholder={exporting ? 'Exporting...' : 'Export'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="csv">Export as CSV</SelectItem>
-                <SelectItem value="json">Export as JSON</SelectItem>
-                <SelectItem value="pdf">Export as PDF</SelectItem>
+                <SelectItem value="csv">Export CSV</SelectItem>
+                <SelectItem value="json">Export JSON</SelectItem>
+                <SelectItem value="pdf">Export PDF</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1220,41 +1282,47 @@ export default function ReportsPage() {
             <Card className="border-0 shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium">User Growth</span>
+                  {growthStats.userGrowth >= 0 ? <TrendingUp className="w-4 h-4 text-green-500" /> : <TrendingDown className="w-4 h-4 text-red-500" />}
+                  <span className="text-sm font-medium">User Registration</span>
                 </div>
-                <p className="text-2xl font-bold text-foreground">+12%</p>
-                <p className="text-xs text-muted-foreground">vs. last quarter</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {growthStats.userGrowth > 0 ? '+' : ''}{growthStats.userGrowth}%
+                </p>
+                <p className="text-xs text-muted-foreground">vs. last month</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium">Internship Growth</span>
+                  {growthStats.internshipGrowth >= 0 ? <TrendingUp className="w-4 h-4 text-green-500" /> : <TrendingDown className="w-4 h-4 text-red-500" />}
+                  <span className="text-sm font-medium">Internship Activity</span>
                 </div>
-                <p className="text-2xl font-bold text-foreground">+8%</p>
-                <p className="text-xs text-muted-foreground">vs. last quarter</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {growthStats.internshipGrowth > 0 ? '+' : ''}{growthStats.internshipGrowth}%
+                </p>
+                <p className="text-xs text-muted-foreground">vs. last month</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium">Completion Rate</span>
+                  <Target className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium">Overall Completion</span>
                 </div>
-                <p className="text-2xl font-bold text-foreground">+5%</p>
-                <p className="text-xs text-muted-foreground">vs. last quarter</p>
+                <p className="text-2xl font-bold text-foreground">{growthStats.completionRate}%</p>
+                <p className="text-xs text-muted-foreground">success rate</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium">Avg Rating</span>
+                  {growthStats.evalGrowth >= 0 ? <Activity className="w-4 h-4 text-violet-500" /> : <TrendingDown className="w-4 h-4 text-red-500" />}
+                  <span className="text-sm font-medium">Evaluations Submitted</span>
                 </div>
-                <p className="text-2xl font-bold text-foreground">+0.3</p>
-                <p className="text-xs text-muted-foreground">vs. last quarter</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {growthStats.evalGrowth > 0 ? '+' : ''}{growthStats.evalGrowth}%
+                </p>
+                <p className="text-xs text-muted-foreground">vs. last month</p>
               </CardContent>
             </Card>
           </div>
