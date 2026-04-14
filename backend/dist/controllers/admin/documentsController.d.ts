@@ -28,10 +28,6 @@ export declare const updateStatus: (req: Request, res: Response) => Promise<Resp
  */
 export declare const updateWorkflow: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 /**
- * Get active collaborators from collaboration sessions
- */
-export declare const getCollaborators: (req: Request, res: Response) => Promise<void>;
-/**
  * Archive a document
  */
 export declare const archiveDocument: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;

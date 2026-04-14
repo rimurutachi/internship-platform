@@ -1,206 +1,156 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MessageService = void 0;
+exports.messageService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const emitters_1 = require("../socket/emitters");
-const uuid_1 = require("uuid");
-const notificationService_1 = __importDefault(require("./notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-class MessageService {
-    // Upload file to Supabase Storage
-    async uploadFile(file, conversationId) {
+exports.messageService = {
+    // Get users that the current user is allowed to message based on roles and assignments
+    async getContacts(userId, role) {
         try {
-            const fileExt = file.originalname.split(".").pop();
-            const fileName = `${(0, uuid_1.v4)()}.${fileExt}`;
-            const filePath = `${conversationId}/${fileName}`;
-            // Upload to Supabase Storage
-            const { data, error } = await supabase.storage
-                .from("message-attachments")
-                .upload(filePath, file.buffer, {
-                contentType: file.mimetype,
-                upsert: false,
-            });
-            if (error)
-                throw error;
-            // Get public URL
-            const { data: { publicUrl }, } = supabase.storage.from("message-attachments").getPublicUrl(filePath);
-            const metadata = {
-                originalName: file.originalname,
-                mimeType: file.mimetype,
-                size: file.size,
-                extension: fileExt,
-            };
-            return { url: publicUrl, metadata };
-        }
-        catch (error) {
-            throw new Error(`File upload failed: ${error.message}`);
-        }
-    }
-    // Send message
-    async sendMessage(senderId, data, file) {
-        let fileUrl;
-        let metadata = data.metadata || {};
-        // If file is provided, upload it first
-        if (file) {
-            const uploadResult = await this.uploadFile(file, data.conversation_id);
-            fileUrl = uploadResult.url;
-            metadata = { ...metadata, ...uploadResult.metadata };
-        }
-        // Determine message type and content
-        const messageType = file ? "file" : data.message_type || "text";
-        const content = data.content || (file ? file.originalname : "");
-        // Insert message
-        const { data: message, error: messageError } = await supabase
-            .from("messages")
-            .insert({
-            conversation_id: data.conversation_id,
-            sender_id: senderId,
-            content,
-            message_type: messageType,
-            file_url: fileUrl || data.file_url,
-            metadata,
-        })
-            .select()
-            .single();
-        if (messageError)
-            throw new Error(messageError.message);
-        // Update conversation's last_message_at
-        const { error: convError } = await supabase
-            .from("conversations")
-            .update({ last_message_at: new Date().toISOString() })
-            .eq("id", data.conversation_id);
-        if (convError) {
-            // Log error but don't fail the message send
-            console.error("Failed to update conversation last_message_at:", convError);
-        }
-        // Get all participants to notify them
-        const { data: participants } = await supabase
-            .from("conversation_participants")
-            .select("user_id")
-            .eq("conversation_id", data.conversation_id)
-            .eq("is_active", true);
-        // Emit real-time event to conversation room
-        (0, emitters_1.emitNewMessage)(data.conversation_id, message);
-        // Emit conversation update to all participants
-        if (participants) {
-            participants.forEach((participant) => {
-                (0, emitters_1.emitConversationUpdate)(participant.user_id, data.conversation_id, {
-                    last_message_at: new Date().toISOString(),
-                    last_message: message.content,
-                });
-                // Send notification to participants (except sender)
-                if (participant.user_id !== senderId) {
-                    notificationService_1.default
-                        .createNotification({
-                        user_id: participant.user_id,
-                        type: "message_received",
-                        title: "New Message",
-                        message: message.content.substring(0, 100) + (message.content.length > 100 ? "..." : ""),
-                        action_url: `/dashboard/messages?conversation=${data.conversation_id}`,
-                        reference_type: "message",
-                    })
-                        .catch((notifError) => {
-                        console.error("⚠️ Failed to send message notification:", notifError);
+            let contacts = [];
+            if (role === 'student') {
+                const { data: internships } = await supabase
+                    .from('internships')
+                    .select('advisor_id, users!internships_advisor_id_fkey(id, first_name, last_name, email, role, profile_data)')
+                    .eq('student_id', userId)
+                    .single();
+                if (internships && internships.users) {
+                    contacts.push(internships.users);
+                }
+            }
+            else if (role === 'advisor') {
+                const { data: internships } = await supabase
+                    .from('internships')
+                    .select(`
+            student_id, users!internships_student_id_fkey(id, first_name, last_name, email, role, profile_data),
+            supervisor_id, supervisor:users!internships_supervisor_id_fkey(id, first_name, last_name, email, role, profile_data)
+          `)
+                    .eq('advisor_id', userId);
+                if (internships) {
+                    internships.forEach((internship) => {
+                        if (internship.users) {
+                            // Add student
+                            if (!contacts.find(c => c.id === internship.users.id)) {
+                                contacts.push(internship.users);
+                            }
+                        }
+                        if (internship.supervisor) {
+                            // Add supervisor
+                            if (!contacts.find(c => c.id === internship.supervisor.id)) {
+                                contacts.push(internship.supervisor);
+                            }
+                        }
                     });
                 }
-            });
+            }
+            else if (role === 'supervisor') {
+                const { data: internships } = await supabase
+                    .from('internships')
+                    .select('advisor_id, users!internships_advisor_id_fkey(id, first_name, last_name, email, role, profile_data)')
+                    .eq('supervisor_id', userId);
+                if (internships) {
+                    internships.forEach((internship) => {
+                        if (internship.users && !contacts.find(c => c.id === internship.users.id)) {
+                            contacts.push(internship.users);
+                        }
+                    });
+                }
+            }
+            // Get unread counts
+            const { data: unreadMessages } = await supabase
+                .from('messages')
+                .select('sender_id')
+                .eq('receiver_id', userId)
+                .eq('is_read', false);
+            const unreadMap = new Map();
+            if (unreadMessages) {
+                unreadMessages.forEach((msg) => {
+                    unreadMap.set(msg.sender_id, (unreadMap.get(msg.sender_id) || 0) + 1);
+                });
+            }
+            const contactsWithUnread = contacts.map((c) => ({
+                ...c,
+                unread_count: unreadMap.get(c.id) || 0
+            }));
+            return contactsWithUnread;
         }
-        return message;
-    }
-    // Get conversation messages
-    async getMessages(conversationId, limit = 50, offset = 0) {
-        // Validate limit
-        const validLimit = Math.min(Math.max(1, limit), 100);
-        const validOffset = Math.max(0, offset);
+        catch (error) {
+            console.error("Error fetching contacts:", error);
+            throw error;
+        }
+    },
+    async getMessages(user1Id, user2Id) {
         const { data, error } = await supabase
-            .from("messages")
-            .select(`*, sender:users!sender_id(id, first_name, last_name, email)`)
-            .eq("conversation_id", conversationId)
-            .eq("is_deleted", false)
-            .order("created_at", { ascending: false })
-            .range(validOffset, validOffset + validLimit - 1);
+            .from('messages')
+            .select('*')
+            .or(`and(sender_id.eq.${user1Id},receiver_id.eq.${user2Id}),and(sender_id.eq.${user2Id},receiver_id.eq.${user1Id})`)
+            .order('created_at', { ascending: true });
         if (error)
-            throw new Error(error.message);
-        return data || [];
-    }
-    // Edit message
-    async editMessage(messageId, userId, content) {
-        // Check if message exists and belongs to user
-        const { data: existingMessage, error: checkError } = await supabase
-            .from("messages")
-            .select("id, sender_id, is_deleted")
-            .eq("id", messageId)
-            .single();
-        if (checkError || !existingMessage) {
-            throw new Error("Message not found");
-        }
-        if (existingMessage.sender_id !== userId) {
-            throw new Error("You can only edit your own messages");
-        }
-        if (existingMessage.is_deleted) {
-            throw new Error("Cannot edit a deleted message");
-        }
-        // Update message
+            throw error;
+        return data;
+    },
+    async sendMessage(senderId, receiverId, content) {
         const { data, error } = await supabase
-            .from("messages")
-            .update({
-            content,
-            is_edited: true,
-            edited_at: new Date().toISOString(),
+            .from('messages')
+            .insert({
+            sender_id: senderId,
+            receiver_id: receiverId,
+            content
         })
-            .eq("id", messageId)
-            .eq("sender_id", userId)
             .select()
             .single();
         if (error)
-            throw new Error(error.message);
-        if (!data)
-            throw new Error("Failed to update message");
-        // Get conversation_id to emit
-        const { data: messageData } = await supabase
-            .from("messages")
-            .select("conversation_id")
-            .eq("id", messageId)
+            throw error;
+        // Check if we need to create a notification
+        const { data: senderInfo } = await supabase
+            .from('users')
+            .select('first_name, last_name')
+            .eq('id', senderId)
             .single();
-        if (messageData) {
-            (0, emitters_1.emitMessageEdited)(messageData.conversation_id, data);
+        const senderName = senderInfo ? `${senderInfo.first_name} ${senderInfo.last_name}` : 'A user';
+        const { data: receiverInfo } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', receiverId)
+            .single();
+        const actionUrl = receiverInfo ? `/dashboard/${receiverInfo.role}/messages` : '/';
+        const { data: notificationData } = await supabase
+            .from('notifications')
+            .insert({
+            user_id: receiverId,
+            type: 'new_message',
+            title: 'New Message',
+            message: `You have received a new message from ${senderName}.`,
+            action_url: actionUrl,
+            reference_id: data.id,
+            reference_type: 'message',
+            is_read: false
+        })
+            .select()
+            .single();
+        // Emit realtime socket event so NotificationsDropdown updates immediately
+        if (notificationData) {
+            (0, emitters_1.emitNewNotification)(receiverId, notificationData);
+            // Also update the unread count badge
+            const { count } = await supabase
+                .from('notifications')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', receiverId)
+                .eq('is_read', false);
+            (0, emitters_1.emitNotificationCountUpdate)(receiverId, count || 0);
         }
         return data;
-    }
-    // Delete message
-    async deleteMessage(messageId, userId) {
-        // Check if message exists and belongs to user
-        const { data: existingMessage, error: checkError } = await supabase
-            .from("messages")
-            .select("id, sender_id")
-            .eq("id", messageId)
-            .single();
-        if (checkError || !existingMessage) {
-            throw new Error("Message not found");
-        }
-        if (existingMessage.sender_id !== userId) {
-            throw new Error("You can only delete your own messages");
-        }
-        // Soft delete message
+    },
+    async markAsRead(messageIds) {
+        if (!messageIds.length)
+            return;
         const { error } = await supabase
-            .from("messages")
-            .update({
-            is_deleted: true,
-            deleted_at: new Date().toISOString(),
-        })
-            .eq("id", messageId)
-            .eq("sender_id", userId);
+            .from('messages')
+            .update({ is_read: true, read_at: new Date().toISOString() })
+            .in('id', messageIds);
         if (error)
-            throw new Error(error.message);
-        // Emit real-time event
-        if (existingMessage) {
-            (0, emitters_1.emitMessageDeleted)(existingMessage.sender_id, messageId);
-        }
+            throw error;
     }
-}
-exports.MessageService = MessageService;
-exports.default = new MessageService();
+};
 //# sourceMappingURL=messageService.js.map

@@ -20,7 +20,7 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
  */
 async function getAllUsers(req, res) {
     try {
-        const { role, status, search, page = '1', limit = '10', includeArchived = 'false', verification_status } = req.query;
+        const { role, status, search, page = '1', limit = '10', includeArchived = 'false', verification_status, program, year_level, section, } = req.query;
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const offset = (pageNum - 1) * limitNum;
@@ -41,6 +41,18 @@ async function getAllUsers(req, res) {
         }
         if (verification_status) {
             query = query.eq('verification_status', verification_status);
+        }
+        // Filter by program (stored in profile_data JSONB)
+        if (program) {
+            query = query.or(`profile_data->>program.eq."${program}",profile_data->>course.eq."${program}",profile_data->>department.eq."${program}"`);
+        }
+        // Filter by year_level (stored in dedicated column or profile_data JSONB for legacy/some roles)
+        if (year_level) {
+            query = query.or(`year_level.ilike."%${year_level}%",profile_data->>year_level.ilike."%${year_level}%"`);
+        }
+        // Filter by section (stored in profile_data JSONB)
+        if (section) {
+            query = query.ilike('profile_data->>section', `%${section}%`);
         }
         // Apply search
         if (search) {

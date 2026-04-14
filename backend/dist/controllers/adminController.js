@@ -21,7 +21,7 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
  */
 async function getAllUsers(req, res) {
     try {
-        const { role, status, search, page = '1', limit = '10' } = req.query;
+        const { role, status, search, page = '1', limit = '10', program, year_level, section } = req.query;
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const offset = (pageNum - 1) * limitNum;
@@ -35,6 +35,18 @@ async function getAllUsers(req, res) {
         }
         if (status) {
             query = query.eq('status', status);
+        }
+        // Filter by program (stored in profile_data JSONB)
+        if (program) {
+            query = query.or(`profile_data->>program.eq."${program}",profile_data->>course.eq."${program}",profile_data->>department.eq."${program}"`);
+        }
+        // Filter by year_level (stored in dedicated column or profile_data JSONB)
+        if (year_level) {
+            query = query.or(`year_level.ilike."%${year_level}%",profile_data->>year_level.ilike."%${year_level}%"`);
+        }
+        // Filter by section (stored in profile_data JSONB)
+        if (section) {
+            query = query.ilike('profile_data->>section', `%${section}%`);
         }
         // Apply search
         if (search) {
@@ -107,11 +119,11 @@ async function getUserById(req, res) {
 }
 /**
  * Create new user (both Auth and database)
- * Body: { email, firstName, lastName, role, password }
+ * Body: { email, firstName, lastName, role, password, company_id?, university_id?, program?, year_level?, section? }
  */
 async function createUser(req, res) {
     try {
-        const { email, firstName, lastName, role, password, company_id, university_id } = req.body;
+        const { email, firstName, lastName, role, password, company_id, university_id, program, year_level, section } = req.body;
         // Validate required fields
         if (!email || !firstName || !lastName || !role || !password) {
             return res.status(400).json({
@@ -135,6 +147,14 @@ async function createUser(req, res) {
                 success: false,
                 error: 'Validation error',
                 message: 'Company ID is required for supervisors',
+            });
+        }
+        // Validate student/advisor has program
+        if ((role === 'student' || role === 'advisor') && !program) {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation error',
+                message: 'Program is required for students and advisors',
             });
         }
         // Construct full name
@@ -173,9 +193,8 @@ async function createUser(req, res) {
         if (role === 'supervisor' && company_id) {
             dbInsert.company_id = company_id;
         }
-        // Auto-assign CVSU-Bacoor Campus to students and advisors
-        if (role === 'student' || role === 'advisor') {
-            // Get CVSU-BC university ID
+        // Assign default university (CVSU-BC) to standard users
+        if (['student', 'advisor', 'supervisor'].includes(role)) {
             const { data: university } = await supabase
                 .from('universities')
                 .select('id')
@@ -187,6 +206,95 @@ async function createUser(req, res) {
             else if (university_id) {
                 // Fallback to provided university_id if CVSU-BC not found
                 dbInsert.university_id = university_id;
+            }
+        }
+        // Handle students and advisors - add program, section
+        if (role === 'student' || role === 'advisor') {
+            // year_level is a direct column on users
+            if (year_level)
+                dbInsert.year_level = year_level;
+            // program and section live in profile_data (not direct columns)
+            if (program || section) {
+                dbInsert.profile_data = {
+                    ...(program ? { program } : {}),
+                    ...(section ? { section } : {}),
+                };
+            }
+            // Auto-assign advisor for students: fetch all active advisors, filter in memory
+            // (program/section are in profile_data jsonb, so we filter client-side)
+            // Advisors may handle multiple sections stored as comma-separated values (e.g. "4A, 4B")
+            // Advisors may also handle multiple year levels stored as comma-separated values (e.g. "2nd Year, 4th Year")
+            if (role === 'student' && program) {
+                const { data: activeAdvisors } = await supabase
+                    .from('users')
+                    .select('id, name, profile_data, year_level')
+                    .eq('role', 'advisor')
+                    .eq('status', 'active');
+                let matchingAdvisor = null;
+                // Helper: parse advisor's section field (comma-separated) into an array
+                const parseAdvisorSections = (advisorProfileData) => {
+                    const raw = advisorProfileData?.section;
+                    if (!raw || typeof raw !== 'string')
+                        return [];
+                    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+                };
+                // Helper: check if a student's single section matches any of the advisor's sections
+                const advisorHasSection = (advisorProfileData, studentSection) => {
+                    const sections = parseAdvisorSections(advisorProfileData);
+                    return sections.some((s) => s === studentSection);
+                };
+                // Helper: parse advisor's year_level field (comma-separated) into an array
+                const parseAdvisorYearLevels = (advisorYearLevel) => {
+                    if (!advisorYearLevel || typeof advisorYearLevel !== 'string')
+                        return [];
+                    return advisorYearLevel.split(',').map((s) => s.trim()).filter(Boolean);
+                };
+                // Helper: check if a student's single year level matches any of the advisor's year levels
+                const advisorHasYearLevel = (advisorYearLevel, studentYearLevel) => {
+                    const yearLevels = parseAdvisorYearLevels(advisorYearLevel);
+                    return yearLevels.some((yl) => yl === studentYearLevel);
+                };
+                if (activeAdvisors && activeAdvisors.length > 0) {
+                    const sameProgram = activeAdvisors.filter((a) => {
+                        const pd = a.profile_data || {};
+                        return (pd.program || pd.course || pd.department) === program;
+                    });
+                    // Priority 1: program + year_level + section
+                    if (!matchingAdvisor && year_level && section) {
+                        const found = sameProgram.find((a) => advisorHasYearLevel(a.year_level, year_level) && advisorHasSection(a.profile_data, section));
+                        if (found)
+                            matchingAdvisor = { id: found.id, name: found.name };
+                    }
+                    // Priority 2: program + year_level
+                    if (!matchingAdvisor && year_level) {
+                        const found = sameProgram.find((a) => advisorHasYearLevel(a.year_level, year_level));
+                        if (found)
+                            matchingAdvisor = { id: found.id, name: found.name };
+                    }
+                    // Priority 3: program + section
+                    if (!matchingAdvisor && section) {
+                        const found = sameProgram.find((a) => advisorHasSection(a.profile_data, section));
+                        if (found)
+                            matchingAdvisor = { id: found.id, name: found.name };
+                    }
+                    // Priority 4: program only
+                    if (!matchingAdvisor && sameProgram.length > 0) {
+                        matchingAdvisor = { id: sameProgram[0].id, name: sameProgram[0].name };
+                    }
+                }
+                if (matchingAdvisor) {
+                    // advisor_id is NOT a column on users — store it in profile_data so it can
+                    // be referenced when an internship record is later created for this student.
+                    dbInsert.profile_data = {
+                        ...(dbInsert.profile_data || {}),
+                        assigned_advisor_id: matchingAdvisor.id,
+                        assigned_advisor_name: matchingAdvisor.name,
+                    };
+                    console.log(`✅ Auto-assigned student ${fullName} to advisor ${matchingAdvisor.name} (program: ${program}, year: ${year_level})`);
+                }
+                else {
+                    console.log(`⚠️ No matching advisor found for student ${fullName} (program: ${program}, year: ${year_level}, section: ${section})`);
+                }
             }
         }
         const { data: dbUser, error: dbError } = await supabase
@@ -219,14 +327,14 @@ async function createUser(req, res) {
     }
 }
 /**
- * Update user information (firstName, lastName, email, company_id, university_id)
- * Body: { firstName?, lastName?, email?, company_id?, university_id? }
+ * Update user information (firstName, lastName, email, company_id, university_id, year_level, section)
+ * Body: { firstName?, lastName?, email?, company_id?, university_id?, year_level?, section? }
  */
 async function updateUser(req, res) {
     try {
         const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
-        const { firstName, lastName, email, company_id, university_id } = req.body;
-        if (!firstName && !lastName && !email && !company_id && !university_id) {
+        const { firstName, lastName, email, company_id, university_id, year_level, section } = req.body;
+        if (!firstName && !lastName && !email && !company_id && !university_id && year_level === undefined && section === undefined) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
@@ -255,6 +363,24 @@ async function updateUser(req, res) {
             updates.company_id = company_id;
         if (university_id !== undefined)
             updates.university_id = university_id;
+        // Handle year_level update (stored as a column)
+        if (year_level !== undefined) {
+            updates.year_level = year_level || null;
+        }
+        // Handle section update — merge into profile_data JSONB so other fields are preserved
+        if (section !== undefined) {
+            // Fetch existing profile_data to merge cleanly
+            const { data: currentUser } = await supabase
+                .from('users')
+                .select('profile_data')
+                .eq('id', id)
+                .single();
+            const existingProfileData = currentUser?.profile_data || {};
+            updates.profile_data = {
+                ...existingProfileData,
+                section: section || null,
+            };
+        }
         // Update database
         const { data: user, error } = await supabase
             .from('users')

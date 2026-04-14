@@ -42,13 +42,14 @@ const adminController = __importStar(require("../controllers/adminController"));
 const documents_1 = __importDefault(require("./admin/documents"));
 const dashboard_1 = __importDefault(require("./admin/dashboard"));
 const reports_routes_1 = __importDefault(require("./admin/reports.routes"));
-const weeklyReports_1 = __importDefault(require("./admin/weeklyReports"));
+// Weekly reports removed - reports are now student-only daily reports
 const settings_routes_1 = __importDefault(require("./admin/settings.routes"));
 const internships_1 = __importDefault(require("./admin/internships"));
 const evaluations_routes_1 = __importDefault(require("./admin/evaluations.routes"));
 const companies_1 = __importDefault(require("./admin/companies"));
 const rubrics_1 = __importDefault(require("./admin/rubrics"));
 const analytics_routes_1 = __importDefault(require("./admin/analytics.routes"));
+const moa_1 = __importDefault(require("./admin/moa"));
 const router = (0, express_1.Router)();
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
@@ -83,7 +84,7 @@ router.use('/documents', documents_1.default);
 router.use('/dashboard', dashboard_1.default);
 // Reports and analytics routes
 router.use('/reports', reports_routes_1.default);
-router.use('/weekly-reports', weeklyReports_1.default);
+// Weekly reports removed - daily reports are student-only
 // Settings routes (lightweight, no security tables)
 router.use('/settings', settings_routes_1.default);
 // Rubrics management routes
@@ -96,5 +97,7 @@ router.use('/evaluations', evaluations_routes_1.default);
 router.use('/companies', companies_1.default);
 // AI Analytics routes (trend analysis) - v2.0.0
 router.use('/analytics', analytics_routes_1.default);
+// MOA management routes (approved document submissions)
+router.use('/moa', moa_1.default);
 exports.default = router;
 //# sourceMappingURL=admin.js.map

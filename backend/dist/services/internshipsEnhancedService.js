@@ -70,23 +70,28 @@ class InternshipsEnhancedService {
                 notification_channel: 'email'
             });
         }
-        // Auto-create weekly report reminders (every Friday at 5 PM)
-        let currentDate = new Date(startDate);
-        while (currentDate < endDate) {
-            const fridayOfWeek = new Date(currentDate);
-            const dayOfWeek = fridayOfWeek.getDay();
-            const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7; // Next Friday
-            fridayOfWeek.setDate(fridayOfWeek.getDate() + daysUntilFriday);
-            fridayOfWeek.setHours(17, 0, 0, 0); // 5 PM
-            if (fridayOfWeek > today && fridayOfWeek < endDate) {
-                reminders.push({
-                    internship_id,
-                    reminder_type: 'pending_weekly_report',
-                    scheduled_for: fridayOfWeek.toISOString(),
-                    notification_channel: 'in_app'
-                });
+        // Auto-create daily report reminders (weekdays at 5 PM)
+        // Only create for the next 7 days to avoid too many reminders
+        let currentDate = new Date(Math.max(today.getTime(), startDate.getTime()));
+        const reminderEnd = new Date(currentDate);
+        reminderEnd.setDate(reminderEnd.getDate() + 7);
+        const effectiveEnd = new Date(Math.min(reminderEnd.getTime(), endDate.getTime()));
+        while (currentDate < effectiveEnd) {
+            const day = currentDate.getDay();
+            // Skip weekends (0=Sun, 6=Sat)
+            if (day !== 0 && day !== 6) {
+                const reminderTime = new Date(currentDate);
+                reminderTime.setHours(17, 0, 0, 0); // 5 PM
+                if (reminderTime > today) {
+                    reminders.push({
+                        internship_id,
+                        reminder_type: 'pending_daily_report',
+                        scheduled_for: reminderTime.toISOString(),
+                        notification_channel: 'in_app'
+                    });
+                }
             }
-            currentDate.setDate(currentDate.getDate() + 7); // Next week
+            currentDate.setDate(currentDate.getDate() + 1);
         }
         // Auto-create evaluation reminder (14 days before end)
         const fourteenDaysBeforeEnd = new Date(endDate);
@@ -179,10 +184,10 @@ class InternshipsEnhancedService {
                 notificationTitle = 'Pending Documents';
                 notificationMessage = 'There are pending documents for your internship. Please submit them as soon as possible.';
                 break;
-            case 'pending_weekly_report':
-                recipients = [internship.student?.id, internship.advisor?.id].filter(Boolean);
-                notificationTitle = 'Weekly Report Due';
-                notificationMessage = 'Your weekly progress report is due. Please submit it by end of day.';
+            case 'pending_daily_report':
+                recipients = [internship.student?.id].filter(Boolean);
+                notificationTitle = 'Daily Report Reminder';
+                notificationMessage = 'Please remember to submit your daily report before end of day.';
                 break;
             case 'evaluation_due':
                 recipients = [internship.supervisor?.id].filter(Boolean);
@@ -212,7 +217,7 @@ class InternshipsEnhancedService {
                     type: 'internship_reminder',
                     title: notificationTitle,
                     message: notificationMessage,
-                    action_url: `/dashboard/student/internship`,
+                    action_url: `/dashboard/student/current-internship`,
                     reference_type: 'internship',
                 });
             }

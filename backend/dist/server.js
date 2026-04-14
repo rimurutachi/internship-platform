@@ -26,8 +26,16 @@ const advisor_1 = __importDefault(require("./routes/advisor"));
 const supervisor_1 = __importDefault(require("./routes/supervisor"));
 const public_1 = __importDefault(require("./routes/public"));
 const hours_1 = __importDefault(require("./routes/hours"));
+const ai_1 = __importDefault(require("./routes/ai"));
+const messages_1 = __importDefault(require("./routes/messages"));
 const archiveJob_1 = require("./jobs/archiveJob");
+const aiServiceKeepAlive_1 = require("./jobs/aiServiceKeepAlive");
 const app = (0, express_1.default)();
+// =============================================================================
+// FIX #1: Trust Proxy (Render/Production Deployment)
+// =============================================================================
+// Trust first proxy (Render) for proper rate limiting and IP detection
+app.set('trust proxy', 1);
 // Disable ETag to prevent 304 responses for dynamic APIs
 app.set("etag", false);
 // Global no-store for API responses to avoid client caching
@@ -67,9 +75,31 @@ app.use((0, helmet_1.default)({
         preload: true
     }
 }));
+// =============================================================================
+// FIX #2: Enhanced CORS Configuration
+// =============================================================================
+const allowedOrigins = process.env.FRONTEND_URL?.split(',').map(url => url.trim()) || ['http://localhost:3000'];
+console.log('🌐 CORS Allowed Origins:', allowedOrigins);
 app.use((0, cors_1.default)({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
+        if (!origin) {
+            console.log('✅ CORS: Request with no origin (curl/Postman/server)');
+            return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            console.log('✅ CORS: Allowed origin:', origin);
+            callback(null, true);
+        }
+        else {
+            console.warn('🚫 CORS: Blocked origin:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count']
 }));
 app.use((0, morgan_1.default)("combined"));
 app.use(express_1.default.json({ limit: "10mb" }));
@@ -152,10 +182,20 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
-// Routes
+// =============================================================================
+// FIX #3: Enhanced Health Check Route
+// =============================================================================
 app.get("/health", (req, res) => {
-    res.json({ status: "OK", message: "Intern-Galing API is running smoothly." });
+    res.status(200).json({
+        status: "ok",
+        service: "internship-platform-backend",
+        message: "Intern-Galing API is running smoothly.",
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        version: '1.0.0'
+    });
 });
+// Routes
 // Internship APIs
 app.use("/api/internships", internships_1.default);
 // Evaluation APIs
@@ -172,16 +212,58 @@ app.use("/api/student", student_1.default);
 app.use("/api/advisor", advisor_1.default);
 // Supervisor APIs
 app.use("/api/supervisor", supervisor_1.default);
-// Supervisor APIs
-app.use("/api/supervisor", supervisor_1.default);
+// AI Service APIs
+app.use("/api/ai", ai_1.default);
 // Hours Tracking APIs
 app.use("/api/hours", hours_1.default);
+// Messages APIs
+app.use("/api/messages", messages_1.default);
 // Auth APIs - Register LAST since it uses /api prefix (catch-all)
 app.use("/api", authRoutes_1.default);
+// =============================================================================
+// FIX #4: Improved 404 Handler (catch-all for undefined routes)
+// =============================================================================
+app.use((req, res, next) => {
+    console.warn('⚠️ 404 Not Found:', req.method, req.originalUrl, '| IP:', req.ip);
+    res.status(404).json({
+        success: false,
+        error: 'Not Found',
+        message: `Route ${req.method} ${req.originalUrl} not found`,
+        availableRoutes: [
+            'GET /health',
+            'POST /api/auth/login',
+            'GET /api/internships',
+            'GET /api/evaluations',
+            'GET /api/communications',
+            'GET /api/admin/*',
+            'GET /api/student/*',
+            'GET /api/advisor/*',
+            'GET /api/supervisor/*'
+        ],
+        timestamp: new Date().toISOString()
+    });
+});
 // Error Handling Middleware
 app.use((err, req, res, next) => {
+    console.error('🔴 Server Error:', err.message);
     console.error(err.stack);
-    res.status(500).json({ error: "Something went wrong." });
+    // Handle CORS errors specifically
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+            success: false,
+            error: 'CORS Error',
+            message: 'Origin not allowed. Please check CORS configuration.',
+            timestamp: new Date().toISOString()
+        });
+    }
+    res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'production'
+            ? 'Something went wrong. Please try again later.'
+            : err.message,
+        timestamp: new Date().toISOString()
+    });
 });
 // Start Server only if not in test environment
 if (process.env.NODE_ENV !== "test") {
@@ -191,6 +273,8 @@ if (process.env.NODE_ENV !== "test") {
         // Start archive job (runs every hour)
         (0, archiveJob_1.startArchiveJob)();
         console.log("✅ Archive job scheduler started");
+        // Start AI service keep-alive (runs every 10 minutes to prevent Render shutdown)
+        (0, aiServiceKeepAlive_1.startAIServiceKeepAlive)();
     });
 }
 exports.default = app;

@@ -1,14 +1,7 @@
-import { CreateMessageDTO, Message } from "../models/communication";
-export declare class MessageService {
-    uploadFile(file: Express.Multer.File, conversationId: string): Promise<{
-        url: string;
-        metadata: any;
-    }>;
-    sendMessage(senderId: string, data: CreateMessageDTO, file?: Express.Multer.File): Promise<Message>;
-    getMessages(conversationId: string, limit?: number, offset?: number): Promise<Message[]>;
-    editMessage(messageId: string, userId: string, content: string): Promise<Message>;
-    deleteMessage(messageId: string, userId: string): Promise<void>;
-}
-declare const _default: MessageService;
-export default _default;
+export declare const messageService: {
+    getContacts(userId: string, role: string): Promise<any[]>;
+    getMessages(user1Id: string, user2Id: string): Promise<any[]>;
+    sendMessage(senderId: string, receiverId: string, content: string): Promise<any>;
+    markAsRead(messageIds: string[]): Promise<void>;
+};
 //# sourceMappingURL=messageService.d.ts.map

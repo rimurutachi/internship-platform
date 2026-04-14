@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const studentController_1 = __importDefault(require("../../controllers/student/studentController"));
-const weeklyReports_1 = __importDefault(require("./weeklyReports"));
+const dailyReports_1 = __importDefault(require("./dailyReports"));
 const documentRequirements_1 = __importDefault(require("./documentRequirements"));
 const tasks_1 = __importDefault(require("./tasks"));
 const router = (0, express_1.Router)();
@@ -51,8 +51,8 @@ router.get('/mentors', studentController_1.default.getMentors);
 router.post('/mentors/:id/message', studentController_1.default.messageMentor);
 // Task routes (new dedicated task management)
 router.use('/', tasks_1.default);
-// Weekly reports routes
-router.use('/', weeklyReports_1.default);
+// Daily reports routes
+router.use('/', dailyReports_1.default);
 // Dashboard route
 router.get('/dashboard', studentController_1.default.getDashboardOverview);
 exports.default = router;

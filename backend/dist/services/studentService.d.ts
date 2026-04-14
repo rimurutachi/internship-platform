@@ -26,7 +26,6 @@ declare class StudentService {
     getRequiredDocumentsStatus(internshipId: string): Promise<{
         moa: any;
         job_description: any;
-        weekly_reports: any;
         final_evaluation: any;
     }>;
     /**

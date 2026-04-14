@@ -109,6 +109,7 @@ export interface ExportOptions {
   dateRange?: {
     start?: string;
     end?: string;
+    type?: string;
   };
   groupBy?: string;
 }

@@ -17,6 +17,7 @@ const axios_1 = __importDefault(require("axios"));
 const emitters_1 = require("../socket/emitters");
 const notificationService_1 = __importDefault(require("./notificationService"));
 const archiveService_1 = require("./archiveService");
+const gradeUtils_1 = require("../utils/gradeUtils");
 // NOTE: aiService is now used only for admin trend analysis (admin dashboard/analytics)
 // Individual evaluation analysis removed in v2.0.0
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -173,12 +174,22 @@ class EvaluationService {
         // NOTE: AI analysis removed in v2.0.0
         // AI is now used for historical trend analysis on approved evaluations only
         // Not for individual evaluation assistance during submission
-        // Step 2: Update evaluation status to submitted
+        // Step 2: Calculate final grade from total_score using CvSU grade scale
+        const totalScore = evaluation.total_score;
+        let finalGrade = null;
+        if (totalScore !== null && totalScore !== undefined && totalScore > 0) {
+            finalGrade = (0, gradeUtils_1.convertScoreToGrade)(totalScore);
+            console.log(`📊 [EvaluationService] Calculated grade from total_score: ${totalScore} → ${finalGrade}`);
+        }
+        // Step 3: Auto-approve evaluation (skip manual approval workflow)
+        const now = new Date().toISOString();
         const { data: updatedEvaluation, error: updateError } = await supabase
             .from('evaluations')
             .update({
-            status: 'submitted',
-            submitted_at: new Date().toISOString(),
+            status: 'approved',
+            submitted_at: now,
+            approved_at: now,
+            ...(finalGrade !== null ? { final_grade: finalGrade } : {}),
         })
             .eq('id', evaluationId)
             .select()
@@ -186,12 +197,12 @@ class EvaluationService {
         if (updateError) {
             throw new Error(`Failed to update evaluation: ${updateError.message}`);
         }
-        // Step 3: Real-time emit
+        // Step 4: Real-time emit
         (0, emitters_1.emitEvaluationUpdate)(evaluationId, {
-            event: 'evaluation_submitted',
+            event: 'evaluation_approved',
             evaluation: updatedEvaluation,
         });
-        // Step 4: Notify advisor that evaluation was submitted (using getById result which has relationships)
+        // Step 5: Notify advisor that evaluation was submitted and auto-approved
         const advisorId = evaluation.internship?.advisor_id;
         if (advisorId) {
             try {
@@ -202,8 +213,8 @@ class EvaluationService {
                 await notificationService_1.default.createNotification({
                     user_id: advisorId,
                     type: 'evaluation_submitted',
-                    title: 'New Evaluation Submitted',
-                    message: `An evaluation for ${studentName} has been submitted by the supervisor and is awaiting your approval.`,
+                    title: 'Evaluation Submitted & Approved',
+                    message: `An evaluation for ${studentName} has been submitted by the supervisor and automatically approved${finalGrade ? ` with a grade of ${finalGrade}` : ''}.`,
                     action_url: `/dashboard/advisor/evaluations`,
                     reference_type: 'evaluation',
                 });
@@ -212,8 +223,25 @@ class EvaluationService {
                 console.error('⚠️ Failed to send evaluation notification:', notifError);
             }
         }
-        console.log(`✅ Evaluation ${evaluationId} submitted successfully`);
-        // Step 5: Check if supervisor has completed all evaluations (for auto-archive)
+        // Step 6: Notify student that their evaluation is approved
+        const studentId = evaluation?.internship?.student?.id;
+        if (studentId) {
+            try {
+                await notificationService_1.default.createNotification({
+                    user_id: studentId,
+                    type: 'evaluation_approved',
+                    title: 'Evaluation Approved',
+                    message: `Your internship evaluation has been approved${finalGrade ? ` with a final grade of ${finalGrade}` : ''}.`,
+                    action_url: `/dashboard/student/evaluations`,
+                    reference_type: 'evaluation',
+                });
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to send student approval notification:', notifError);
+            }
+        }
+        console.log(`✅ Evaluation ${evaluationId} submitted and auto-approved successfully (grade: ${finalGrade})`);
+        // Step 7: Check if supervisor has completed all evaluations (for auto-archive)
         if (evaluation.evaluation_type === 'final' && evaluation.supervisor_id) {
             try {
                 await archiveService_1.archiveService.checkSupervisorEvaluationCompletion(evaluation.supervisor_id);

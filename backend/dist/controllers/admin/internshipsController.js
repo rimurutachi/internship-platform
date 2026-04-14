@@ -176,7 +176,7 @@ class InternshipsController {
     async createInternship(req, res) {
         console.log('[AdminInternships] createInternship request', { studentId: req.body.student_id, companyId: req.body.company_id, user: req.user?.id });
         try {
-            const { student_id, company_id, position, department, advisor_id, supervisor_id, start_date, end_date, status = 'pending', } = req.body;
+            const { student_id, company_id, position, department, advisor_id, supervisor_id, start_date, end_date, status = 'pending', required_hours, program_code, } = req.body;
             // Validate required fields
             if (!student_id ||
                 !company_id ||
@@ -206,7 +206,7 @@ class InternshipsController {
                     errors: validation.errors,
                 });
             }
-            // Create internship
+            // Create internship — include required_hours and program_code so custom hours are preserved
             const { data: internship, error } = await supabase
                 .from('internships')
                 .insert({
@@ -219,6 +219,8 @@ class InternshipsController {
                 start_date,
                 end_date,
                 status,
+                ...(required_hours ? { required_hours: Number(required_hours) } : {}),
+                ...(program_code ? { program_code } : {}),
             })
                 .select()
                 .single();
@@ -256,7 +258,7 @@ class InternshipsController {
         console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: req.user?.id });
         try {
             const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
-            const { position, department, advisor_id, supervisor_id, start_date, end_date, status } = req.body;
+            const { position, department, advisor_id, supervisor_id, start_date, end_date, status, required_hours, program_code } = req.body;
             // Get current internship
             const { data: currentInternship, error: fetchError } = await supabase
                 .from('internships')
@@ -285,6 +287,10 @@ class InternshipsController {
                 updateData.end_date = end_date;
             if (status !== undefined)
                 updateData.status = status;
+            if (required_hours !== undefined)
+                updateData.required_hours = Number(required_hours); // ← was missing!
+            if (program_code !== undefined)
+                updateData.program_code = program_code; // ← was missing!
             // Validate new date range if provided
             const finalStartDate = start_date || currentInternship.start_date;
             const finalEndDate = end_date || currentInternship.end_date;
@@ -562,7 +568,7 @@ class InternshipsController {
             // Get all students not in active internships list
             let query = supabase
                 .from('users')
-                .select('id, name, email, university_id')
+                .select('id, name, email, university_id, profile_data')
                 .eq('role', 'student');
             if (activeStudentIds.length > 0) {
                 query = query.not('id', 'in', `(${activeStudentIds.join(',')})`);

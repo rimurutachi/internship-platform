@@ -46,7 +46,7 @@ class InternshipsEnhancedController {
             const validTypes = [
                 'approaching_end_date',
                 'pending_documents',
-                'pending_weekly_report',
+                'pending_daily_report',
                 'evaluation_due',
                 'missing_supervisor',
                 'custom'
@@ -233,10 +233,10 @@ class InternshipsEnhancedController {
                     notificationTitle = 'Evaluation Due';
                     notificationMessage = notificationMessage || `Please submit your evaluation for ${internship.student?.name} before ${new Date(internship.end_date).toLocaleDateString()}.`;
                     break;
-                case 'pending_weekly_report':
-                    recipients.push(internship.student?.id, internship.advisor?.id);
-                    notificationTitle = 'Weekly Report Due';
-                    notificationMessage = notificationMessage || 'Your weekly progress report is due. Please submit it.';
+                case 'pending_daily_report':
+                    recipients.push(internship.student?.id);
+                    notificationTitle = 'Daily Report Reminder';
+                    notificationMessage = notificationMessage || 'Please remember to submit your daily report.';
                     break;
                 default:
                     recipients.push(internship.student?.id, internship.advisor?.id, internship.supervisor?.id);
@@ -393,20 +393,16 @@ class InternshipsEnhancedController {
                 res.status(500).json({ success: false, error: docsError.message });
                 return;
             }
-            // Get internship to check duration for expected weekly reports
+            // Verify internship exists
             const { data: internship, error: internshipError } = await supabase
                 .from('internships')
-                .select('start_date, end_date, status')
+                .select('id, status')
                 .eq('id', internship_id)
                 .single();
             if (internshipError || !internship) {
                 res.status(404).json({ success: false, error: 'Internship not found' });
                 return;
             }
-            // Calculate weeks and flag missing reports
-            const startDate = new Date(internship.start_date);
-            const endDate = new Date(internship.end_date);
-            const weeksOfInternship = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
             // Categorize documents
             const requiredDocs = ['MOA', 'Job Description', 'Final Evaluation'];
             const submittedDocTypes = (documents || []).map((d) => d.type);
@@ -417,22 +413,6 @@ class InternshipsEnhancedController {
                         type,
                         required: true,
                         status: doc ? (doc.status === 'draft' ? 'pending' : 'submitted') : 'missing',
-                        submitted_by: doc?.owner?.name || null,
-                        submitted_at: doc?.created_at || null
-                    };
-                }),
-                weekly_reports: Array(weeksOfInternship)
-                    .fill(null)
-                    .map((_, i) => {
-                    const weekNum = i + 1;
-                    const expectedBy = new Date(startDate.getTime() + weekNum * 7 * 24 * 60 * 60 * 1000);
-                    const doc = (documents || []).find((d) => d.type === `Weekly Report - Week ${weekNum}`);
-                    const isPastDue = expectedBy < new Date() && !doc;
-                    return {
-                        type: `Weekly Report - Week ${weekNum}`,
-                        required: true,
-                        expected_by: expectedBy.toISOString(),
-                        status: doc ? 'submitted' : (isPastDue ? 'overdue' : 'pending'),
                         submitted_by: doc?.owner?.name || null,
                         submitted_at: doc?.created_at || null
                     };
