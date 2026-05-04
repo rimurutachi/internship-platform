@@ -100,8 +100,8 @@ export async function createDailyReport(
 
     console.log('✅ [DailyReports] Report created:', report.id);
 
-    // Update internship total_hours_worked
-    await recalculateTotalHours(internship_id);
+    // NOTE: Daily reports no longer affect total_hours_worked.
+    // Hours are now tracked exclusively via approved weekly DTR submissions.
 
     return { success: true, data: report };
   } catch (error: any) {
@@ -201,10 +201,8 @@ export async function updateDailyReport(
       throw new Error(`Failed to update report: ${updateError.message}`);
     }
 
-    // Recalculate if hours changed
-    if (updates.hours_worked !== undefined) {
-      await recalculateTotalHours(report.internship_id);
-    }
+    // NOTE: Daily reports no longer affect total_hours_worked.
+    // Hours are tracked exclusively via approved weekly DTR submissions.
 
     return { success: true, data: updatedReport };
   } catch (error: any) {
@@ -240,8 +238,8 @@ export async function deleteDailyReport(
       throw new Error(`Failed to delete report: ${deleteError.message}`);
     }
 
-    // Recalculate total hours
-    await recalculateTotalHours(report.internship_id);
+    // NOTE: Daily reports no longer affect total_hours_worked.
+    // Hours are tracked exclusively via approved weekly DTR submissions.
 
     return { success: true, message: 'Report deleted successfully' };
   } catch (error: any) {

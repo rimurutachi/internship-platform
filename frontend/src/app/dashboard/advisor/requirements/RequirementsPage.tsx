@@ -95,6 +95,7 @@ export default function DocumentRequirementsPage() {
     target_audience: 'all_students',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [noDueDate, setNoDueDate] = useState(false);
 
   // Fetch requirements
   const fetchRequirements = useCallback(async () => {
@@ -239,6 +240,7 @@ export default function DocumentRequirementsPage() {
       is_mandatory: true,
       target_audience: 'all_students',
     });
+    setNoDueDate(false);
   };
 
   // Open edit dialog
@@ -247,11 +249,12 @@ export default function DocumentRequirementsPage() {
     setFormData({
       title: requirement.title,
       description: requirement.description || '',
-      due_date: requirement.due_date || '',
+      due_date: requirement.due_date ? requirement.due_date.split('T')[0] : '',
       is_mandatory: requirement.is_mandatory,
       target_audience: requirement.target_audience,
       metadata: requirement.metadata,
     });
+    setNoDueDate(!requirement.due_date);
     setShowEditDialog(true);
   };
 
@@ -464,19 +467,23 @@ export default function DocumentRequirementsPage() {
                         )}
                         
                         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                          {requirement.due_date && (
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4" />
-                              <span>
-                                Due: {new Date(requirement.due_date).toLocaleDateString()}
-                              </span>
-                              {new Date(requirement.due_date) < new Date() && (
-                                <Badge variant="destructive" className="ml-1 text-xs">
-                                  Overdue
-                                </Badge>
-                              )}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {requirement.due_date ? (
+                              <>
+                                <span>
+                                  Due: {new Date(requirement.due_date).toLocaleDateString()}
+                                </span>
+                                {new Date(requirement.due_date) < new Date() && (
+                                  <Badge variant="destructive" className="ml-1 text-xs">
+                                    Overdue
+                                  </Badge>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-gray-400 italic">No due date</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1">
                             <Users className="h-4 w-4" />
                             <span>
@@ -570,12 +577,33 @@ export default function DocumentRequirementsPage() {
             
             <div className="space-y-2">
               <Label htmlFor="due_date">Due Date</Label>
-              <Input
-                id="due_date"
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-              />
+              <div className="flex items-center gap-3">
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={noDueDate ? '' : formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  disabled={noDueDate}
+                  className={cn(noDueDate && 'opacity-50 cursor-not-allowed')}
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="checkbox"
+                  id="no_due_date"
+                  checked={noDueDate}
+                  onChange={(e) => {
+                    setNoDueDate(e.target.checked);
+                    if (e.target.checked) {
+                      setFormData({ ...formData, due_date: '' });
+                    }
+                  }}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="no_due_date" className="text-sm text-gray-500 font-normal cursor-pointer">
+                  No due date
+                </Label>
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -652,12 +680,33 @@ export default function DocumentRequirementsPage() {
             
             <div className="space-y-2">
               <Label htmlFor="edit-due_date">Due Date</Label>
-              <Input
-                id="edit-due_date"
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-              />
+              <div className="flex items-center gap-3">
+                <Input
+                  id="edit-due_date"
+                  type="date"
+                  value={noDueDate ? '' : formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  disabled={noDueDate}
+                  className={cn(noDueDate && 'opacity-50 cursor-not-allowed')}
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="checkbox"
+                  id="edit-no_due_date"
+                  checked={noDueDate}
+                  onChange={(e) => {
+                    setNoDueDate(e.target.checked);
+                    if (e.target.checked) {
+                      setFormData({ ...formData, due_date: '' });
+                    }
+                  }}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="edit-no_due_date" className="text-sm text-gray-500 font-normal cursor-pointer">
+                  No due date
+                </Label>
+              </div>
             </div>
             
             <div className="space-y-2">

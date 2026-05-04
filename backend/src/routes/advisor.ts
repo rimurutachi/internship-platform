@@ -3,6 +3,7 @@ import { authenticateToken, requireRole } from '../middleware/auth';
 import studentsRoutes from './advisor/students';
 import evaluationsRoutes from './advisor/evaluations';
 import documentRequirementsRoutes from './advisor/documentRequirements';
+import dtrRoutes from './advisor/dtr';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use(requireRole(['advisor']));
 router.use('/', studentsRoutes);
 router.use('/', evaluationsRoutes);
 router.use('/', documentRequirementsRoutes);
+router.use('/', dtrRoutes);
 
 export default router;

@@ -499,6 +499,60 @@ async def evaluate_post_approval_legacy(request: Request, evaluations: list[dict
 
 
 
+# =============================================================================
+# DTR SCANNING ENDPOINT
+# =============================================================================
+
+from pydantic import BaseModel
+
+class DTRScanRequest(BaseModel):
+    """Request model for DTR scanning"""
+    file_url: str
+    dtr_id: str = ""
+
+@app.post("/api/scan-dtr")
+@limiter.limit(RATE_LIMIT_ANALYSIS)
+async def scan_dtr(request: Request, body: DTRScanRequest):
+    """
+    Scan a DTR (Daily Time Record) document and extract hours.
+    
+    Accepts PDF or image files (JPEG, PNG) via signed URL.
+    Uses Google Gemini Vision API for OCR-based extraction.
+    
+    Returns:
+        - total_hours: Total hours extracted from the DTR
+        - daily_breakdown: Per-day time-in/time-out and hours
+        - confidence_score: How confident the AI is in the extraction
+        - notes: Any relevant observations
+    """
+    try:
+        from services.dtr_scanner import dtr_scanner
+        
+        logger.info(f"📋 [DTR Scan] Received scan request for DTR: {body.dtr_id}")
+        
+        if not body.file_url:
+            raise HTTPException(status_code=400, detail="file_url is required")
+        
+        if not dtr_scanner.is_available():
+            logger.warning("⚠️ [DTR Scan] Scanner not available, returning error")
+            raise HTTPException(
+                status_code=503, 
+                detail="DTR scanning service is not configured. GEMINI_API_KEY may be missing."
+            )
+        
+        # Scan the DTR
+        result = await dtr_scanner.scan_dtr(body.file_url)
+        
+        logger.info(f"✅ [DTR Scan] Complete - {result.total_hours} hours extracted (confidence: {result.confidence_score})")
+        
+        return result.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [DTR Scan] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"DTR scanning failed: {str(e)}")
+
 
 # =============================================================================
 # RUN SERVER

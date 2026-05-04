@@ -247,7 +247,23 @@ class ReportsService {
             }
         });
         const by_program = Object.values(programMap).filter(p => p.total > 0);
-        return { statuses, avg_completion_rate, by_program };
+        // Fetch completed students
+        let completedQuery = supabaseAdmin
+            .from('internships')
+            .select('student_id, program_code, users!internships_student_id_fkey(first_name, last_name, name)')
+            .eq('status', 'completed');
+        if (dateRange && dateRange.start) {
+            completedQuery = completedQuery.gte('end_date', dateRange.start);
+        }
+        if (dateRange && dateRange.end) {
+            completedQuery = completedQuery.lte('end_date', dateRange.end);
+        }
+        const { data: completedStudentsData } = await completedQuery;
+        const completed_students = (completedStudentsData || []).map((cs) => ({
+            name: cs.users?.name || `${cs.users?.first_name || ''} ${cs.users?.last_name || ''}`.trim() || 'Unknown Student',
+            program_code: cs.program_code
+        }));
+        return { statuses, avg_completion_rate, by_program, completed_students };
     }
     static async generateEvaluationMetrics(dateRange) {
         // Build query with optional date range
@@ -503,10 +519,10 @@ class ReportsService {
         return csv;
     }
     static async convertToPDF(data) {
-        const PDFDocument = require('pdfkit');
+        const PDFDocument = require('pdfkit-table');
         const path = require('path');
         const fs = require('fs');
-        const doc = new PDFDocument({ margin: 50 });
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
         const chunks = [];
         doc.on('data', (chunk) => chunks.push(chunk));
         doc.on('end', () => { });
@@ -537,38 +553,69 @@ class ReportsService {
             doc.text(`Date Range: ${data.date_range.type.toUpperCase()}`, { align: 'center' });
         }
         doc.moveDown(2);
+        const tableOptions = {
+            prepareHeader: () => doc.font("Helvetica-Bold").fontSize(10),
+            prepareRow: () => doc.font("Helvetica").fontSize(10),
+            padding: 5
+        };
         // Overview
         if (data.overview) {
-            doc.fontSize(16).text('Overview', { underline: true });
-            doc.moveDown();
-            doc.fontSize(12);
-            doc.text(`Total Users: ${data.overview.total_users}`);
-            doc.text(`Active Internships: ${data.overview.active_internships}`);
-            doc.text(`Total Evaluations: ${data.overview.total_evaluations}`);
-            doc.text(`Completion Rate: ${data.overview.completion_rate}%`);
-            doc.moveDown(2);
+            await doc.table({
+                title: "Overview",
+                headers: ["Metric", "Value"],
+                rows: [
+                    ["Total Users", String(data.overview.total_users)],
+                    ["Active Internships", String(data.overview.active_internships)],
+                    ["Total Evaluations", String(data.overview.total_evaluations)],
+                    ["Completion Rate", `${data.overview.completion_rate}%`]
+                ]
+            }, tableOptions);
+            doc.moveDown(1);
         }
         // Program Internship Status
         if (data.internship_status && data.internship_status.by_program) {
-            doc.fontSize(16).text('Internship Status by Program', { underline: true });
-            doc.moveDown();
-            doc.fontSize(10);
-            data.internship_status.by_program.forEach((p) => {
-                doc.font('Helvetica-Bold').text(`${p.program_name || p.program_code}`);
-                doc.font('Helvetica').text(`Pending: ${p.pending}  |  Active: ${p.active}  |  Completed: ${p.completed}  |  Cancelled: ${p.cancelled}  |  Total: ${p.total}`);
-                doc.moveDown(0.5);
-            });
+            const rows = data.internship_status.by_program.map((p) => [
+                p.program_name || p.program_code,
+                String(p.pending),
+                String(p.active),
+                String(p.completed),
+                String(p.cancelled),
+                String(p.total)
+            ]);
+            await doc.table({
+                title: "Internship Status by Program",
+                headers: ["Program", "Pending", "Active", "Completed", "Cancelled", "Total"],
+                rows: rows
+            }, tableOptions);
             doc.moveDown(1);
+            // Completed Students Table
+            if (data.internship_status.completed_students && data.internship_status.completed_students.length > 0) {
+                const studentRows = data.internship_status.completed_students.map((s) => [
+                    s.name,
+                    s.program_code
+                ]);
+                await doc.table({
+                    title: "Completed Students",
+                    headers: ["Student Name", "Program"],
+                    rows: studentRows
+                }, tableOptions);
+                doc.moveDown(1);
+            }
         }
         // Monthly Stats
         if (data.monthly_stats && data.monthly_stats.length) {
-            doc.fontSize(16).text('Monthly Statistics', { underline: true });
-            doc.moveDown();
-            doc.fontSize(10);
-            data.monthly_stats.forEach((m) => {
-                doc.text(`${m.month}: Users=${m.users}, Internships=${m.internships}, Evaluations=${m.evaluations}`);
-            });
-            doc.moveDown(2);
+            const rows = data.monthly_stats.map((m) => [
+                m.month,
+                String(m.users),
+                String(m.internships),
+                String(m.evaluations)
+            ]);
+            await doc.table({
+                title: "Monthly Statistics",
+                headers: ["Month", "Users", "Internships", "Evaluations"],
+                rows: rows
+            }, tableOptions);
+            doc.moveDown(1);
         }
         // AI Insights
         if (data.ai_insights && data.ai_insights.status !== 'error') {
@@ -577,32 +624,42 @@ class ReportsService {
             doc.moveDown();
             const insightsList = data.ai_insights.insights || [];
             if (insightsList.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(14).text('Key Insights');
-                doc.moveDown(0.5);
-                doc.font('Helvetica').fontSize(10);
-                insightsList.forEach((insight) => {
-                    doc.font('Helvetica-Bold').text(`• ${insight.title}`);
-                    doc.font('Helvetica').text(`  ${insight.description}`);
-                    doc.moveDown(0.5);
-                });
+                const rows = insightsList.map((insight) => [
+                    insight.title,
+                    insight.description
+                ]);
+                await doc.table({
+                    title: "Key Insights",
+                    headers: ["Insight", "Description"],
+                    rows: rows
+                }, tableOptions);
                 doc.moveDown(1);
             }
             if (data.ai_insights.skill_trends && data.ai_insights.skill_trends.most_demanded_overall) {
-                doc.font('Helvetica-Bold').fontSize(14).text('Top Skill Demands');
-                doc.moveDown(0.5);
-                doc.font('Helvetica').fontSize(10);
-                data.ai_insights.skill_trends.most_demanded_overall.slice(0, 5).forEach((item) => {
-                    doc.text(`• ${item.name} (${item.percentage}%)`);
-                });
+                const rows = data.ai_insights.skill_trends.most_demanded_overall.slice(0, 10).map((item) => [
+                    item.name,
+                    `${item.percentage}%`,
+                    String(item.frequency)
+                ]);
+                await doc.table({
+                    title: "Top Skill Demands",
+                    headers: ["Skill", "Percentage", "Frequency"],
+                    rows: rows
+                }, tableOptions);
                 doc.moveDown(1);
             }
             if (data.ai_insights.company_performance && data.ai_insights.company_performance.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(14).text('Top Company Performance Tracking');
-                doc.moveDown(0.5);
-                doc.font('Helvetica').fontSize(10);
-                data.ai_insights.company_performance.slice(0, 5).forEach((c, index) => {
-                    doc.text(`${index + 1}. ${c.company_name} - Avg Grade: ${c.average_grade} (${c.performance_rating})`);
-                });
+                const rows = data.ai_insights.company_performance.slice(0, 10).map((c, index) => [
+                    String(index + 1),
+                    c.company_name,
+                    String(c.average_grade),
+                    c.performance_rating
+                ]);
+                await doc.table({
+                    title: "Top Company Performance Tracking",
+                    headers: ["Rank", "Company", "Avg Grade", "Rating"],
+                    rows: rows
+                }, tableOptions);
             }
         }
         doc.end();
