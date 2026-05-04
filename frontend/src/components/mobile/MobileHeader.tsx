@@ -86,8 +86,8 @@ export const MobileHeader = ({
           
           {/* Logo */}
           <Image 
-            src="/logo.png" 
-            alt="Intern-Galing Logo" 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
             width={32} 
             height={32}
             className="object-contain flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8"

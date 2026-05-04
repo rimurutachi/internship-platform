@@ -51,8 +51,8 @@ export const AdvisorHeader = () => {
         {/* Left: CVSU Branding */}
         <div className="flex items-center space-x-3">
           <Image 
-            src="/logo.png" 
-            alt="Intern-Galing Logo" 
+            src="/cvsu-logo.png" 
+            alt="CvSU Logo" 
             width={40} 
             height={40}
             className="object-contain"
@@ -92,8 +92,8 @@ export const AdvisorHeader = () => {
 
           {/* CVSU and Bagong Pilipinas Logos */}
           <Image 
-            src="/cvsu-logo.png" 
-            alt="CvSU Logo" 
+            src="/logo.png" 
+            alt="Intern-Galing Logo" 
             width={32} 
             height={32}
             className="object-contain"
