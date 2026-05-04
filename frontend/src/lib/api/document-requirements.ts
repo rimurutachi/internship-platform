@@ -97,6 +97,7 @@ export interface UpdateRequirementDTO extends Partial<CreateRequirementDTO> {
 export interface ReviewSubmissionDTO {
   status: 'approved' | 'rejected' | 'revision_requested';
   feedback?: string;
+  manual_hours_override?: number;
 }
 
 export interface PaginatedResponse<T> {

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import notificationService from './notificationService';
+import { dtrSubmissionService } from './dtrSubmissionService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -39,6 +40,7 @@ export interface CreateSubmissionDTO {
 export interface ReviewSubmissionDTO {
   status: 'approved' | 'rejected' | 'revision_requested';
   feedback?: string;
+  manual_hours_override?: number;
 }
 
 export interface SubmissionFilters {
@@ -342,6 +344,23 @@ export class DocumentSubmissionsService {
   /**
    * Review a submission (advisor only)
    */
+  /**
+   * Check if a requirement title indicates a DTR (Daily Time Record) requirement
+   */
+  private isDTRRequirement(title: string): boolean {
+    const lower = title.toLowerCase();
+    return lower.includes('daily time record') || lower.includes('dtr');
+  }
+
+  /**
+   * Extract week number from a requirement title like "Weekly Daily Time Record - Week 3"
+   * Returns the number or 1 as fallback
+   */
+  private extractWeekNumber(title: string): number {
+    const match = title.match(/week\s*(\d+)/i);
+    return match ? parseInt(match[1]) : 1;
+  }
+
   async reviewSubmission(
     submissionId: string,
     advisorId: string,
@@ -351,8 +370,8 @@ export class DocumentSubmissionsService {
     const { data: submission, error: subError } = await supabase
       .from('document_submissions')
       .select(`
-        id, student_id, status,
-        requirement:document_requirements(id, title, created_by)
+        id, student_id, status, file_url, file_name, file_size, mime_type,
+        requirement:document_requirements(id, title, created_by, due_date)
       `)
       .eq('id', submissionId)
       .single();
@@ -389,11 +408,146 @@ export class DocumentSubmissionsService {
       throw new Error('Failed to update submission status');
     }
 
-    // 4. Notify the student about the review result
+    // 4. If this is a DTR requirement and it was approved, process DTR hours
+    if (review.status === 'approved' && this.isDTRRequirement(requirement.title)) {
+      console.log(`📋 [DTR] Detected DTR requirement: "${requirement.title}"`);
+      await this.processDTRApproval(
+        submission,
+        requirement,
+        advisorId,
+        review.manual_hours_override
+      );
+    }
+
+    // 5. Notify the student about the review result
     await this.notifyStudentAboutReview(submission.student_id, updated, requirement.title);
 
     console.log(`📝 Submission ${submissionId} reviewed: ${review.status}`);
     return updated;
+  }
+
+  /**
+   * Process a DTR approval: create weekly_dtr_submissions record,
+   * trigger AI scan or apply manual hours, recalculate total.
+   */
+  private async processDTRApproval(
+    submission: any,
+    requirement: any,
+    advisorId: string,
+    manualHoursOverride?: number
+  ): Promise<void> {
+    try {
+      const weekNumber = this.extractWeekNumber(requirement.title);
+      const studentId = submission.student_id;
+
+      // 1. Find the student's active internship
+      const { data: internship } = await supabase
+        .from('internships')
+        .select('id, start_date, end_date')
+        .eq('student_id', studentId)
+        .eq('status', 'active')
+        .single();
+
+      if (!internship) {
+        console.warn(`⚠️ [DTR] No active internship found for student ${studentId}, skipping hours`);
+        return;
+      }
+
+      // 2. Calculate week dates from the due date or internship dates
+      const dueDate = requirement.due_date ? new Date(requirement.due_date) : new Date();
+      // Week end = due date, Week start = 7 days before
+      const weekEnd = dueDate.toISOString().split('T')[0];
+      const weekStartDate = new Date(dueDate);
+      weekStartDate.setDate(weekStartDate.getDate() - 6);
+      const weekStart = weekStartDate.toISOString().split('T')[0];
+
+      // 3. Check if a DTR record already exists for this week
+      const { data: existingDTR } = await supabase
+        .from('weekly_dtr_submissions')
+        .select('id')
+        .eq('internship_id', internship.id)
+        .eq('requirement_id', requirement.id)
+        .maybeSingle();
+
+      let dtrId: string;
+
+      if (existingDTR) {
+        // Update existing record
+        const { data: updatedDTR, error: updateErr } = await supabase
+          .from('weekly_dtr_submissions')
+          .update({
+            file_url: submission.file_url,
+            file_name: submission.file_name,
+            file_size: submission.file_size || null,
+            mime_type: submission.mime_type || null,
+            status: 'approved',
+            reviewed_by: advisorId,
+            reviewed_at: new Date().toISOString(),
+            manual_hours_override: manualHoursOverride ?? null,
+            extracted_hours: manualHoursOverride ?? 0,
+            ai_scan_status: manualHoursOverride ? 'manual' : 'pending',
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingDTR.id)
+          .select('id')
+          .single();
+
+        if (updateErr) {
+          console.error('❌ [DTR] Failed to update DTR record:', updateErr.message);
+          return;
+        }
+        dtrId = updatedDTR!.id;
+      } else {
+        // Create new DTR record
+        const { data: newDTR, error: insertErr } = await supabase
+          .from('weekly_dtr_submissions')
+          .insert({
+            internship_id: internship.id,
+            student_id: studentId,
+            requirement_id: requirement.id,
+            week_number: weekNumber,
+            week_start_date: weekStart,
+            week_end_date: weekEnd,
+            file_url: submission.file_url,
+            file_name: submission.file_name,
+            file_size: submission.file_size || null,
+            mime_type: submission.mime_type || null,
+            status: 'approved',
+            reviewed_by: advisorId,
+            reviewed_at: new Date().toISOString(),
+            manual_hours_override: manualHoursOverride ?? null,
+            extracted_hours: manualHoursOverride ?? 0,
+            ai_scan_status: manualHoursOverride ? 'manual' : 'pending',
+            version: 1,
+            submitted_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (insertErr) {
+          console.error('❌ [DTR] Failed to create DTR record:', insertErr.message);
+          return;
+        }
+        dtrId = newDTR!.id;
+      }
+
+      console.log(`✅ [DTR] Created/updated DTR record ${dtrId} for week ${weekNumber}`);
+
+      // 4. If manual hours provided, recalculate immediately
+      if (manualHoursOverride !== undefined && manualHoursOverride !== null) {
+        await dtrSubmissionService.recalculateDTRHours(internship.id);
+        console.log(`✅ [DTR] Manual hours ${manualHoursOverride} applied, total recalculated`);
+      } else {
+        // 5. Trigger AI scan (fire-and-forget)
+        (dtrSubmissionService as any).triggerAIScan(dtrId, submission.file_url, internship.id).catch((err: any) => {
+          console.error('❌ [DTR] AI scan failed (non-blocking):', err.message);
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ [DTR] Error processing DTR approval:', error.message);
+      // Non-blocking: don't fail the review if DTR processing fails
+    }
   }
 
   /**

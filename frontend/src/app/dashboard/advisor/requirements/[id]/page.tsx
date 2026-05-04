@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Eye,
   MessageSquare,
+  Zap,
 } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
@@ -25,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import {
@@ -75,6 +77,14 @@ export default function RequirementDetailPage() {
   const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected' | 'revision_requested'>('approved');
   const [reviewNotes, setReviewNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [manualHoursOverride, setManualHoursOverride] = useState('');
+  const [showManualOverride, setShowManualOverride] = useState(false);
+
+  // Check if this is a DTR requirement
+  const isDTR = requirement ? (
+    requirement.title.toLowerCase().includes('daily time record') ||
+    requirement.title.toLowerCase().includes('dtr')
+  ) : false;
 
   // Helper function to try multiple path variations and return a signed URL
   const tryGenerateSignedUrl = async (
@@ -265,12 +275,17 @@ export default function RequirementDetailPage() {
       const response = await reviewSubmission(selectedSubmission.id, {
         status: reviewStatus,
         feedback: reviewNotes || undefined,
+        ...(isDTR && showManualOverride && manualHoursOverride
+          ? { manual_hours_override: parseFloat(manualHoursOverride) }
+          : {}),
       });
 
       if (response.success) {
         toast({
           title: 'Success',
-          description: `Submission ${reviewStatus.replace('_', ' ')} successfully`,
+          description: isDTR && reviewStatus === 'approved'
+            ? 'DTR approved! Hours will be extracted and added to student progress.'
+            : `Submission ${reviewStatus.replace('_', ' ')} successfully`,
         });
         setShowReviewDialog(false);
         setSelectedSubmission(null);
@@ -294,6 +309,8 @@ export default function RequirementDetailPage() {
     setSelectedSubmission(submission);
     setReviewStatus('approved');
     setReviewNotes('');
+    setManualHoursOverride('');
+    setShowManualOverride(false);
     setShowReviewDialog(true);
   };
 
@@ -422,6 +439,24 @@ export default function RequirementDetailPage() {
               </div>
             </CardHeader>
           </Card>
+
+          {/* DTR Info Banner */}
+          {isDTR && (
+            <Card className="mb-6 border-blue-200 bg-blue-50/50 dark:bg-blue-950/10">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Zap className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                    This is a Weekly DTR Requirement
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    When you approve a submission, the hours will be automatically extracted via AI and added to the student&apos;s total internship hours.
+                    You can also manually override the hours during review.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -604,7 +639,7 @@ export default function RequirementDetailPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Decision</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className={cn("grid gap-2", isDTR ? "grid-cols-2" : "grid-cols-3")}>
                 <Button
                   variant={reviewStatus === 'approved' ? 'default' : 'outline'}
                   onClick={() => setReviewStatus('approved')}
@@ -625,18 +660,61 @@ export default function RequirementDetailPage() {
                   <RotateCcw className="h-4 w-4 mr-1" />
                   Revise
                 </Button>
-                <Button
-                  variant={reviewStatus === 'rejected' ? 'default' : 'outline'}
-                  onClick={() => setReviewStatus('rejected')}
-                  className={cn(
-                    reviewStatus === 'rejected' && 'bg-red-600 hover:bg-red-700'
-                  )}
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  Reject
-                </Button>
+                {/* Hide Reject for DTR requirements */}
+                {!isDTR && (
+                  <Button
+                    variant={reviewStatus === 'rejected' ? 'default' : 'outline'}
+                    onClick={() => setReviewStatus('rejected')}
+                    className={cn(
+                      reviewStatus === 'rejected' && 'bg-red-600 hover:bg-red-700'
+                    )}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Reject
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* Manual Hours Override (DTR only, on approve) */}
+            {isDTR && reviewStatus === 'approved' && (
+              <div className="space-y-3 p-3 rounded-lg border border-blue-200 bg-blue-50/30 dark:bg-blue-950/10">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="manual-override"
+                    checked={showManualOverride}
+                    onChange={(e) => setShowManualOverride(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="manual-override" className="text-sm cursor-pointer">
+                    Manually input hours (override AI extraction)
+                  </Label>
+                </div>
+                {showManualOverride && (
+                  <div className="space-y-1">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="168"
+                      step="0.5"
+                      value={manualHoursOverride}
+                      onChange={(e) => setManualHoursOverride(e.target.value)}
+                      placeholder="Enter total hours for this week..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This will skip AI scanning and use your value directly.
+                    </p>
+                  </div>
+                )}
+                {!showManualOverride && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    <Zap className="h-3 w-3 inline mr-1" />
+                    Hours will be automatically extracted from the DTR file using AI.
+                  </p>
+                )}
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="review-notes">

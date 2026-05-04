@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, BookOpen, Hash } from 'lucide-react';
+import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, BookOpen, Hash, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -17,8 +17,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { advisorStudentsAPI, type StudentListItem, type StudentDetails } from '@/lib/api/advisor-students';
+import { advisorStudentsAPI, type StudentListItem, type StudentDetails, type DocumentTrackerItem } from '@/lib/api/advisor-students';
 import { hoursApi } from '@/lib/api/hours';
+import { apiClient } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
+import { DocumentTracker } from '@/components/advisor/DocumentTracker';
 import type { InternshipHoursSummary } from '@/types/hours';
 
 export default function MyStudents() {
@@ -39,6 +42,13 @@ export default function MyStudents() {
   
   // Hours data for selected student
   const [studentHoursSummary, setStudentHoursSummary] = useState<InternshipHoursSummary | null>(null);
+  
+  // DTR history for selected student
+  const [dtrHistory, setDtrHistory] = useState<any[]>([]);
+  const [showDTRBreakdown, setShowDTRBreakdown] = useState(true);
+  
+  // Document tracker data for selected student
+  const [documentTrackerData, setDocumentTrackerData] = useState<DocumentTrackerItem[]>([]);
   
   // Hours data map for all students (internshipId -> progress)
   const [hoursProgressMap, setHoursProgressMap] = useState<Record<string, number>>({});
@@ -92,6 +102,8 @@ export default function MyStudents() {
       setShowDetails(true);
       setError(null);
       setStudentHoursSummary(null);
+      setDtrHistory([]);
+      setDocumentTrackerData([]);
       
       const { student } = await advisorStudentsAPI.getStudentDetails(studentId);
       setSelectedStudent(student);
@@ -106,6 +118,24 @@ export default function MyStudents() {
         } catch (e) {
           console.error('Failed to fetch hours:', e);
         }
+
+        // Fetch DTR history
+        try {
+          const dtrResult = await apiClient.get(`/advisor/students/${studentId}/dtr-history`);
+          if (dtrResult.data?.success) {
+            setDtrHistory(dtrResult.data.data || []);
+          }
+        } catch (e) {
+          console.error('Failed to fetch DTR history:', e);
+        }
+      }
+
+      // Fetch document tracker data (always, even without internship it will return empty)
+      try {
+        const trackerData = await advisorStudentsAPI.getStudentDocumentTracker(studentId);
+        setDocumentTrackerData(trackerData);
+      } catch (e) {
+        console.error('Failed to fetch document tracker:', e);
       }
     } catch (err: any) {
       console.error('Error loading student details:', err);
@@ -667,8 +697,8 @@ export default function MyStudents() {
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-lg font-bold">{studentHoursSummary.days_reported}</p>
-                      <p className="text-xs text-muted-foreground">Days</p>
+                      <p className="text-lg font-bold">{dtrHistory.length}</p>
+                      <p className="text-xs text-muted-foreground">Weeks</p>
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
@@ -686,6 +716,84 @@ export default function MyStudents() {
                   {studentHoursSummary.is_completed && (
                     <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400 text-center">
                       <p className="font-medium">✅ Hours requirement completed!</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Document Tracker */}
+              {documentTrackerData.length > 0 && (
+                <DocumentTracker documents={documentTrackerData} />
+              )}
+
+              {/* Weekly DTR Breakdown */}
+              {dtrHistory.length > 0 && (
+                <div className="border rounded-lg p-4 space-y-3">
+                  <button
+                    onClick={() => setShowDTRBreakdown(!showDTRBreakdown)}
+                    className="flex items-center justify-between w-full"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <h3 className="font-bold text-lg">Weekly DTR Submissions</h3>
+                      <Badge variant="secondary">{dtrHistory.length}</Badge>
+                    </div>
+                    {showDTRBreakdown ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+
+                  {showDTRBreakdown && (
+                    <div className="space-y-2 mt-3">
+                      {dtrHistory.map((dtr: any) => (
+                        <div
+                          key={dtr.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">Week {dtr.week_number}</span>
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  dtr.status === 'approved' && 'bg-green-100 text-green-800',
+                                  dtr.status === 'pending' && 'bg-yellow-100 text-yellow-800',
+                                  dtr.status === 'revision_requested' && 'bg-orange-100 text-orange-800'
+                                )}
+                              >
+                                {dtr.status === 'approved' ? 'Approved' :
+                                 dtr.status === 'pending' ? 'Pending' : 'Revision'}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {dtr.week_start_date && dtr.week_end_date ? (
+                                <>{new Date(dtr.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(dtr.week_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                              ) : (
+                                <>Submitted: {new Date(dtr.submitted_at).toLocaleDateString()}</>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-primary">
+                              {dtr.manual_hours_override ?? dtr.extracted_hours ?? 0}
+                            </p>
+                            <p className="text-xs text-muted-foreground">hours</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Total DTR Hours */}
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <span className="font-semibold text-sm">Total from DTR</span>
+                        <span className="text-lg font-bold text-primary">
+                          {dtrHistory
+                            .filter((d: any) => d.status === 'approved')
+                            .reduce((sum: number, d: any) => sum + (d.manual_hours_override ?? d.extracted_hours ?? 0), 0)
+                            .toFixed(1)} hours
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

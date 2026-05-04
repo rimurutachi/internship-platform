@@ -29,6 +29,10 @@ declare class ReportsService {
             cancelled: number;
             total: number;
         }[];
+        completed_students: {
+            name: any;
+            program_code: any;
+        }[];
     }>;
     static generateEvaluationMetrics(dateRange?: {
         start?: string;

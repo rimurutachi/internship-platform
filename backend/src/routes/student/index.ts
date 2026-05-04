@@ -4,6 +4,7 @@ import studentController from '../../controllers/student/studentController';
 import dailyReportsRoutes from './dailyReports';
 import documentRequirementsRoutes from './documentRequirements';
 import tasksRoutes from './tasks';
+import dtrRoutes from './dtr';
 
 const router = Router();
 
@@ -60,6 +61,9 @@ router.use('/', tasksRoutes);
 
 // Daily reports routes
 router.use('/', dailyReportsRoutes);
+
+// Weekly DTR submission routes
+router.use('/', dtrRoutes);
 
 // Dashboard route
 router.get('/dashboard', studentController.getDashboardOverview);

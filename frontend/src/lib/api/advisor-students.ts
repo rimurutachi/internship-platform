@@ -98,6 +98,25 @@ export interface StudentDetails extends StudentListItem {
   recentReports?: any[];
 }
 
+export interface DocumentTrackerSubmission {
+  id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'revision_requested';
+  file_name: string;
+  submitted_at: string;
+  reviewed_at: string | null;
+  feedback: string | null;
+  version: number;
+}
+
+export interface DocumentTrackerItem {
+  requirement_id: string;
+  title: string;
+  description: string | null;
+  is_mandatory: boolean;
+  due_date: string | null;
+  submission: DocumentTrackerSubmission | null;
+}
+
 export const advisorStudentsAPI = {
   /**
    * Get ALL students assigned to this advisor:
@@ -130,5 +149,16 @@ export const advisorStudentsAPI = {
       throw new Error(result.error || 'Failed to fetch student details');
     }
     return { student: result.data };
+  },
+
+  /**
+   * Get document tracker data for a student (all non-DTR requirements + submission status)
+   */
+  getStudentDocumentTracker: async (studentId: string): Promise<DocumentTrackerItem[]> => {
+    const result = await apiCall<DocumentTrackerItem[]>(`/advisor/students/${studentId}/document-tracker`);
+    if (!result.success || !result.data) {
+      return [];
+    }
+    return result.data;
   },
 };

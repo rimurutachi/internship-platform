@@ -2,11 +2,14 @@
  * Hours Tracking Service
  * 
  * Handles all internship hours calculation logic including:
- * - Total hours worked from daily reports
+ * - Total hours worked from approved weekly DTR submissions
  * - Progress percentage calculation
  * - Projected end date estimation
  * - Remaining hours calculation
  * - Holiday handling (regular vs special)
+ * 
+ * NOTE: Hours are now sourced exclusively from approved weekly_dtr_submissions.
+ * Daily reports (student_daily_reports) are activity logs only and do NOT affect hours.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -39,6 +42,7 @@ export interface InternshipHoursSummary {
   progress_percentage: number;
   projected_end_date: string | null;
   days_reported: number;
+  dtr_submissions_count: number;
   start_date: string;
   is_completed: boolean;
 }
@@ -223,19 +227,27 @@ export async function getInternshipHoursSummary(
       return { success: false, error: 'Internship not found' };
     }
 
-    // Get daily reports count
+    // Get daily reports count (for reference only, not used for hours)
     const { count: daysReported } = await supabase
       .from('student_daily_reports')
       .select('*', { count: 'exact', head: true })
       .eq('internship_id', internshipId);
 
-    // Calculate total hours from daily reports (for accuracy, recalculate)
-    const { data: reports } = await supabase
-      .from('student_daily_reports')
-      .select('hours_worked')
-      .eq('internship_id', internshipId);
+    // Calculate total hours from approved weekly DTR submissions
+    const { data: approvedDTRs } = await supabase
+      .from('weekly_dtr_submissions')
+      .select('extracted_hours, manual_hours_override')
+      .eq('internship_id', internshipId)
+      .eq('status', 'approved');
 
-    const totalHoursWorked = reports?.reduce((sum, r) => sum + (r.hours_worked || 0), 0) || 0;
+    const totalHoursWorked = (approvedDTRs || []).reduce((sum, dtr) => {
+      const hours = dtr.manual_hours_override ?? dtr.extracted_hours ?? 0;
+      return sum + Number(hours);
+    }, 0);
+
+    // Count approved DTR submissions
+    const dtrSubmissionsCount = approvedDTRs?.length || 0;
+
     const requiredHours = internship.required_hours || 240; // Default to 240 if not set
     const remainingHours = Math.max(requiredHours - totalHoursWorked, 0);
     const progressPercentage = requiredHours > 0 
@@ -257,16 +269,18 @@ export async function getInternshipHoursSummary(
       progress_percentage: progressPercentage,
       projected_end_date: projectedEndDate,
       days_reported: daysReported || 0,
+      dtr_submissions_count: dtrSubmissionsCount,
       start_date: internship.start_date,
       is_completed: progressPercentage >= 100,
     };
 
-    console.log('✅ [HoursService] Hours summary calculated:', {
+    console.log('✅ [HoursService] Hours summary calculated (DTR-based):', {
       internshipId,
       totalHoursWorked,
       requiredHours,
       progressPercentage: `${progressPercentage}%`,
       remainingHours,
+      dtrSubmissionsCount,
     });
 
     return { success: true, data: summary };
@@ -326,22 +340,28 @@ export async function getBatchInternshipHoursSummary(
       return { success: false, error: internshipsError.message };
     }
 
-    // Get all daily reports for these internships
-    const { data: allReports } = await supabase
-      .from('student_daily_reports')
-      .select('internship_id, hours_worked')
-      .in('internship_id', internshipIds);
+    // Get all approved DTR submissions for these internships
+    const { data: allDTRs } = await supabase
+      .from('weekly_dtr_submissions')
+      .select('internship_id, extracted_hours, manual_hours_override')
+      .in('internship_id', internshipIds)
+      .eq('status', 'approved');
 
-    // Group reports by internship
-    const reportsByInternship: Record<string, number[]> = {};
-    allReports?.forEach(report => {
-      if (!reportsByInternship[report.internship_id]) {
-        reportsByInternship[report.internship_id] = [];
-      }
-      reportsByInternship[report.internship_id].push(report.hours_worked || 0);
+    // Group DTRs by internship and calculate hours
+    const hoursByInternship: Record<string, number> = {};
+    const dtrCountByInternship: Record<string, number> = {};
+    allDTRs?.forEach(dtr => {
+      const hours = dtr.manual_hours_override ?? dtr.extracted_hours ?? 0;
+      hoursByInternship[dtr.internship_id] = (hoursByInternship[dtr.internship_id] || 0) + Number(hours);
+      dtrCountByInternship[dtr.internship_id] = (dtrCountByInternship[dtr.internship_id] || 0) + 1;
     });
 
-    // Get day counts per internship
+    // Get daily reports count per internship (for reference only)
+    const { data: allReports } = await supabase
+      .from('student_daily_reports')
+      .select('internship_id')
+      .in('internship_id', internshipIds);
+
     const dayCountByInternship: Record<string, number> = {};
     allReports?.forEach(r => {
       dayCountByInternship[r.internship_id] = (dayCountByInternship[r.internship_id] || 0) + 1;
@@ -349,8 +369,7 @@ export async function getBatchInternshipHoursSummary(
 
     // Calculate summary for each internship
     for (const internship of internships || []) {
-      const reports = reportsByInternship[internship.id] || [];
-      const totalHoursWorked = reports.reduce((sum, h) => sum + h, 0);
+      const totalHoursWorked = hoursByInternship[internship.id] || 0;
       const requiredHours = internship.required_hours || 240;
       const remainingHours = Math.max(requiredHours - totalHoursWorked, 0);
       const progressPercentage = requiredHours > 0
@@ -369,12 +388,13 @@ export async function getBatchInternshipHoursSummary(
           totalHoursWorked
         ),
         days_reported: dayCountByInternship[internship.id] || 0,
+        dtr_submissions_count: dtrCountByInternship[internship.id] || 0,
         start_date: internship.start_date,
         is_completed: progressPercentage >= 100,
       };
     }
 
-    console.log('✅ [HoursService] Batch calculation complete for', Object.keys(results).length, 'internships');
+    console.log('✅ [HoursService] Batch calculation complete (DTR-based) for', Object.keys(results).length, 'internships');
     return { success: true, data: results };
   } catch (error: any) {
     console.error('❌ [HoursService] Error in batch calculation:', error.message);
@@ -500,18 +520,23 @@ export async function updateInternshipRequiredHours(
 
 /**
  * Recalculate and update total_hours_worked for an internship
- * Called after weekly report changes
+ * Now sources hours from approved weekly DTR submissions only
  */
 export async function recalculateTotalHours(internshipId: string): Promise<{ success: boolean; total: number; error?: string }> {
   try {
-    console.log('🔵 [HoursService] Recalculating total hours for:', internshipId);
+    console.log('🔵 [HoursService] Recalculating total hours (DTR-based) for:', internshipId);
 
-    const { data: reports } = await supabase
-      .from('student_daily_reports')
-      .select('hours_worked')
-      .eq('internship_id', internshipId);
+    // Source hours from approved weekly DTR submissions
+    const { data: approvedDTRs } = await supabase
+      .from('weekly_dtr_submissions')
+      .select('extracted_hours, manual_hours_override')
+      .eq('internship_id', internshipId)
+      .eq('status', 'approved');
 
-    const total = reports?.reduce((sum, r) => sum + (Number(r.hours_worked) || 0), 0) || 0;
+    const total = (approvedDTRs || []).reduce((sum, dtr) => {
+      const hours = dtr.manual_hours_override ?? dtr.extracted_hours ?? 0;
+      return sum + Number(hours);
+    }, 0);
 
     const { error } = await supabase
       .from('internships')
@@ -526,7 +551,7 @@ export async function recalculateTotalHours(internshipId: string): Promise<{ suc
       return { success: false, total: 0, error: error.message };
     }
 
-    console.log('✅ [HoursService] Total hours recalculated:', total);
+    console.log('✅ [HoursService] Total hours recalculated (DTR-based):', total);
     return { success: true, total };
   } catch (error: any) {
     console.error('❌ [HoursService] Error recalculating hours:', error.message);
