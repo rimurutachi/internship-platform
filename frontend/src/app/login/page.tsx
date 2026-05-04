@@ -38,8 +38,8 @@ export default function LoginPage() {
         <div className="container mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Image 
-              src="/logo.png" 
-              alt="Intern-Galing Logo" 
+              src="/cvsu-logo.png" 
+              alt="CvSU Logo" 
               width={40} 
               height={40}
               className="object-contain"
@@ -54,8 +54,8 @@ export default function LoginPage() {
           <div className="flex items-center space-x-4">
             <ThemeToggle />
             <Image 
-              src="/cvsu-logo.png" 
-              alt="CvSU Logo" 
+              src="/logo.png" 
+              alt="Intern-Galing Logo" 
               width={32} 
               height={32}
               className="object-contain"
@@ -80,8 +80,8 @@ export default function LoginPage() {
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
                 <Image 
-                  src="/logo.png" 
-                  alt="Intern-Galing Logo" 
+                  src="/cvsu-logo.png" 
+                  alt="CvSU Logo" 
                   width={64} 
                   height={64}
                   className="object-contain"
@@ -112,16 +112,16 @@ export default function LoginPage() {
         <div className="container mx-auto text-center">
           <div className="flex items-center justify-center space-x-3 mb-2">
             <Image 
-              src="/logo.png" 
-              alt="Intern-Galing Logo" 
+              src="/cvsu-logo.png" 
+              alt="CvSU Logo" 
               width={24} 
               height={24}
               className="object-contain"
             />
-            <span className="text-base font-semibold text-foreground">Intern-Galing</span>
+            <span className="text-base font-semibold text-foreground">CvSU Bacoor</span>
           </div>
           <p className="text-muted-foreground text-sm">
-            © 2025 Intern-Galing. All Rights Reserved.
+            © 2025 Cavite State University - Bacoor City Campus. All Rights Reserved.
           </p>
         </div>
       </footer>

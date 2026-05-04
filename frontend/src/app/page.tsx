@@ -14,8 +14,8 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2 sm:space-x-3">
             <Image 
-              src="/logo.png" 
-              alt="Intern-Galing Logo" 
+              src="/cvsu-logo.png" 
+              alt="CvSU Logo" 
               width={40} 
               height={40}
               className="object-contain w-8 h-8 sm:w-10 sm:h-10"
@@ -33,8 +33,8 @@ export default function LandingPage() {
           <div className="flex items-center space-x-2 sm:space-x-4">
             <ThemeToggle />
             <Image 
-              src="/cvsu-logo.png" 
-              alt="CvSU Logo" 
+              src="/logo.png" 
+              alt="Intern-Galing Logo" 
               width={32} 
               height={32}
               className="object-contain w-6 h-6 sm:w-8 sm:h-8"
@@ -197,16 +197,16 @@ export default function LandingPage() {
         <div className="container mx-auto text-center">
           <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
             <Image 
-              src="/logo.png" 
-              alt="Intern-Galing Logo" 
+              src="/cvsu-logo.png" 
+              alt="CvSU Logo" 
               width={32} 
               height={32}
               className="object-contain w-6 h-6 sm:w-8 sm:h-8"
             />
-            <span className="text-base sm:text-lg font-semibold text-foreground">Intern-Galing</span>
+            <span className="text-base sm:text-lg font-semibold text-foreground">CvSU Bacoor</span>
           </div>
           <p className="text-muted-foreground text-xs sm:text-sm">
-            © 2025 Intern-Galing. All Rights Reserved. Cavite State University - Bacoor City Campus
+            © 2025 Cavite State University - Bacoor City Campus. All Rights Reserved.
           </p>
         </div>
       </footer>
