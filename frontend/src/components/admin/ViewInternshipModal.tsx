@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 
 import { useState, useEffect } from 'react';
 import { adminInternshipsAPI } from '@/lib/api/admin-internships';
@@ -8,7 +8,7 @@ import type {
   InternshipWithRelations,
   ActivityLogEntry,
 } from '@/lib/api/admin-internships';
-import type { InternshipHoursSummary, DailyHoursBreakdown } from '@/types/hours';
+import type { InternshipHoursSummary } from '@/types/hours';
 import { createSupabaseClient } from '@/lib/supabase';
 import {
   Dialog,
@@ -17,19 +17,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-
-interface DailyReport {
-  id: string;
-  report_date: string;
-  hours_worked: number;
-}
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar, User, Building2, Briefcase, TrendingUp, Clock, Target } from 'lucide-react';
-import RemindersManagement from './RemindersManagement';
+import { Loader2, Calendar, User, Building2, Briefcase, TrendingUp, Clock, Target, FileText, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+
+// DTR submission type
+interface WeeklyDTREntry {
+  id: string;
+  week_number: number;
+  week_start_date: string;
+  week_end_date: string;
+  status: 'pending' | 'approved' | 'revision_requested';
+  extracted_hours: number;
+  manual_hours_override: number | null;
+  ai_scan_status: string;
+  ai_scan_result: Record<string, any>;
+  submitted_at: string;
+  reviewed_at: string | null;
+  file_name: string;
+}
 
 interface ViewInternshipModalProps {
   open: boolean;
@@ -49,13 +58,15 @@ export function ViewInternshipModal({
   
   // Hours tracking state
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
-  const [dailyBreakdown, setDailyBreakdown] = useState<DailyHoursBreakdown[]>([]);
-  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
+  
+  // Weekly DTR submission history
+  const [dtrHistory, setDtrHistory] = useState<WeeklyDTREntry[]>([]);
 
   useEffect(() => {
     if (open && internshipId) {
       fetchInternshipDetails();
       fetchHoursData();
+      fetchDTRHistory();
     }
   }, [open, internshipId]);
 
@@ -78,46 +89,32 @@ export function ViewInternshipModal({
 
   const fetchHoursData = async () => {
     try {
-      const supabase = createSupabaseClient();
-      
-      console.log('🔵 [Admin Hours Data] Fetching for internship:', internshipId);
-      
-      const [summaryResult, breakdownResult, reportsResult] = await Promise.all([
-        hoursApi.getInternshipHoursSummary(internshipId),
-        hoursApi.getDailyHoursBreakdown(internshipId),
-        supabase
-          .from('student_daily_reports')
-          .select('id, report_date, hours_worked, internship_id, created_at')
-          .eq('internship_id', internshipId)
-          .order('report_date', { ascending: true })
-      ]);
-      
-      console.log('🔵 [Admin Daily Reports] Query result:', {
-        data: reportsResult.data,
-        error: reportsResult.error,
-        count: reportsResult.data?.length || 0
-      });
-      
-      console.log('🔵 [Admin Daily Breakdown] Hours API result:', {
-        data: breakdownResult.data,
-        count: breakdownResult.data?.length || 0
-      });
+      const summaryResult = await hoursApi.getInternshipHoursSummary(internshipId);
       
       if (summaryResult.success && summaryResult.data) {
         setHoursSummary(summaryResult.data);
       }
-      if (breakdownResult.success && breakdownResult.data) {
-        setDailyBreakdown(breakdownResult.data);
-      }
-      if (reportsResult.data) {
-        console.log('✅ [Admin Daily Reports] Setting daily reports:', reportsResult.data);
-        setDailyReports(reportsResult.data);
-      }
-      if (reportsResult.error) {
-        console.error('❌ [Admin Daily Reports] Supabase error:', reportsResult.error);
-      }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
+    }
+  };
+
+  const fetchDTRHistory = async () => {
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase
+        .from('weekly_dtr_submissions')
+        .select('id, week_number, week_start_date, week_end_date, status, extracted_hours, manual_hours_override, ai_scan_status, ai_scan_result, submitted_at, reviewed_at, file_name')
+        .eq('internship_id', internshipId)
+        .order('week_number', { ascending: true });
+
+      if (error) {
+        console.error('Failed to fetch DTR history:', error);
+        return;
+      }
+      setDtrHistory(data || []);
+    } catch (error) {
+      console.error('Failed to fetch DTR history:', error);
     }
   };
 
@@ -125,6 +122,13 @@ export function ViewInternshipModal({
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const formatShortDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
     });
   };
@@ -153,6 +157,62 @@ export function ViewInternshipModal({
     );
   };
 
+  const getDTRStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return (
+          <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Approved
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">
+            <Clock className="h-3 w-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case 'revision_requested':
+        return (
+          <Badge className="bg-red-500/10 text-red-600 border-red-500/20 text-xs">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Revision
+          </Badge>
+        );
+      default:
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
+    }
+  };
+
+  /**
+   * Get the display date range for a DTR entry.
+   * Priority: AI scan daily_breakdown dates > week_start_date/week_end_date
+   */
+  const getDTRDateRange = (dtr: WeeklyDTREntry): { start: string; end: string } => {
+    // Try AI scan result first
+    if (dtr.ai_scan_result?.daily_breakdown && Array.isArray(dtr.ai_scan_result.daily_breakdown) && dtr.ai_scan_result.daily_breakdown.length > 0) {
+      const dates = dtr.ai_scan_result.daily_breakdown
+        .map((d: any) => d.date)
+        .filter((d: string) => d);
+      if (dates.length > 0) {
+        return {
+          start: dates[0],
+          end: dates[dates.length - 1],
+        };
+      }
+    }
+    // Fallback to submission dates
+    return {
+      start: dtr.week_start_date,
+      end: dtr.week_end_date,
+    };
+  };
+
+  const getDTRHours = (dtr: WeeklyDTREntry): number => {
+    return dtr.manual_hours_override ?? dtr.extracted_hours ?? 0;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -169,10 +229,9 @@ export function ViewInternshipModal({
           </div>
         ) : internship ? (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="progress">Progress</TabsTrigger>
-              <TabsTrigger value="reminders">Reminders</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6 mt-6">
@@ -363,10 +422,12 @@ export function ViewInternshipModal({
                     </div>
                     <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm">Days Reported</span>
+                        <FileText className="h-4 w-4" />
+                        <span className="text-sm">Total Weeks</span>
                       </div>
-                      <p className="text-2xl font-bold">{hoursSummary.days_reported}</p>
+                      <p className="text-2xl font-bold">
+                        {hoursSummary.weeks_reported ?? dtrHistory.filter(d => d.status === 'approved').length}
+                      </p>
                     </div>
                     <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -396,36 +457,62 @@ export function ViewInternshipModal({
                 <div className="p-6 text-center text-muted-foreground">
                   <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No hours data available yet</p>
-                  <p className="text-sm">Hours will appear once daily reports are submitted</p>
+                  <p className="text-sm">Hours will appear once weekly DTR submissions are approved</p>
                 </div>
               )}
 
               <Separator />
 
-              {/* Daily Breakdown */}
+              {/* Weekly DTR Submission History */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Daily Hours Log</h3>
-                {dailyBreakdown.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No daily reports submitted yet</p>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Weekly DTR Submission History</h3>
+                </div>
+                {dtrHistory.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground border rounded-lg bg-muted/30">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No weekly DTR submissions yet</p>
+                  </div>
                 ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {dailyBreakdown.map((day) => {
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {dtrHistory.map((dtr) => {
+                      const dateRange = getDTRDateRange(dtr);
+                      const hours = getDTRHours(dtr);
+                      const isManual = dtr.manual_hours_override !== null;
+
                       return (
                         <div 
-                          key={day.report_date}
-                          className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
+                          key={dtr.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-muted/50 hover:bg-muted/70 transition-colors"
                         >
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline">
-                              {new Date(day.report_date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Badge variant="outline" className="shrink-0 font-semibold">
+                              Week {dtr.week_number}
                             </Badge>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-medium truncate">
+                                {formatShortDate(dateRange.start)} – {formatShortDate(dateRange.end)}
+                              </span>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {dtr.file_name}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{day.hours_worked}h</span>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-semibold text-sm">{hours}h</span>
+                              </div>
+                              {isManual && (
+                                <span className="text-xs text-amber-500">Manual</span>
+                              )}
+                              {dtr.ai_scan_status === 'failed' && !isManual && (
+                                <span className="text-xs text-red-500">Scan failed</span>
+                              )}
+                            </div>
+                            {getDTRStatusBadge(dtr.status)}
                           </div>
                         </div>
                       );
@@ -433,10 +520,6 @@ export function ViewInternshipModal({
                   </div>
                 )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="reminders" className="mt-6">
-              <RemindersManagement internshipId={internshipId} />
             </TabsContent>
           </Tabs>
         ) : (

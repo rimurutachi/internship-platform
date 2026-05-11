@@ -72,6 +72,8 @@ export interface ReviewDTRData {
   status: 'approved' | 'revision_requested';
   feedback?: string;
   manual_hours_override?: number;
+  manual_week_start_date?: string;
+  manual_week_end_date?: string;
 }
 
 export interface DTRFilters {
@@ -423,6 +425,14 @@ export class DTRSubmissionService {
       updateData.manual_hours_override = review.manual_hours_override;
       updateData.ai_scan_status = 'manual';
       updateData.extracted_hours = review.manual_hours_override;
+    }
+
+    // If advisor provides manual date override (e.g., when AI fails to extract dates)
+    if (review.manual_week_start_date) {
+      updateData.week_start_date = review.manual_week_start_date;
+    }
+    if (review.manual_week_end_date) {
+      updateData.week_end_date = review.manual_week_end_date;
     }
 
     const { data: updated, error: updateError } = await supabase

@@ -41,7 +41,7 @@ export interface InternshipHoursSummary {
   remaining_hours: number;
   progress_percentage: number;
   projected_end_date: string | null;
-  days_reported: number;
+  weeks_reported: number;
   dtr_submissions_count: number;
   start_date: string;
   is_completed: boolean;
@@ -227,11 +227,8 @@ export async function getInternshipHoursSummary(
       return { success: false, error: 'Internship not found' };
     }
 
-    // Get daily reports count (for reference only, not used for hours)
-    const { count: daysReported } = await supabase
-      .from('student_daily_reports')
-      .select('*', { count: 'exact', head: true })
-      .eq('internship_id', internshipId);
+    // Count approved DTR submissions = weeks reported
+    // (daily reports are activity logs only, not used for counting)
 
     // Calculate total hours from approved weekly DTR submissions
     const { data: approvedDTRs } = await supabase
@@ -268,7 +265,7 @@ export async function getInternshipHoursSummary(
       remaining_hours: remainingHours,
       progress_percentage: progressPercentage,
       projected_end_date: projectedEndDate,
-      days_reported: daysReported || 0,
+      weeks_reported: dtrSubmissionsCount,
       dtr_submissions_count: dtrSubmissionsCount,
       start_date: internship.start_date,
       is_completed: progressPercentage >= 100,
@@ -356,16 +353,7 @@ export async function getBatchInternshipHoursSummary(
       dtrCountByInternship[dtr.internship_id] = (dtrCountByInternship[dtr.internship_id] || 0) + 1;
     });
 
-    // Get daily reports count per internship (for reference only)
-    const { data: allReports } = await supabase
-      .from('student_daily_reports')
-      .select('internship_id')
-      .in('internship_id', internshipIds);
-
-    const dayCountByInternship: Record<string, number> = {};
-    allReports?.forEach(r => {
-      dayCountByInternship[r.internship_id] = (dayCountByInternship[r.internship_id] || 0) + 1;
-    });
+    // weeks_reported now uses dtrCountByInternship (approved DTR count)
 
     // Calculate summary for each internship
     for (const internship of internships || []) {
@@ -387,7 +375,7 @@ export async function getBatchInternshipHoursSummary(
           remainingHours,
           totalHoursWorked
         ),
-        days_reported: dayCountByInternship[internship.id] || 0,
+        weeks_reported: dtrCountByInternship[internship.id] || 0,
         dtr_submissions_count: dtrCountByInternship[internship.id] || 0,
         start_date: internship.start_date,
         is_completed: progressPercentage >= 100,

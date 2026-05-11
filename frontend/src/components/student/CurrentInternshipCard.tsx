@@ -6,6 +6,7 @@ import { Building2, Calendar, Clock, Target, TrendingUp, Loader2 } from "lucide-
 import type { StudentInternship, ProgressMetrics } from "@/types/student";
 import { hoursApi } from "@/lib/api/hours";
 import type { InternshipHoursSummary } from "@/types/hours";
+import { createSupabaseClient } from '@/lib/supabase';
 
 interface CurrentInternshipCardProps {
   internship: StudentInternship | null;
@@ -15,6 +16,7 @@ interface CurrentInternshipCardProps {
 export const CurrentInternshipCard = ({ internship, progress }: CurrentInternshipCardProps) => {
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [approvedDTRCount, setApprovedDTRCount] = useState<number>(0);
 
   useEffect(() => {
     if (internship?.id) {
@@ -25,9 +27,17 @@ export const CurrentInternshipCard = ({ internship, progress }: CurrentInternshi
   const fetchHoursData = async (internshipId: string) => {
     try {
       setLoading(true);
-      const result = await hoursApi.getInternshipHoursSummary(internshipId);
+      const supabase = createSupabaseClient();
+      const [result, dtrResult] = await Promise.all([
+        hoursApi.getInternshipHoursSummary(internshipId),
+        supabase.from('weekly_dtr_submissions').select('id').eq('internship_id', internshipId).eq('status', 'approved')
+      ]);
+      
       if (result.success && result.data) {
         setHoursSummary(result.data);
+      }
+      if (dtrResult.data) {
+        setApprovedDTRCount(dtrResult.data.length);
       }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
@@ -122,8 +132,8 @@ export const CurrentInternshipCard = ({ internship, progress }: CurrentInternshi
                 <div className="flex items-center justify-center text-muted-foreground mb-1">
                   <Calendar className="w-3 h-3" />
                 </div>
-                <p className="text-lg font-bold text-foreground">{hoursSummary.days_reported}</p>
-                <p className="text-xs text-muted-foreground">Days</p>
+                <p className="text-lg font-bold text-foreground">{approvedDTRCount}</p>
+                <p className="text-xs text-muted-foreground">Weeks</p>
               </div>
               <div className="text-center p-2 rounded-lg bg-muted/50">
                 <div className="flex items-center justify-center text-muted-foreground mb-1">
