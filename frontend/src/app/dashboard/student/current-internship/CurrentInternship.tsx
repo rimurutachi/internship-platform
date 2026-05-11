@@ -55,6 +55,7 @@ export default function CurrentInternship() {
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
   const [dailyBreakdown, setDailyBreakdown] = useState<DailyHoursBreakdown[]>([]);
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
+  const [approvedDTRCount, setApprovedDTRCount] = useState<number>(0);
 
   useEffect(() => {
     loadInternshipData();
@@ -73,7 +74,12 @@ export default function CurrentInternship() {
           .from('student_daily_reports')
           .select('id, report_date, hours_worked, internship_id, created_at')
           .eq('internship_id', internshipId)
-          .order('report_date', { ascending: true })
+          .order('report_date', { ascending: true }),
+        supabase
+          .from('weekly_dtr_submissions')
+          .select('id')
+          .eq('internship_id', internshipId)
+          .eq('status', 'approved')
       ]);
       
       console.log('🔵 [Daily Reports] Query result:', {
@@ -99,6 +105,12 @@ export default function CurrentInternship() {
       }
       if (reportsResult.error) {
         console.error('❌ [Daily Reports] Supabase error:', reportsResult.error);
+      }
+
+      // Check the 4th element (index 3) for the DTR result
+      const dtrResult = arguments[0]?.[3] ?? await supabase.from('weekly_dtr_submissions').select('id').eq('internship_id', internshipId).eq('status', 'approved');
+      if (dtrResult?.data) {
+        setApprovedDTRCount(dtrResult.data.length);
       }
     } catch (error) {
       console.error('Failed to fetch hours data:', error);
@@ -384,9 +396,9 @@ export default function CurrentInternship() {
               <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-5 w-5" />
-                  <span className="text-sm">Days Reported</span>
+                  <span className="text-sm">Weeks Reported</span>
                 </div>
-                <p className="text-3xl font-bold text-foreground">{hoursSummary.days_reported}</p>
+                <p className="text-3xl font-bold text-foreground">{approvedDTRCount}</p>
               </div>
               <div className="p-4 rounded-lg border bg-muted/50 space-y-1">
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -466,7 +478,6 @@ export default function CurrentInternship() {
                 <div className="text-base text-muted-foreground">{internship.supervisor?.email || 'No email'}</div>
               </div>
             </div>
-            <Button variant="outline" className="w-full border-border hover:bg-muted text-base py-5">Send Message</Button>
           </CardContent>
         </Card>
         <Card className="bg-card border border-border">
@@ -483,7 +494,6 @@ export default function CurrentInternship() {
                 <div className="text-base text-muted-foreground">{internship.advisor?.email || 'No email'}</div>
               </div>
             </div>
-            <Button variant="outline" className="w-full border-border hover:bg-muted text-base py-5">Send Message</Button>
           </CardContent>
         </Card>
       </div>
@@ -591,9 +601,9 @@ export default function CurrentInternship() {
                   <div className="p-3 rounded-lg border bg-muted/50">
                     <div className="flex items-center gap-1 text-muted-foreground text-xs">
                       <Calendar className="h-3 w-3" />
-                      <span>Days</span>
+                      <span>Weeks</span>
                     </div>
-                    <p className="text-xl font-bold">{hoursSummary.days_reported}</p>
+                    <p className="text-xl font-bold">{approvedDTRCount}</p>
                   </div>
                   <div className="p-3 rounded-lg border bg-muted/50">
                     <div className="flex items-center gap-1 text-muted-foreground text-xs">

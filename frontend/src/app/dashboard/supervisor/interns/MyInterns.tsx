@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import supervisorStudentsAPI, { SupervisorStudent } from '@/lib/api/supervisor-students';
 import { hoursApi } from '@/lib/api/hours';
 import type { InternshipHoursSummary } from '@/types/hours';
+import { createSupabaseClient } from '@/lib/supabase';
 
 export default function MyInterns() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function MyInterns() {
   
   // Hours data for selected student
   const [studentHoursSummary, setStudentHoursSummary] = useState<InternshipHoursSummary | null>(null);
+  const [approvedDTRCount, setApprovedDTRCount] = useState<number>(0);
   
   // Hours data map for all interns (internshipId -> progress)
   const [hoursProgressMap, setHoursProgressMap] = useState<Record<string, number>>({});
@@ -84,13 +86,16 @@ export default function MyInterns() {
     setError(null);
     setSelectedStudent(student);
     setStudentHoursSummary(null);
+    setApprovedDTRCount(0);
     
     // Fetch hours data if student has internship
     if (student.internship?.id) {
       try {
         const hoursResult = await hoursApi.getInternshipHoursSummary(student.internship.id);
+        
         if (hoursResult.success && hoursResult.data) {
           setStudentHoursSummary(hoursResult.data);
+          // Fallback if the backend is not yet restarted: keep it 0 or use days_reported if casted
         }
       } catch (e) {
         console.error('Failed to fetch hours:', e);
@@ -567,8 +572,8 @@ export default function MyInterns() {
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-lg font-bold">{studentHoursSummary.days_reported}</p>
-                      <p className="text-xs text-muted-foreground">Days</p>
+                      <p className="text-lg font-bold">{studentHoursSummary.weeks_reported ?? (studentHoursSummary as any).days_reported ?? 0}</p>
+                      <p className="text-xs text-muted-foreground">Weeks</p>
                     </div>
                     <div className="p-3 rounded-lg border bg-muted/50 text-center">
                       <Calendar className="h-4 w-4 mx-auto text-muted-foreground mb-1" />

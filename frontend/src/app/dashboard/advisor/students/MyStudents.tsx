@@ -768,11 +768,22 @@ export default function MyStudents() {
                               </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {dtr.week_start_date && dtr.week_end_date ? (
-                                <>{new Date(dtr.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(dtr.week_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
-                              ) : (
-                                <>Submitted: {new Date(dtr.submitted_at).toLocaleDateString()}</>
-                              )}
+                              {(() => {
+                                // Priority: AI scan dates > week_start_date/week_end_date > submitted_at
+                                const aiBreakdown = dtr.ai_scan_result?.daily_breakdown;
+                                if (aiBreakdown && Array.isArray(aiBreakdown) && aiBreakdown.length > 0) {
+                                  const aiDates = aiBreakdown.map((d: any) => d.date).filter(Boolean);
+                                  if (aiDates.length > 0) {
+                                    const startDate = new Date(aiDates[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    const endDate = new Date(aiDates[aiDates.length - 1]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    return <>{startDate} – {endDate}</>;
+                                  }
+                                }
+                                if (dtr.week_start_date && dtr.week_end_date) {
+                                  return <>{new Date(dtr.week_start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(dtr.week_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>;
+                                }
+                                return <>Submitted: {new Date(dtr.submitted_at).toLocaleDateString()}</>;
+                              })()}
                             </p>
                           </div>
                           <div className="text-right">

@@ -15,7 +15,6 @@ import { useUserContext } from '@/components/providers/UserProvider';
 
 // Supervisor pages: Dashboard, Interns, Evaluations, Settings
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard/supervisor' },
   { icon: Users, label: 'My Interns', path: '/dashboard/supervisor/interns' },
   { icon: FileText, label: 'Evaluations', path: '/dashboard/supervisor/evaluations' },
   { icon: MessageSquare, label: 'Messages', path: '/dashboard/supervisor/messages' },

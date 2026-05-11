@@ -41,7 +41,7 @@ export interface InternshipHoursSummary {
   remaining_hours: number;
   progress_percentage: number;
   projected_end_date: string | null;
-  days_reported: number;
+  weeks_reported: number;
   start_date: string;
   is_completed: boolean;
 }
@@ -105,7 +105,7 @@ export interface ProgressDisplayData {
   hoursWorked: number;
   hoursRequired: number;
   hoursRemaining: number;
-  daysReported: number;
+  weeksReported: number;
   projectedEndDate: string | null;
   isCompleted: boolean;
   status: 'not_started' | 'in_progress' | 'near_completion' | 'completed';
@@ -140,7 +140,7 @@ export function toProgressDisplayData(summary: InternshipHoursSummary): Progress
     hoursWorked: summary.total_hours_worked,
     hoursRequired: summary.required_hours,
     hoursRemaining: summary.remaining_hours,
-    daysReported: summary.days_reported,
+    weeksReported: summary.weeks_reported,
     projectedEndDate: summary.projected_end_date,
     isCompleted: summary.is_completed,
     status,

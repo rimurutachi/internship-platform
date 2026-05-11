@@ -190,7 +190,7 @@ const StudentDashboard = () => {
           
           {/* Dashboard Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
-            <div className="max-w-[1800px] mx-auto">
+            <div className="max-w-6xl mx-auto">
             {/* Welcome Banner */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground mb-1">
@@ -201,35 +201,29 @@ const StudentDashboard = () => {
               </p>
             </div>
 
-            {/* Dashboard Grid Layout - Matching Figma */}
-            <div className="grid xl:grid-cols-3 gap-8">
-              {/* Left Column */}
-              <div className="xl:col-span-2 space-y-8">
-                {/* Current Internship - Full Width */}
-                <CurrentInternshipCard 
-                  internship={dashboardData.internship}
-                  progress={dashboardData.progress}
-                />
-                
-                {/* Weekly Logs and Quick Actions - Side by Side */}
-                <div className="grid md:grid-cols-2 gap-8">
-                  <WeeklyLogsCard logsCount={logsCount} />
-                  <QuickActionsNewCard />
-                </div>
-                
-                {/* Final Evaluation and Tasks - Side by Side */}
-                <div className="grid md:grid-cols-2 gap-8">
-                  <FinalEvaluationCard 
-                    isAvailable={finalAvailable.available}
-                    releaseDate={dashboardData.internship?.end_date}
-                    disabledReason={finalAvailable.reason}
-                  />
-                  <TasksCard internshipId={dashboardData.internship?.id} />
-                </div>
+            {/* Dashboard Content Layout */}
+            <div className="space-y-8">
+              {/* Current Internship - Full Width */}
+              <CurrentInternshipCard 
+                internship={dashboardData.internship}
+                progress={dashboardData.progress}
+              />
+              
+              {/* Weekly Logs and Quick Actions - Side by Side */}
+              <div className="grid md:grid-cols-2 gap-8">
+                <WeeklyLogsCard logsCount={logsCount} />
+                <QuickActionsNewCard />
               </div>
               
-              {/* Right Column - Intentionally left empty for now */}
-              <div className="space-y-8" />
+              {/* Final Evaluation and Tasks - Side by Side */}
+              <div className="grid md:grid-cols-2 gap-8">
+                <FinalEvaluationCard 
+                  isAvailable={finalAvailable.available}
+                  releaseDate={dashboardData.internship?.end_date}
+                  disabledReason={finalAvailable.reason}
+                />
+                <TasksCard internshipId={dashboardData.internship?.id} />
+              </div>
             </div>
             </div>
           </div>

@@ -61,7 +61,7 @@ export interface DocumentSubmissionStatus {
   required_documents: DocumentStatusInfo[];
   daily_reports_progress: {
     total_hours: number;
-    total_days_reported: number;
+    total_weeks_reported: number;
   };
   submitted_documents: any[];
 }

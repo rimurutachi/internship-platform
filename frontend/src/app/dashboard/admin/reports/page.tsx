@@ -659,17 +659,20 @@ export default function ReportsPage() {
                 <SelectItem value="yearly">Yearly</SelectItem>
               </SelectContent>
             </Select>
-            <Select onValueChange={(value) => handleExport(value as 'csv' | 'json' | 'pdf')} disabled={exporting}>
-              <SelectTrigger className="w-[140px] bg-background/50">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport('pdf')}
+              disabled={exporting}
+              className="bg-background/50"
+            >
+              {exporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
                 <Download className="w-4 h-4 mr-2" />
-                <SelectValue placeholder={exporting ? 'Exporting...' : 'Export'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="csv">Export CSV</SelectItem>
-                <SelectItem value="json">Export JSON</SelectItem>
-                <SelectItem value="pdf">Export PDF</SelectItem>
-              </SelectContent>
-            </Select>
+              )}
+              Export PDF
+            </Button>
           </div>
         </div>
       </div>

@@ -76,7 +76,7 @@ router.patch('/dtr-submissions/:id/review', async (req: AuthRequest, res: Respon
   try {
     const advisorId = req.user!.id;
     const id = req.params.id as string;
-    const { status, feedback, manual_hours_override } = req.body;
+    const { status, feedback, manual_hours_override, manual_week_start_date, manual_week_end_date } = req.body;
 
     // Validation
     const validStatuses = ['approved', 'revision_requested'];
@@ -91,6 +91,8 @@ router.patch('/dtr-submissions/:id/review', async (req: AuthRequest, res: Respon
       status,
       feedback: feedback?.trim() || undefined,
       manual_hours_override: manual_hours_override !== undefined ? Number(manual_hours_override) : undefined,
+      manual_week_start_date: manual_week_start_date || undefined,
+      manual_week_end_date: manual_week_end_date || undefined,
     });
 
     console.log(`📝 Advisor ${advisorId} reviewed DTR ${id}: ${status}`);
