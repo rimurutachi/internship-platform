@@ -54,12 +54,25 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   };
 }
 
+// Simple in-memory cache to prevent API spam on rapid navigation or component remounts
+let notificationsCache: {
+  data: Notification[];
+  timestamp: number;
+} | null = null;
+const CACHE_TTL_MS = 15000; // 15 seconds cache
+
 export const notificationsAPI = {
   /**
    * Get user notifications
    * @param limit - Number of notifications to fetch (default: 50, max: 100)
+   * @param forceRefresh - Bypass cache and force a network request
    */
-  getNotifications: async (limit: number = 50): Promise<Notification[]> => {
+  getNotifications: async (limit: number = 50, forceRefresh: boolean = false): Promise<Notification[]> => {
+    // Check cache
+    if (!forceRefresh && notificationsCache && Date.now() - notificationsCache.timestamp < CACHE_TTL_MS) {
+      return notificationsCache.data;
+    }
+
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/communications/notifications?limit=${limit}`, {
       method: 'GET',
@@ -72,6 +85,13 @@ export const notificationsAPI = {
     }
 
     const result: NotificationsResponse = await response.json();
+    
+    // Update cache
+    notificationsCache = {
+      data: result.data,
+      timestamp: Date.now()
+    };
+    
     return result.data;
   },
 
@@ -109,6 +129,9 @@ export const notificationsAPI = {
       const error = await response.json();
       throw new Error(error.error || 'Failed to mark notification as read');
     }
+
+    // Invalidate cache since data has changed
+    notificationsCache = null;
   },
 
   /**
@@ -125,6 +148,9 @@ export const notificationsAPI = {
       const error = await response.json();
       throw new Error(error.error || 'Failed to mark all notifications as read');
     }
+
+    // Invalidate cache
+    notificationsCache = null;
   },
 
   /**
@@ -142,6 +168,9 @@ export const notificationsAPI = {
       const error = await response.json();
       throw new Error(error.error || 'Failed to delete notification');
     }
+
+    // Invalidate cache
+    notificationsCache = null;
   },
 
   /**
@@ -160,6 +189,9 @@ export const notificationsAPI = {
       const error = await response.json();
       throw new Error(error.error || 'Failed to create notification');
     }
+
+    // Invalidate cache
+    notificationsCache = null;
 
     const result = await response.json();
     return result.data;
