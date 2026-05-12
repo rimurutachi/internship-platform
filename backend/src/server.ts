@@ -126,8 +126,8 @@ app.use(express.urlencoded({ extended: true }));
  */
 const rateLimitConfig = {
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000)), // 15 minutes
-  maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (process.env.NODE_ENV === 'production' ? '100' : '1000')),
-  authMaxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '5'), // Stricter for auth routes
+  maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '2000'), // Default to 2000 for SPA apps
+  authMaxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '50'), // Increased auth limit default
   enabled: process.env.RATE_LIMIT_ENABLED !== 'false', // Feature flag for emergencies
 };
 
