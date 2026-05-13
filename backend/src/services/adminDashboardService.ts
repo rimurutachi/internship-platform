@@ -12,7 +12,7 @@ export interface OJTDashboardMetrics {
   completed_internships: number;
   total_companies: number;
   companies_with_capacity: number;
-  total_daily_reports: number;
+  total_weekly_dtr: number;
   pending_supervisor_evaluations: number;
   pending_advisor_evaluations: number;
   completed_evaluations_this_month: number;
@@ -123,7 +123,7 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
       }
     }
 
-    // Daily reports tracking (no approval flow)
+    // Weekly DTR tracking
     const { data: supervisorInternships, error: supervisorInternshipsError } = await supabase
       .from('internships')
       .select('id')
@@ -134,18 +134,18 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
     }
     console.log('[adminDashboard] supervisorInternships rows', supervisorInternships?.length || 0);
 
-    // Daily reports count (for overall progress tracking)
+    // Weekly DTR count (for overall progress tracking)
     const internshipIds = supervisorInternships?.map(i => i.id) || [];
 
-    const { count: totalDailyReports, error: dailyReportsError } = await supabase
-      .from('student_daily_reports')
+    const { count: totalWeeklyDTR, error: weeklyDTRError } = await supabase
+      .from('weekly_dtr_submissions')
       .select('id', { count: 'exact', head: true })
       .in('internship_id', internshipIds);
 
-    if (dailyReportsError) {
-      console.error('[adminDashboard] totalDailyReports query error', dailyReportsError);
+    if (weeklyDTRError) {
+      console.error('[adminDashboard] totalWeeklyDTR query error', weeklyDTRError);
     }
-    console.log('[adminDashboard] totalDailyReports count', totalDailyReports || 0);
+    console.log('[adminDashboard] totalWeeklyDTR count', totalWeeklyDTR || 0);
 
     // Pending supervisor evaluations (drafts not submitted)
     const { count: pendingSupervisorEvaluations, error: pendingSupervisorEvaluationsError } = await supabase
@@ -192,7 +192,7 @@ export async function calculateDashboardMetrics(universityId: string): Promise<O
       completed_internships: completedInternships || 0,
       total_companies: totalCompanies || 0,
       companies_with_capacity: companiesWithCapacity,
-      total_daily_reports: totalDailyReports || 0,
+      total_weekly_dtr: totalWeeklyDTR || 0,
       pending_supervisor_evaluations: pendingSupervisorEvaluations || 0,
       pending_advisor_evaluations: pendingAdvisorEvaluations || 0,
       completed_evaluations_this_month: completedEvaluationsThisMonth || 0,
@@ -224,8 +224,8 @@ export async function storeMetricsSnapshot(universityId: string) {
         active_internships: metrics.active_internships,
         completed_internships: metrics.completed_internships,
         total_companies: metrics.total_companies,
-        companies_with_capacity: metrics.companies_with_capacity,
-        total_daily_reports: metrics.total_daily_reports,
+        companies_with_available_capacity: metrics.companies_with_capacity, // Fixed column name mismatch
+        total_weekly_reports_submitted: metrics.total_weekly_dtr,
         pending_supervisor_evaluations: metrics.pending_supervisor_evaluations,
         pending_advisor_evaluations: metrics.pending_advisor_evaluations,
         completed_evaluations_this_month: metrics.completed_evaluations_this_month,
@@ -359,10 +359,10 @@ export async function getAdminDashboardOverview(universityId: string) {
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - 7);
 
-    const { count: recentDailyReports } = await supabase
-      .from('student_daily_reports')
+    const { count: recentWeeklyDTR } = await supabase
+      .from('weekly_dtr_submissions')
       .select('id', { count: 'exact', head: true })
-      .gte('created_at', startOfWeek.toISOString());
+      .gte('submitted_at', startOfWeek.toISOString());
 
     const { count: recentEvaluations } = await supabase
       .from('evaluations')
@@ -375,7 +375,7 @@ export async function getAdminDashboardOverview(universityId: string) {
         metrics,
         insights: insights || [],
         recent_activity: {
-          daily_reports_this_week: recentDailyReports || 0,
+          weekly_dtr_this_week: recentWeeklyDTR || 0,
           evaluations_this_week: recentEvaluations || 0,
         },
       },

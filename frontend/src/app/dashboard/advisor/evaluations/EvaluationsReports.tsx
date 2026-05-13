@@ -48,7 +48,7 @@ interface Evaluation {
   attendance?: string | null;
   punctuality?: string | null;
   supervisorComment?: string | null;
-  status: 'submitted' | 'revision_requested' | 'approved';
+  status: 'submitted' | 'processed' | 'approved';
   submittedAt: string;
   approvedAt?: string;
 }
@@ -68,144 +68,72 @@ export default function EvaluationsReports() {
 
   const fetchEvaluations = async () => {
     try {
-      console.log('📊 [Advisor Evaluations] Starting fetch...');
+      console.log('📊 [Advisor Evaluations] Starting fetch via backend API...');
       setLoadingEvaluations(true);
       const supabase = createSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('❌ [Advisor Evaluations] No user found');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('❌ [Advisor Evaluations] No session found');
         return;
       }
-      console.log('✅ [Advisor Evaluations] User authenticated:', user.id);
 
-      console.log('🔍 [Advisor Evaluations] Querying evaluations table with advisor_id:', user.id);
-      const { data: evaluationsData, error } = await supabase
-        .from('evaluations')
-        .select(`
-          id,
-          internship_id,
-          student_id,
-          supervisor_id,
-          advisor_id,
-          evaluation_type,
-          rubric_id,
-          total_score,
-          final_grade,
-          attendance,
-          punctuality,
-          supervisor_comments,
-          status,
-          submitted_at,
-          approved_at,
-          internships:internships!evaluations_internship_id_fkey(
-            id,
-            position,
-            student_id,
-            supervisor_id,
-            advisor_id,
-            companies(name)
-          ),
-          users:users!evaluations_student_id_fkey(
-            id,
-            email,
-            first_name,
-            last_name
-          ),
-          supervisor:users!evaluations_supervisor_id_fkey(
-            id,
-            first_name,
-            last_name
-          ),
-          evaluation_criterion_scores: evaluation_criterion_scores(criterion_code, criterion_name, score)
-        `)
-        .eq('evaluation_type', 'final')
-        .eq('status', 'approved')
-        .eq('advisor_id', user.id)
-        .order('submitted_at', { ascending: false });
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      };
 
-      if (error) {
-        console.error('❌ [Advisor Evaluations] Supabase query error:', error);
-        throw error;
-      }
-      console.log('✅ [Advisor Evaluations] Query successful, received', evaluationsData?.length || 0, 'evaluations');
+      // Fetch submitted (pending review) and approved evaluations in parallel
+      // Backend uses service key — bypasses RLS entirely, reliable regardless of advisor_id column value
+      const [submittedRes, approvedRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/advisor/evaluations/pending`, { headers }),
+        fetch(`${API_BASE_URL}/advisor/evaluations/status/approved`, { headers }),
+      ]);
 
-      console.log('🔍 [Advisor Evaluations] Fetching advised students...');
-      const { data: advisedStudents } = await supabase
-        .from('internships')
-        .select('student_id')
-        .eq('advisor_id', user.id);
+      const submittedJson = await submittedRes.json();
+      const approvedJson = await approvedRes.json();
 
-      const advisedStudentIds = (advisedStudents || []).map((s) => s.student_id);
-      console.log('✅ [Advisor Evaluations] Found', advisedStudentIds.length, 'advised students');
-      console.log('📋 [Advisor Evaluations] Advised student IDs:', advisedStudentIds);
+      console.log('✅ [Advisor Evaluations] Submitted (pending):', submittedJson?.data?.length || 0);
+      console.log('✅ [Advisor Evaluations] Approved:', approvedJson?.data?.length || 0);
 
-      console.log('📊 [Advisor Evaluations] Raw evaluations from query:', evaluationsData?.length || 0);
-      console.log('🔍 [Advisor Evaluations] Full query result:', JSON.stringify(evaluationsData, null, 2));
-      
-      if (evaluationsData && evaluationsData.length > 0) {
-        console.log('📋 [Advisor Evaluations] First evaluation:', {
-          id: evaluationsData[0].id,
-          student_id: evaluationsData[0].student_id,
-          status: evaluationsData[0].status,
-          approved_at: evaluationsData[0].approved_at,
-          final_grade: evaluationsData[0].final_grade,
-        });
-        console.log('📋 [Advisor Evaluations] All evaluation student_ids:', evaluationsData.map((e: any) => e.student_id));
-        console.log('📋 [Advisor Evaluations] Status breakdown:', evaluationsData.reduce((acc: any, e: any) => {
-          acc[e.status] = (acc[e.status] || 0) + 1;
-          return acc;
-        }, {}));
-      } else {
-        console.warn('⚠️ [Advisor Evaluations] No evaluations returned from query!');
-        console.log('🔍 [Advisor Evaluations] Checking ALL evaluations (no status filter)...');
-        const { data: allEvals } = await supabase
-          .from('evaluations')
-          .select('id, student_id, status, approved_at, final_grade')
-          .eq('evaluation_type', 'final')
-          .order('submitted_at', { ascending: false })
-          .limit(10);
-        console.log('📋 [Advisor Evaluations] ALL recent evaluations (first 10):', allEvals);
-      }
+      const rawEvaluations: any[] = [
+        ...(submittedJson?.data || []),
+        ...(approvedJson?.data || []),
+      ];
 
-      const formatted: Evaluation[] = (evaluationsData || [])
-        .filter((evaluation: any) => {
-          const matches = advisedStudentIds.includes(evaluation.student_id);
-          if (!matches && evaluationsData && evaluationsData.length > 0) {
-            console.warn('⚠️ [Advisor Evaluations] Student', evaluation.student_id, 'not in advised list');
-          }
-          return matches;
-        })
-        .filter((evaluation: any) => advisedStudentIds.includes(evaluation.student_id))
-        .map((evaluation: any) => ({
-          id: evaluation.id,
-          internship_id: evaluation.internship_id,
-          student_id: evaluation.student_id,
-          supervisor_id: evaluation.supervisor_id,
-          studentName: evaluation.users ? `${evaluation.users.first_name} ${evaluation.users.last_name}` : 'Unknown',
-          studentEmail: evaluation.users?.email || 'Unknown',
-          supervisorName: evaluation.supervisor ? `${evaluation.supervisor.first_name} ${evaluation.supervisor.last_name}` : 'Unknown',
-          company: (evaluation.internships?.companies as any)?.name || 'Unknown',
-          position: evaluation.internships?.position || 'Intern',
-          evaluationType: 'final',
-          rubric_id: evaluation.rubric_id,
-          criterion_scores: evaluation.evaluation_criterion_scores || [],
-          total_score: evaluation.total_score,
-          final_grade: evaluation.final_grade,
-          attendance: evaluation.attendance,
-          punctuality: evaluation.punctuality,
-          supervisorComment: evaluation.supervisor_comments,
-          status: evaluation.status,
-          submittedAt: evaluation.submitted_at,
-          approvedAt: evaluation.approved_at,
-        }));
-      
-      console.log('✅ [Advisor Evaluations] Formatted', formatted.length, 'evaluations for advisor students');
+      console.log('📊 [Advisor Evaluations] Total raw evaluations:', rawEvaluations.length);
 
+      const formatted: Evaluation[] = rawEvaluations.map((evaluation: any) => ({
+        id: evaluation.id,
+        internship_id: evaluation.internship_id,
+        student_id: evaluation.student_id,
+        supervisor_id: evaluation.supervisor_id,
+        studentName: evaluation.student
+          ? `${evaluation.student.first_name} ${evaluation.student.last_name}`
+          : 'Unknown',
+        studentEmail: evaluation.student?.email || 'Unknown',
+        supervisorName: evaluation.supervisor
+          ? `${evaluation.supervisor.first_name} ${evaluation.supervisor.last_name}`
+          : 'Unknown',
+        company: evaluation.internship?.companies?.name || 'Unknown',
+        position: evaluation.internship?.position || 'Intern',
+        evaluationType: 'final',
+        rubric_id: evaluation.rubric_id,
+        criterion_scores: evaluation.criterion_scores || [],
+        total_score: evaluation.total_score,
+        final_grade: evaluation.final_grade,
+        attendance: evaluation.attendance,
+        punctuality: evaluation.punctuality,
+        supervisorComment: evaluation.supervisor_comments,
+        status: evaluation.status,
+        submittedAt: evaluation.submitted_at,
+        approvedAt: evaluation.approved_at,
+      }));
+
+      console.log('✅ [Advisor Evaluations] Formatted', formatted.length, 'evaluations');
       setEvaluations(formatted);
-      console.log('✅ [Advisor Evaluations] Successfully set', formatted.length, 'evaluations in state');
     } catch (error: any) {
       console.error('❌ [Advisor Evaluations] Error:', error);
-      console.error('❌ [Advisor Evaluations] Error details:', JSON.stringify(error, null, 2));
       toast({
         title: 'Error',
         description: error.message || 'Failed to load evaluations',
@@ -243,12 +171,13 @@ export default function EvaluationsReports() {
     total: evaluations.length,
     pendingReview: evaluations.filter(e => e.status === 'submitted').length,
     approved: evaluations.filter(e => e.status === 'approved').length,
-    revisionRequested: evaluations.filter(e => e.status === 'revision_requested').length,
+    processed: evaluations.filter(e => e.status === 'processed').length,
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'bg-[#4CAF50]/10 text-[#4CAF50] border-[#4CAF50]/20';
+      case 'processed': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'pending':
       case 'pending_review':
       case 'submitted':
@@ -328,8 +257,8 @@ export default function EvaluationsReports() {
                       <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="processed">Processed</SelectItem>
                         <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="revision_requested">Revision Requested</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

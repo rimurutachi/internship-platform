@@ -6,7 +6,7 @@ export interface OJTDashboardMetrics {
   completed_internships: number;
   total_companies: number;
   companies_with_capacity: number;
-  total_daily_reports: number;
+  total_weekly_dtr: number;
   pending_supervisor_evaluations: number;
   pending_advisor_evaluations: number;
   completed_evaluations_this_month: number;
