@@ -19,7 +19,7 @@ interface OJTDashboardMetrics {
   completed_internships: number;
   total_companies: number;
   companies_with_capacity: number;
-  total_daily_reports: number;
+  total_weekly_dtr: number;
   pending_supervisor_evaluations: number;
   pending_advisor_evaluations: number;
   completed_evaluations_this_month: number;
@@ -50,7 +50,7 @@ interface DashboardOverview {
   insights: AIInsight[];
   quick_actions?: QuickAction[];
   recent_activity: {
-    daily_reports_this_week: number;
+    weekly_dtr_this_week: number;
     evaluations_this_week: number;
   };
 }
@@ -75,7 +75,7 @@ export function AdminAnalyticsOJT() {
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [recentActivity, setRecentActivity] = useState({
-    daily_reports_this_week: 0,
+    weekly_dtr_this_week: 0,
     evaluations_this_week: 0,
   });
 
@@ -164,7 +164,7 @@ export function AdminAnalyticsOJT() {
       setMetrics(result.data.metrics);
       setInsights(result.data.insights || []);
       setRecentActivity(result.data.recent_activity || {
-        daily_reports_this_week: 0,
+        weekly_dtr_this_week: 0,
         evaluations_this_week: 0,
       });
       
@@ -384,8 +384,8 @@ export function AdminAnalyticsOJT() {
         <CardContent className="pt-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="text-center p-4 rounded-xl bg-green-500/5 border border-green-500/10">
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{recentActivity.daily_reports_this_week}</p>
-              <p className="text-xs text-muted-foreground mt-1">Daily Reports</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{recentActivity.weekly_dtr_this_week}</p>
+              <p className="text-xs text-muted-foreground mt-1">Weekly DTR Submitted</p>
             </div>
             <div className="text-center p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
               <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{recentActivity.evaluations_this_week}</p>
@@ -396,8 +396,8 @@ export function AdminAnalyticsOJT() {
               <p className="text-xs text-muted-foreground mt-1">Evaluations This Month</p>
             </div>
             <div className="text-center p-4 rounded-xl bg-orange-500/5 border border-orange-500/10">
-              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{metrics?.total_daily_reports || 0}</p>
-              <p className="text-xs text-muted-foreground mt-1">Total Daily Logs</p>
+              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{metrics?.total_weekly_dtr || 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Total Weekly DTR</p>
             </div>
           </div>
         </CardContent>
