@@ -92,7 +92,6 @@ export default function DocumentRequirementsPage() {
     description: '',
     due_date: '',
     is_mandatory: true,
-    target_audience: 'all_students',
   });
   const [submitting, setSubmitting] = useState(false);
   const [noDueDate, setNoDueDate] = useState(false);
@@ -238,7 +237,6 @@ export default function DocumentRequirementsPage() {
       description: '',
       due_date: '',
       is_mandatory: true,
-      target_audience: 'all_students',
     });
     setNoDueDate(false);
   };
@@ -251,8 +249,6 @@ export default function DocumentRequirementsPage() {
       description: requirement.description || '',
       due_date: requirement.due_date ? requirement.due_date.split('T')[0] : '',
       is_mandatory: requirement.is_mandatory,
-      target_audience: requirement.target_audience,
-      metadata: requirement.metadata,
     });
     setNoDueDate(!requirement.due_date);
     setShowEditDialog(true);
@@ -486,13 +482,7 @@ export default function DocumentRequirementsPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             <Users className="h-4 w-4" />
-                            <span>
-                              {requirement.target_audience === 'all_students'
-                                ? 'All students'
-                                : requirement.target_audience === 'specific_internship'
-                                ? 'Specific internships'
-                                : 'Specific students'}
-                            </span>
+                            <span>My students</span>
                           </div>
                         </div>
                       </div>
@@ -606,25 +596,6 @@ export default function DocumentRequirementsPage() {
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="target_audience">Target Audience</Label>
-              <Select
-                value={formData.target_audience}
-                onValueChange={(value: 'all_students' | 'specific_internship' | 'specific_student') =>
-                  setFormData({ ...formData, target_audience: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select target audience" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_students">All Students</SelectItem>
-                  <SelectItem value="specific_internship">Specific Internship</SelectItem>
-                  <SelectItem value="specific_student">Specific Students</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -707,25 +678,6 @@ export default function DocumentRequirementsPage() {
                   No due date
                 </Label>
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-target_audience">Target Audience</Label>
-              <Select
-                value={formData.target_audience}
-                onValueChange={(value: 'all_students' | 'specific_internship' | 'specific_student') =>
-                  setFormData({ ...formData, target_audience: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_students">All Students</SelectItem>
-                  <SelectItem value="specific_internship">Specific Internship</SelectItem>
-                  <SelectItem value="specific_student">Specific Students</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             
             <div className="flex items-center gap-2">
