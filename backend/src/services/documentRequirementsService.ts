@@ -196,6 +196,33 @@ export class DocumentRequirementsService {
       throw new Error("You can only view your own requirements");
     }
 
+    // For students, verify they are assigned to the advisor who created this requirement
+    if (userRole === "student") {
+      // Check internships table first
+      const { data: internship } = await supabase
+        .from("internships")
+        .select("id")
+        .eq("student_id", userId)
+        .eq("advisor_id", requirement.created_by)
+        .neq("is_archived", true)
+        .limit(1)
+        .maybeSingle();
+
+      // Fallback: check profile_data assigned_advisor_id (for students without internship records)
+      if (!internship) {
+        const { data: studentProfile } = await supabase
+          .from("users")
+          .select("profile_data")
+          .eq("id", userId)
+          .single();
+
+        const assignedAdvisorId = studentProfile?.profile_data?.assigned_advisor_id;
+        if (assignedAdvisorId !== requirement.created_by) {
+          throw new Error("Access denied - this requirement is not assigned to you");
+        }
+      }
+    }
+
     // Add submission stats
     const stats = await this.getSubmissionStats(requirementId);
     return { ...requirement, submission_stats: stats };
@@ -285,6 +312,7 @@ export class DocumentRequirementsService {
 
   /**
    * Get requirements assigned to a student
+   * Only shows requirements from advisors who are assigned to this student via internships
    */
   async getStudentRequirements(
     studentId: string,
@@ -298,15 +326,37 @@ export class DocumentRequirementsService {
     const { status = "all", internshipId, page = 1, limit = 20 } = options;
     const offset = (page - 1) * limit;
 
-    // Get student's internship IDs
+    // Get student's internships (including advisor IDs)
     const { data: internships } = await supabase
       .from("internships")
-      .select("id")
-      .eq("student_id", studentId);
+      .select("id, advisor_id")
+      .eq("student_id", studentId)
+      .neq("is_archived", true);
 
     const studentInternshipIds = internships?.map((i) => i.id) || [];
+    // Get the unique advisor IDs assigned to this student from internships
+    const studentAdvisorIds = [...new Set(internships?.map((i) => i.advisor_id) || [])];
 
-    // Build query for requirements targeting this student
+    // Fallback: if no internships, check profile_data for assigned_advisor_id
+    if (studentAdvisorIds.length === 0) {
+      const { data: studentProfile } = await supabase
+        .from("users")
+        .select("profile_data")
+        .eq("id", studentId)
+        .single();
+
+      const assignedAdvisorId = studentProfile?.profile_data?.assigned_advisor_id;
+      if (assignedAdvisorId) {
+        studentAdvisorIds.push(assignedAdvisorId);
+      }
+    }
+
+    // If student has no advisors at all, return empty
+    if (studentAdvisorIds.length === 0) {
+      return { requirements: [], total: 0 };
+    }
+
+    // Build query for requirements - only from advisors assigned to this student
     let query = supabase
       .from("document_requirements")
       .select(
@@ -317,6 +367,7 @@ export class DocumentRequirementsService {
         { count: "exact" }
       )
       .eq("status", "active")
+      .in("created_by", studentAdvisorIds)
       .order("due_date", { ascending: true, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
@@ -328,6 +379,7 @@ export class DocumentRequirementsService {
 
     // Filter requirements based on target audience
     const filteredRequirements = (allRequirements || []).filter((req) => {
+      // 'all_students' means all students of THIS advisor (already filtered by .in("created_by"))
       if (req.target_audience === "all_students") return true;
       
       if (req.target_audience === "specific_student") {
@@ -440,13 +492,24 @@ export class DocumentRequirementsService {
       let studentIds: string[] = [];
 
       if (requirement.target_audience === "all_students") {
-        // Get all students with active internships
+        // Get students from internships table
         const { data: internships } = await supabase
           .from("internships")
           .select("student_id")
-          .eq("status", "active");
+          .eq("advisor_id", requirement.created_by)
+          .neq("is_archived", true);
         
-        studentIds = [...new Set(internships?.map((i) => i.student_id) || [])];
+        const internshipStudentIds = internships?.map((i) => i.student_id) || [];
+
+        // Also get students assigned via profile_data (for those without internship records)
+        const { data: profileStudents } = await supabase
+          .from("users")
+          .select("id")
+          .eq("role", "student")
+          .eq("profile_data->>assigned_advisor_id", requirement.created_by);
+
+        const profileStudentIds = profileStudents?.map((s) => s.id) || [];
+        studentIds = [...new Set([...internshipStudentIds, ...profileStudentIds])];
       } else if (requirement.target_audience === "specific_student") {
         studentIds = requirement.metadata?.student_ids || [];
       } else if (requirement.target_audience === "specific_internship") {
