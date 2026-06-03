@@ -1,9 +1,10 @@
 'use client';
 
-import { Home, Briefcase, FileCheck, Settings, Users, Brain, BarChart3, Building2, FileText, LayoutDashboard, MessageSquare } from 'lucide-react';
+import { Home, Briefcase, FileCheck, Settings, Users, Brain, BarChart3, Building2, FileText, LayoutDashboard, MessageSquare, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { LogoutConfirmDialog } from '@/components/shared/LogoutConfirmDialog';
 
 interface NavItem {
   icon: typeof Home;
@@ -19,7 +20,7 @@ const studentNavItems: NavItem[] = [
   { icon: Settings, label: 'Settings', path: '/dashboard/student/settings' },
 ];
 
-// Supervisor pages: Dashboard, Interns, Evaluations, Settings
+// Supervisor pages: Dashboard, Interns, Evaluations, Messages, Settings
 const supervisorNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Home', path: '/dashboard/supervisor' },
   { icon: Users, label: 'Interns', path: '/dashboard/supervisor/interns' },
@@ -61,13 +62,13 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
     ? adminNavItems
     : supervisorNavItems;
 
-  // Calculate min width based on number of items (max 6 items, use flex-1 for even distribution)
-  const itemCount = navItems.length;
-  const minWidth = itemCount <= 5 ? `${100 / itemCount}%` : 'auto';
+  // Total items = nav items + logout
+  const totalItems = navItems.length + 1;
+  const minWidth = totalItems <= 6 ? `${100 / totalItems}%` : 'auto';
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
-      <div className="flex h-14 sm:h-16 overflow-x-auto scrollbar-hide pb-safe">
+      <div className="flex h-16 sm:h-[4.5rem] overflow-x-auto scrollbar-hide pb-safe">
         {navItems.map((item) => {
           // For Home/dashboard base path, only match exact path. For others, match exact or child paths
           const isBaseDashboard = item.path === '/dashboard/student' || 
@@ -84,19 +85,35 @@ export const BottomNavigation = ({ type }: BottomNavigationProps) => {
               key={item.path}
               href={item.path}
               className={cn(
-                'flex flex-col items-center justify-center space-y-0.5 sm:space-y-1 transition-colors px-1 sm:px-2 flex-1 min-h-[44px]',
-                itemCount > 5 && 'min-w-[16.666%]',
+                'flex flex-col items-center justify-center space-y-0.5 sm:space-y-1 transition-colors px-1 sm:px-2 flex-1 min-h-[48px]',
+                totalItems > 6 && 'min-w-[14.28%]',
                 isActive 
                   ? 'text-primary' 
                   : 'text-muted-foreground hover:text-foreground active:bg-muted/50'
               )}
-              style={itemCount <= 5 ? { minWidth } : undefined}
+              style={totalItems <= 6 ? { minWidth } : undefined}
             >
               <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', isActive && 'fill-primary/10')} />
               <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap truncate max-w-full">{item.label}</span>
             </Link>
           );
         })}
+
+        {/* Logout — always last item */}
+        <LogoutConfirmDialog
+          trigger={
+            <button
+              className={cn(
+                'flex flex-col items-center justify-center space-y-0.5 sm:space-y-1 transition-colors px-1 sm:px-2 flex-1 min-h-[48px] text-muted-foreground hover:text-destructive active:bg-muted/50'
+              )}
+              style={totalItems <= 6 ? { minWidth } : undefined}
+              type="button"
+            >
+              <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">Log out</span>
+            </button>
+          }
+        />
       </div>
     </nav>
   );

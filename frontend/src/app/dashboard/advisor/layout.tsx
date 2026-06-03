@@ -1,5 +1,6 @@
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { UserProvider } from '@/components/providers/UserProvider';
+import { SidebarProvider } from '@/components/providers/SidebarContext';
 
 export default function AdvisorLayout({
   children,
@@ -9,7 +10,9 @@ export default function AdvisorLayout({
   return (
     <ProtectedRoute requiredRole="advisor">
       <UserProvider>
-        {children}
+        <SidebarProvider>
+          {children}
+        </SidebarProvider>
       </UserProvider>
     </ProtectedRoute>
   );

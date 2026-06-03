@@ -173,6 +173,55 @@ export default function ReportsPage() {
   const textColor = resolvedTheme === 'dark' ? '#94a3b8' : '#64748b';
   const gridColor = resolvedTheme === 'dark' ? '#334155' : '#e2e8f0';
 
+  // Compute date range boundaries from exportRange selection
+  const computeDateRange = useCallback((range: string): { start?: string; end?: string } | undefined => {
+    if (range === 'all-time') return undefined;
+    const now = new Date();
+    const end = now.toISOString();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    switch (range) {
+      case 'daily':
+        // Start of today
+        break;
+      case 'weekly':
+        start.setDate(now.getDate() - 7);
+        break;
+      case 'monthly':
+        start.setMonth(now.getMonth() - 1);
+        break;
+      case 'yearly':
+        start.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        return undefined;
+    }
+    return { start: start.toISOString(), end };
+  }, []);
+
+  // Get readable label for active date range
+  const getDateRangeLabel = (range: string): string => {
+    switch (range) {
+      case 'daily': return 'Today';
+      case 'weekly': return 'Last 7 Days';
+      case 'monthly': return 'Last 30 Days';
+      case 'yearly': return 'Last Year';
+      default: return 'All Time';
+    }
+  };
+
+  // Compute months/periods for charts based on date range
+  const getChartPeriods = useCallback((range: string): { months: number; groupBy: string; periods: number } => {
+    switch (range) {
+      case 'daily': return { months: 1, groupBy: 'week', periods: 4 };
+      case 'weekly': return { months: 1, groupBy: 'week', periods: 4 };
+      case 'monthly': return { months: 1, groupBy: 'month', periods: 1 };
+      case 'yearly': return { months: 12, groupBy: 'month', periods: 12 };
+      default: return { months: 12, groupBy: 'month', periods: 12 };
+    }
+  }, []);
+
   // Fetch AI-generated insights from analytics service
   const fetchAIInsights = useCallback(async () => {
     setLoadingInsights(true);
@@ -398,16 +447,19 @@ export default function ReportsPage() {
     return 'medium';
   };
 
-  // Fetch all data on mount
+  // Fetch all data on mount or when date range changes
   const fetchAllData = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
     try {
+      const dateRange = computeDateRange(exportRange);
+      const { months, groupBy, periods } = getChartPeriods(exportRange);
+
       const [overviewData, monthlyData, growthData, statusData, evalData] = await Promise.all([
-        adminReportsAPI.getOverview(),
-        adminReportsAPI.getMonthlyStats(12),
-        adminReportsAPI.getUserGrowth('month', 12),
-        adminReportsAPI.getInternshipStatus('status'),
-        adminReportsAPI.getEvaluationMetrics(),
+        adminReportsAPI.getOverview(dateRange),
+        adminReportsAPI.getMonthlyStats(months),
+        adminReportsAPI.getUserGrowth(groupBy, periods),
+        adminReportsAPI.getInternshipStatus('status', dateRange),
+        adminReportsAPI.getEvaluationMetrics(dateRange),
       ]);
 
       setOverview(overviewData);
@@ -430,7 +482,7 @@ export default function ReportsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [toast, fetchAIInsights]);
+  }, [toast, fetchAIInsights, exportRange, computeDateRange, getChartPeriods]);
 
   const getInsightTitle = (type: string): string => {
     switch (type) {
@@ -458,12 +510,26 @@ export default function ReportsPage() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Show toast when date range changes (skip initial mount)
+  const [isInitialMount, setIsInitialMount] = useState(true);
+  useEffect(() => {
+    if (isInitialMount) {
+      setIsInitialMount(false);
+      return;
+    }
+    toast({
+      title: 'Date Range Updated',
+      description: `Showing data for: ${getDateRangeLabel(exportRange)}`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exportRange]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchAllData(false);
   };
 
-  const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
+  const handleExport = async (format: 'csv' | 'json' | 'pdf' | 'xlsx') => {
     setExporting(true);
     try {
       let dateRangeOptions: { start?: string, end?: string, type?: string } = { type: exportRange };
@@ -673,9 +739,46 @@ export default function ReportsPage() {
               )}
               Export PDF
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport('xlsx')}
+              disabled={exporting}
+              className="bg-background/50"
+            >
+              {exporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Export XLSX
+            </Button>
           </div>
         </div>
       </div>
+
+      {/* Active Date Range Indicator */}
+      {exportRange !== 'all-time' && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary/10 border border-primary/20 print:hidden">
+          <Activity className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-primary">
+            Showing data for: {getDateRangeLabel(exportRange)}
+          </span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {computeDateRange(exportRange)?.start
+              ? `From ${new Date(computeDateRange(exportRange)!.start!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+              : ''}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setExportRange('all-time')}
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
 
       {/* Quick Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -698,7 +801,7 @@ export default function ReportsPage() {
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">Internships</p>
-                <p className="text-3xl font-bold text-foreground">{overview?.active_internships || 0}</p>
+                <p className="text-3xl font-bold text-foreground">{overview?.total_internships || 0}</p>
               </div>
               <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
                 <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />

@@ -1,6 +1,10 @@
 export interface ReportOverview {
   total_users: number;
   active_internships: number;
+  total_internships: number;
+  pending_internships: number;
+  completed_internships: number;
+  cancelled_internships: number;
   total_evaluations: number;
   completion_rate: number;
 }
@@ -104,7 +108,7 @@ export interface MetricTrend {
 }
 
 export interface ExportOptions {
-  format: 'csv' | 'json' | 'pdf';
+  format: 'csv' | 'json' | 'pdf' | 'xlsx';
   metrics: string[];
   dateRange?: {
     start?: string;
