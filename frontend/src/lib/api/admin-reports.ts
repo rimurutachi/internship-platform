@@ -13,8 +13,15 @@ import { apiClient } from './client';
 
 export const adminReportsAPI = {
   // Get overview stats
-  getOverview: async (): Promise<ReportOverview> => {
-    const response = await apiClient.get('/admin/reports/overview');
+  getOverview: async (dateRange?: { start?: string; end?: string }): Promise<ReportOverview> => {
+    let url = '/admin/reports/overview';
+    if (dateRange) {
+      const params = new URLSearchParams();
+      if (dateRange.start) params.append('start', dateRange.start);
+      if (dateRange.end) params.append('end', dateRange.end);
+      if (params.toString()) url += `?${params.toString()}`;
+    }
+    const response = await apiClient.get(url);
     return response.data;
   },
 
@@ -31,8 +38,13 @@ export const adminReportsAPI = {
   },
 
   // Get internship status breakdown
-  getInternshipStatus: async (groupBy = 'status'): Promise<InternshipStatusData> => {
-    const response = await apiClient.get(`/admin/reports/internship-status?groupBy=${groupBy}`);
+  getInternshipStatus: async (groupBy = 'status', dateRange?: { start?: string; end?: string }): Promise<InternshipStatusData> => {
+    let url = `/admin/reports/internship-status?groupBy=${groupBy}`;
+    if (dateRange) {
+      if (dateRange.start) url += `&start=${encodeURIComponent(dateRange.start)}`;
+      if (dateRange.end) url += `&end=${encodeURIComponent(dateRange.end)}`;
+    }
+    const response = await apiClient.get(url);
     return response.data;
   },
 

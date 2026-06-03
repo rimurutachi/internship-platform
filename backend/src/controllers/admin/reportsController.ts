@@ -5,7 +5,12 @@ import { ensureString } from '../../utils/typeGuards';
 class ReportsController {
   static async getOverview(req: Request, res: Response) {
     try {
-      const data = await ReportsService.getOverview();
+      const dateRange: { start?: string; end?: string } = {};
+      if (req.query.start) dateRange.start = req.query.start as string;
+      if (req.query.end) dateRange.end = req.query.end as string;
+      const data = await ReportsService.getOverview(
+        Object.keys(dateRange).length > 0 ? dateRange : undefined
+      );
       res.json(data);
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch overview.' });
@@ -37,7 +42,13 @@ class ReportsController {
   static async getInternshipStatus(req: Request, res: Response) {
     try {
       const groupBy = (req.query.groupBy as string) || 'status';
-      const data = await ReportsService.generateInternshipStatus(groupBy);
+      const dateRange: { start?: string; end?: string } = {};
+      if (req.query.start) dateRange.start = req.query.start as string;
+      if (req.query.end) dateRange.end = req.query.end as string;
+      const data = await ReportsService.generateInternshipStatus(
+        groupBy,
+        Object.keys(dateRange).length > 0 ? dateRange : undefined
+      );
       res.json(data);
     } catch (err) {
       res.status(500).json({ error: 'Failed to fetch internship status.' });
@@ -99,13 +110,17 @@ class ReportsController {
   static async exportReport(req: Request, res: Response) {
     try {
       const { format, metrics, dateRange, groupBy } = req.body;
-      if (!['csv', 'json', 'pdf'].includes(format)) {
+      if (!['csv', 'json', 'pdf', 'xlsx'].includes(format)) {
         return res.status(400).json({ error: 'Invalid export format.' });
       }
       const file = await ReportsService.exportReport(format, metrics, dateRange, groupBy);
-      res.setHeader('Content-Disposition', `attachment; filename=intern-galing-report-${new Date().toISOString().slice(0,10)}.${format}`);
+      const fileExt = format === 'xlsx' ? 'xlsx' : format;
+      res.setHeader('Content-Disposition', `attachment; filename=intern-galing-report-${new Date().toISOString().slice(0,10)}.${fileExt}`);
       if (format === 'pdf') {
         res.setHeader('Content-Type', 'application/pdf');
+        res.send(file);
+      } else if (format === 'xlsx') {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.send(file);
       } else if (format === 'csv') {
         res.setHeader('Content-Type', 'text/csv');

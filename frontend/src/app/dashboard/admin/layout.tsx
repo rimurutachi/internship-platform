@@ -1,5 +1,6 @@
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { UserProvider } from '@/components/providers/UserProvider';
+import { SidebarProvider } from '@/components/providers/SidebarContext';
 
 export default function AdminLayout({
   children,
@@ -9,7 +10,9 @@ export default function AdminLayout({
   return (
     <ProtectedRoute requiredRole="admin">
       <UserProvider>
-        {children}
+        <SidebarProvider>
+          {children}
+        </SidebarProvider>
       </UserProvider>
     </ProtectedRoute>
   );

@@ -1,37 +1,11 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { NotificationsDropdown } from '@/components/ui/NotificationsDropdown';
-import { logout } from '@/lib/auth';
-import { useUserContext } from '@/components/providers/UserProvider';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { LogoutConfirmDialog } from '@/components/shared/LogoutConfirmDialog';
 
-/**
- * AdminHeader Component
- * 
- * Header component for admin dashboard with CVSU branding,
- * notifications, and profile dropdown menu.
- */
 export const AdminHeader = () => {
-  const { user, loading } = useUserContext();
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
   return (
     <header className="bg-background border-b border-border px-6 py-3 shadow-sm">
       <div className="flex items-center justify-between">
@@ -45,7 +19,7 @@ export const AdminHeader = () => {
             className="object-contain"
           />
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-foreground" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+            <span className="text-sm font-bold text-foreground">
               CAVITE STATE UNIVERSITY - BACOOR CITY CAMPUS
             </span>
           </div>
@@ -53,31 +27,9 @@ export const AdminHeader = () => {
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
-          {/* Theme Toggle */}
           <ThemeToggle />
-
-          {/* Notifications */}
           <NotificationsDropdown />
-
-          {/* Profile Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center space-x-2" aria-label="User menu">
-                <span className="text-sm font-medium text-foreground">Log out</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 z-[100]" sideOffset={8}>
-              <DropdownMenuItem 
-                className="text-destructive cursor-pointer font-medium"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* CVSU and Bagong Pilipinas Logos */}
+          <LogoutConfirmDialog />
           <Image 
             src="/logo.png" 
             alt="Intern-Galing Logo" 

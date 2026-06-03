@@ -20,6 +20,8 @@ class ReportsService {
     let evaluationsQuery = supabaseAdmin.from('evaluations').select('id', { count: 'exact' });
     let completedInternshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' }).eq('status', 'completed');
     let totalInternshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' });
+    let pendingInternshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' }).eq('status', 'pending');
+    let cancelledInternshipsQuery = supabaseAdmin.from('internships').select('id', { count: 'exact' }).eq('status', 'cancelled');
 
     if (dateRange && dateRange.start) {
       usersQuery = usersQuery.gte('created_at', dateRange.start);
@@ -27,6 +29,8 @@ class ReportsService {
       evaluationsQuery = evaluationsQuery.gte('created_at', dateRange.start);
       completedInternshipsQuery = completedInternshipsQuery.gte('created_at', dateRange.start);
       totalInternshipsQuery = totalInternshipsQuery.gte('created_at', dateRange.start);
+      pendingInternshipsQuery = pendingInternshipsQuery.gte('created_at', dateRange.start);
+      cancelledInternshipsQuery = cancelledInternshipsQuery.gte('created_at', dateRange.start);
     }
 
     if (dateRange && dateRange.end) {
@@ -35,6 +39,8 @@ class ReportsService {
       evaluationsQuery = evaluationsQuery.lte('created_at', dateRange.end);
       completedInternshipsQuery = completedInternshipsQuery.lte('created_at', dateRange.end);
       totalInternshipsQuery = totalInternshipsQuery.lte('created_at', dateRange.end);
+      pendingInternshipsQuery = pendingInternshipsQuery.lte('created_at', dateRange.end);
+      cancelledInternshipsQuery = cancelledInternshipsQuery.lte('created_at', dateRange.end);
     }
 
     const { count: total_users, error: usersError } = await usersQuery;
@@ -42,6 +48,8 @@ class ReportsService {
     const { count: total_evaluations, error: evaluationsError } = await evaluationsQuery;
     const { count: completed_internships } = await completedInternshipsQuery;
     const { count: total_internships } = await totalInternshipsQuery;
+    const { count: pending_internships } = await pendingInternshipsQuery;
+    const { count: cancelled_internships } = await cancelledInternshipsQuery;
 
     let completion_rate = 0;
     const completed = completed_internships ?? 0;
@@ -56,6 +64,10 @@ class ReportsService {
     return {
       total_users: total_users || 0,
       active_internships: active_internships || 0,
+      total_internships: total_internships || 0,
+      pending_internships: pending_internships || 0,
+      completed_internships: completed || 0,
+      cancelled_internships: cancelled_internships || 0,
       total_evaluations: total_evaluations || 0,
       completion_rate,
     };
@@ -144,7 +156,8 @@ class ReportsService {
   }
 
   static async generateInternshipStatus(groupBy = 'status', dateRange?: { start?: string; end?: string }) {
-    let query = supabaseAdmin.from('internships').select('id, status, program_code');
+    // Fetch internships WITH student profile data to resolve missing program_code
+    let query = supabaseAdmin.from('internships').select('id, status, program_code, student_id, users!internships_student_id_fkey(profile_data)');
     
     if (dateRange && dateRange.start) {
       query = query.gte('created_at', dateRange.start);
@@ -201,9 +214,14 @@ class ReportsService {
       });
     }
 
-    // Populate per-program counts
+    // Populate per-program counts - resolve program_code from student profile if missing
     internships.forEach((i: any) => {
-      const code = i.program_code;
+      // Use internship's program_code first, then fall back to student's profile_data.program
+      let code = i.program_code && i.program_code.trim() !== '' ? i.program_code : null;
+      if (!code && i.users?.profile_data?.program) {
+        code = i.users.profile_data.program;
+      }
+
       if (code && programMap[code]) {
         programMap[code].total++;
         if (i.status === 'pending') programMap[code].pending++;
@@ -211,16 +229,47 @@ class ReportsService {
         else if (i.status === 'completed') programMap[code].completed++;
         else if (i.status === 'cancelled') programMap[code].cancelled++;
       } else if (code) {
-        // Program code exists but not in program_hours table - create entry
+        // Program code exists but not in program_hours table - create entry with resolved name
+        const KNOWN_PROGRAM_NAMES: Record<string, string> = {
+          'BSIT': 'Bachelor of Science in Information Technology',
+          'BSCS': 'Bachelor of Science in Computer Science',
+          'BSHM': 'Bachelor of Science in Hospitality Management',
+          'BSBA-MM': 'Bachelor of Science in Business Administration - Major in Marketing Management',
+          'BSBA-HRM': 'Bachelor of Science in Business Administration - Major in Human Resource Management',
+          'BSPsych': 'Bachelor of Science in Psychology',
+          'BSED': 'Bachelor of Science in Secondary Education',
+          'BSED-Filipino': 'Bachelor of Science in Secondary Education - Major in Filipino',
+          'BSED-English': 'Bachelor of Science in Secondary Education - Major in English',
+          'BSED-Mathematics': 'Bachelor of Science in Secondary Education - Major in Mathematics',
+          'BSCRIM': 'Bachelor of Science in Criminology',
+        };
         programMap[code] = {
           program_code: code,
-          program_name: code, // Use code as fallback name
+          program_name: KNOWN_PROGRAM_NAMES[code] || code, // Use known name or code as fallback
           pending: i.status === 'pending' ? 1 : 0,
           active: i.status === 'active' ? 1 : 0,
           completed: i.status === 'completed' ? 1 : 0,
           cancelled: i.status === 'cancelled' ? 1 : 0,
           total: 1,
         };
+      } else {
+        // No program code at all - group under 'Unassigned'
+        if (!programMap['UNASSIGNED']) {
+          programMap['UNASSIGNED'] = {
+            program_code: 'UNASSIGNED',
+            program_name: 'Unassigned Program',
+            pending: 0,
+            active: 0,
+            completed: 0,
+            cancelled: 0,
+            total: 0,
+          };
+        }
+        programMap['UNASSIGNED'].total++;
+        if (i.status === 'pending') programMap['UNASSIGNED'].pending++;
+        else if (i.status === 'active') programMap['UNASSIGNED'].active++;
+        else if (i.status === 'completed') programMap['UNASSIGNED'].completed++;
+        else if (i.status === 'cancelled') programMap['UNASSIGNED'].cancelled++;
       }
     });
 
@@ -433,6 +482,8 @@ class ReportsService {
       return this.convertToCSV(reportData);
     } else if (format === 'pdf') {
       return this.convertToPDF(reportData);
+    } else if (format === 'xlsx') {
+      return this.convertToXLSX(reportData);
     }
     throw new Error('Unsupported format');
   }
@@ -659,6 +710,365 @@ class ReportsService {
     return new Promise((resolve) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
     });
+  }
+
+  private static async convertToXLSX(data: any): Promise<Buffer> {
+    const ExcelJS = require('exceljs');
+    const path = require('path');
+    const fs = require('fs');
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Intern-Galing Platform';
+    workbook.created = new Date();
+
+    // ====== HELPER: Style header rows ======
+    const styleHeaderRow = (sheet: any, rowNum: number, colCount: number) => {
+      const row = sheet.getRow(rowNum);
+      row.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF16A34A' } };
+      row.alignment = { horizontal: 'center', vertical: 'middle' };
+      for (let c = 1; c <= colCount; c++) {
+        const cell = row.getCell(c);
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      }
+    };
+
+    const styleDataRows = (sheet: any, startRow: number, endRow: number, colCount: number) => {
+      for (let r = startRow; r <= endRow; r++) {
+        const row = sheet.getRow(r);
+        row.alignment = { vertical: 'middle', wrapText: true };
+        for (let c = 1; c <= colCount; c++) {
+          const cell = row.getCell(c);
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          };
+          // Alternate row bg
+          if ((r - startRow) % 2 === 1) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+          }
+        }
+      }
+    };
+
+    // ====== HELPER: Add university header to sheet ======
+    const addUniversityHeader = async (sheet: any, colCount: number) => {
+      // Merge cells for header
+      const lastCol = colCount;
+
+      // Row 1: Logos + Republic text
+      sheet.mergeCells(1, 1, 1, lastCol);
+      const row1 = sheet.getRow(1);
+      row1.height = 20;
+      row1.getCell(1).value = 'Republic of the Philippines';
+      row1.getCell(1).font = { size: 10, italic: true };
+      row1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 2: University name
+      sheet.mergeCells(2, 1, 2, lastCol);
+      const row2 = sheet.getRow(2);
+      row2.height = 25;
+      row2.getCell(1).value = 'CAVITE STATE UNIVERSITY';
+      row2.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF16A34A' } };
+      row2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 3: Campus
+      sheet.mergeCells(3, 1, 3, lastCol);
+      const row3 = sheet.getRow(3);
+      row3.height = 20;
+      row3.getCell(1).value = 'Bacoor City Campus';
+      row3.getCell(1).font = { bold: true, size: 12 };
+      row3.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 4: Address
+      sheet.mergeCells(4, 1, 4, lastCol);
+      const row4 = sheet.getRow(4);
+      row4.height = 16;
+      row4.getCell(1).value = 'SHIV, Molino VI, City of Bacoor • (046) 476-5029 • cvsubacoor@cvsu.edu.ph';
+      row4.getCell(1).font = { size: 9, color: { argb: 'FF64748B' } };
+      row4.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 5: Separator line (empty row with bottom border)
+      sheet.mergeCells(5, 1, 5, lastCol);
+      const row5 = sheet.getRow(5);
+      row5.height = 5;
+      for (let c = 1; c <= lastCol; c++) {
+        row5.getCell(c).border = { bottom: { style: 'medium', color: { argb: 'FF16A34A' } } };
+      }
+
+      // Row 6: Report title
+      sheet.mergeCells(6, 1, 6, lastCol);
+      const row6 = sheet.getRow(6);
+      row6.height = 28;
+      row6.getCell(1).value = data.title || 'Intern-Galing Analytics Report';
+      row6.getCell(1).font = { bold: true, size: 16, color: { argb: 'FF0F172A' } };
+      row6.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 7: Generated date
+      sheet.mergeCells(7, 1, 7, lastCol);
+      const row7 = sheet.getRow(7);
+      row7.height = 16;
+      row7.getCell(1).value = `Generated: ${new Date().toLocaleString()}`;
+      row7.getCell(1).font = { size: 9, color: { argb: 'FF64748B' }, italic: true };
+      row7.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Row 8: Date range (if available)
+      if (data.date_range && data.date_range.type) {
+        sheet.mergeCells(8, 1, 8, lastCol);
+        const row8 = sheet.getRow(8);
+        row8.height = 16;
+        row8.getCell(1).value = `Date Range: ${data.date_range.type.toUpperCase()}`;
+        row8.getCell(1).font = { size: 9, color: { argb: 'FF64748B' } };
+        row8.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+      }
+
+      // Add logos as images
+      const cvsuLogoPath = path.resolve(__dirname, '../../../frontend/public/cvsu-logo.png');
+      const bpLogoPath = path.resolve(__dirname, '../../../frontend/public/bagong-pilipinas-logo.png');
+
+      if (fs.existsSync(cvsuLogoPath)) {
+        const cvsuLogo = workbook.addImage({
+          filename: cvsuLogoPath,
+          extension: 'png',
+        });
+        sheet.addImage(cvsuLogo, {
+          tl: { col: 0.2, row: 0.2 },
+          ext: { width: 60, height: 60 },
+        });
+      }
+
+      if (fs.existsSync(bpLogoPath)) {
+        const bpLogo = workbook.addImage({
+          filename: bpLogoPath,
+          extension: 'png',
+        });
+        sheet.addImage(bpLogo, {
+          tl: { col: lastCol - 1.5, row: 0.2 },
+          ext: { width: 60, height: 60 },
+        });
+      }
+
+      return 9; // Next available row
+    };
+
+    // ====== SHEET 1: Overview & Internship Status ======
+    const mainSheet = workbook.addWorksheet('Report Overview');
+    mainSheet.properties.defaultRowHeight = 18;
+    const mainCols = 6;
+
+    // Set column widths
+    mainSheet.columns = [
+      { width: 28 },
+      { width: 16 },
+      { width: 14 },
+      { width: 14 },
+      { width: 14 },
+      { width: 14 },
+    ];
+
+    let currentRow = await addUniversityHeader(mainSheet, mainCols);
+
+    // Overview section
+    if (data.overview) {
+      currentRow++;
+      mainSheet.mergeCells(currentRow, 1, currentRow, mainCols);
+      const sectionTitle = mainSheet.getRow(currentRow);
+      sectionTitle.getCell(1).value = '📊 Overview';
+      sectionTitle.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF16A34A' } };
+      sectionTitle.height = 24;
+      currentRow++;
+
+      // Headers
+      mainSheet.getRow(currentRow).values = ['Metric', 'Value'];
+      styleHeaderRow(mainSheet, currentRow, 2);
+      currentRow++;
+
+      const overviewRows = [
+        ['Total Users', data.overview.total_users],
+        ['Active Internships', data.overview.active_internships],
+        ['Total Evaluations', data.overview.total_evaluations],
+        ['Completion Rate', `${data.overview.completion_rate}%`],
+      ];
+      overviewRows.forEach((row) => {
+        mainSheet.getRow(currentRow).values = row;
+        currentRow++;
+      });
+      styleDataRows(mainSheet, currentRow - overviewRows.length, currentRow - 1, 2);
+      currentRow++;
+    }
+
+    // Internship Status by Program
+    if (data.internship_status && data.internship_status.by_program) {
+      currentRow++;
+      mainSheet.mergeCells(currentRow, 1, currentRow, mainCols);
+      const sectionTitle = mainSheet.getRow(currentRow);
+      sectionTitle.getCell(1).value = '🎓 Internship Status by Program';
+      sectionTitle.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF16A34A' } };
+      sectionTitle.height = 24;
+      currentRow++;
+
+      mainSheet.getRow(currentRow).values = ['Program', 'Pending', 'Active', 'Completed', 'Cancelled', 'Total'];
+      styleHeaderRow(mainSheet, currentRow, 6);
+      currentRow++;
+
+      const startDataRow = currentRow;
+      data.internship_status.by_program.forEach((p: any) => {
+        mainSheet.getRow(currentRow).values = [
+          p.program_name || p.program_code,
+          p.pending,
+          p.active,
+          p.completed,
+          p.cancelled,
+          p.total,
+        ];
+        currentRow++;
+      });
+      styleDataRows(mainSheet, startDataRow, currentRow - 1, 6);
+      currentRow++;
+
+      // Completed Students
+      if (data.internship_status.completed_students && data.internship_status.completed_students.length > 0) {
+        currentRow++;
+        mainSheet.mergeCells(currentRow, 1, currentRow, mainCols);
+        const sectionTitle2 = mainSheet.getRow(currentRow);
+        sectionTitle2.getCell(1).value = '✅ Completed Students';
+        sectionTitle2.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF16A34A' } };
+        sectionTitle2.height = 24;
+        currentRow++;
+
+        mainSheet.getRow(currentRow).values = ['Student Name', 'Program'];
+        styleHeaderRow(mainSheet, currentRow, 2);
+        currentRow++;
+
+        const startStudentRow = currentRow;
+        data.internship_status.completed_students.forEach((s: any) => {
+          mainSheet.getRow(currentRow).values = [s.name, s.program_code];
+          currentRow++;
+        });
+        styleDataRows(mainSheet, startStudentRow, currentRow - 1, 2);
+      }
+    }
+
+    // Monthly Stats
+    if (data.monthly_stats && data.monthly_stats.length) {
+      currentRow += 2;
+      mainSheet.mergeCells(currentRow, 1, currentRow, mainCols);
+      const sectionTitle = mainSheet.getRow(currentRow);
+      sectionTitle.getCell(1).value = '📅 Monthly Statistics';
+      sectionTitle.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF16A34A' } };
+      sectionTitle.height = 24;
+      currentRow++;
+
+      mainSheet.getRow(currentRow).values = ['Month', 'Users', 'Internships', 'Evaluations'];
+      styleHeaderRow(mainSheet, currentRow, 4);
+      currentRow++;
+
+      const startMonthRow = currentRow;
+      data.monthly_stats.forEach((m: any) => {
+        mainSheet.getRow(currentRow).values = [m.month, m.users, m.internships, m.evaluations];
+        currentRow++;
+      });
+      styleDataRows(mainSheet, startMonthRow, currentRow - 1, 4);
+    }
+
+    // ====== SHEET 2: AI Insights (if available) ======
+    if (data.ai_insights && data.ai_insights.status !== 'error') {
+      const aiSheet = workbook.addWorksheet('AI Insights');
+      aiSheet.properties.defaultRowHeight = 18;
+      const aiCols = 4;
+      aiSheet.columns = [
+        { width: 8 },
+        { width: 30 },
+        { width: 18 },
+        { width: 30 },
+      ];
+
+      let aiRow = await addUniversityHeader(aiSheet, aiCols);
+
+      // Key Insights
+      const insightsList = data.ai_insights.insights || [];
+      if (insightsList.length > 0) {
+        aiRow++;
+        aiSheet.mergeCells(aiRow, 1, aiRow, aiCols);
+        const title = aiSheet.getRow(aiRow);
+        title.getCell(1).value = '🧠 Key AI Insights';
+        title.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF8B5CF6' } };
+        title.height = 24;
+        aiRow++;
+
+        aiSheet.getRow(aiRow).values = ['Insight', 'Description'];
+        styleHeaderRow(aiSheet, aiRow, 2);
+        aiRow++;
+
+        const startRow = aiRow;
+        insightsList.forEach((insight: any) => {
+          aiSheet.getRow(aiRow).values = [insight.title, insight.description];
+          aiRow++;
+        });
+        styleDataRows(aiSheet, startRow, aiRow - 1, 2);
+        aiRow++;
+      }
+
+      // Top Skill Demands
+      if (data.ai_insights.skill_trends && data.ai_insights.skill_trends.most_demanded_overall) {
+        aiRow++;
+        aiSheet.mergeCells(aiRow, 1, aiRow, aiCols);
+        const title = aiSheet.getRow(aiRow);
+        title.getCell(1).value = '💡 Top Skill Demands';
+        title.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF8B5CF6' } };
+        title.height = 24;
+        aiRow++;
+
+        aiSheet.getRow(aiRow).values = ['Skill', 'Percentage', 'Frequency'];
+        styleHeaderRow(aiSheet, aiRow, 3);
+        aiRow++;
+
+        const startRow = aiRow;
+        data.ai_insights.skill_trends.most_demanded_overall.slice(0, 10).forEach((item: any) => {
+          aiSheet.getRow(aiRow).values = [item.name, `${item.percentage}%`, item.frequency];
+          aiRow++;
+        });
+        styleDataRows(aiSheet, startRow, aiRow - 1, 3);
+        aiRow++;
+      }
+
+      // Company Performance
+      if (data.ai_insights.company_performance && data.ai_insights.company_performance.length > 0) {
+        aiRow++;
+        aiSheet.mergeCells(aiRow, 1, aiRow, aiCols);
+        const title = aiSheet.getRow(aiRow);
+        title.getCell(1).value = '🏢 Top Company Performance';
+        title.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF8B5CF6' } };
+        title.height = 24;
+        aiRow++;
+
+        aiSheet.getRow(aiRow).values = ['Rank', 'Company', 'Avg Grade', 'Rating'];
+        styleHeaderRow(aiSheet, aiRow, 4);
+        aiRow++;
+
+        const startRow = aiRow;
+        data.ai_insights.company_performance.slice(0, 10).forEach((c: any, index: number) => {
+          aiSheet.getRow(aiRow).values = [
+            index + 1,
+            c.company_name,
+            c.average_grade,
+            c.performance_rating || c.performance_category || '',
+          ];
+          aiRow++;
+        });
+        styleDataRows(aiSheet, startRow, aiRow - 1, 4);
+      }
+    }
+
+    // Write to buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
 

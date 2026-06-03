@@ -258,6 +258,19 @@ export class InternshipsController {
         });
       }
 
+      // Auto-resolve program_code from student's profile if not explicitly provided
+      let resolvedProgramCode = program_code;
+      if (!resolvedProgramCode) {
+        const { data: studentData } = await supabase
+          .from('users')
+          .select('profile_data')
+          .eq('id', student_id)
+          .single();
+        if (studentData?.profile_data?.program) {
+          resolvedProgramCode = studentData.profile_data.program;
+        }
+      }
+
       // Create internship — include required_hours and program_code so custom hours are preserved
       const { data: internship, error } = await supabase
         .from('internships')
@@ -272,7 +285,7 @@ export class InternshipsController {
           end_date,
           status,
           ...(required_hours ? { required_hours: Number(required_hours) } : {}),
-          ...(program_code ? { program_code } : {}),
+          ...(resolvedProgramCode ? { program_code: resolvedProgramCode } : {}),
         })
         .select()
         .single();
