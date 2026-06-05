@@ -2,9 +2,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useRef, useCallback } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, X } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { GradingScaleRange } from '@/lib/api/supervisor-rubrics';
 
 interface CriterionScore {
@@ -124,11 +124,11 @@ export default function PrintableEvaluationForm({
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Student Trainee Evaluation Record - ${studentName}</title>
+        <title></title>
         <style>
           @page {
             size: A4;
-            margin: 10mm 10mm;
+            margin: 0;
           }
           * {
             margin: 0;
@@ -143,6 +143,7 @@ export default function PrintableEvaluationForm({
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
             color-adjust: exact;
+            padding: 10mm 10mm;
           }
           table { width: 100%; border-collapse: collapse; }
         </style>
@@ -190,20 +191,18 @@ export default function PrintableEvaluationForm({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-[900px] max-h-[90vh] overflow-y-auto p-0">
-          {/* Action Bar — hidden during print */}
-          <div className="print-hide sticky top-0 z-10 bg-background border-b p-4 flex items-center justify-between">
-            <h3 className="font-semibold text-lg">Evaluation Form Preview</h3>
-            <div className="flex gap-2">
-              <Button onClick={handlePrint} className="gap-2">
-                <Printer className="w-4 h-4" />
-                Print Form
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+        <DialogContent className="max-w-[900px] h-[90vh] flex flex-col p-0 gap-0">
+          {/* Action Bar — hidden during print, fixed at top */}
+          <div className="print-hide flex-shrink-0 bg-background border-b px-6 py-4 flex items-center justify-between pr-14">
+            <DialogTitle className="font-semibold text-lg">Evaluation Form Preview</DialogTitle>
+            <Button onClick={handlePrint} className="gap-2">
+              <Printer className="w-4 h-4" />
+              Print Form
+            </Button>
           </div>
+
+          {/* Scrollable Form Content */}
+          <div className="flex-1 overflow-y-auto">
 
           {/* Printable Form Content */}
           <div
@@ -417,6 +416,7 @@ export default function PrintableEvaluationForm({
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         </DialogContent>
       </Dialog>
