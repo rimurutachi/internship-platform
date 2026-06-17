@@ -16,7 +16,7 @@ export default function AdvisorPage() {
   }, [router]);
 
   return (
-    <div className="h-screen bg-background flex items-center justify-center">
+    <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#4CAF50] mx-auto mb-4" />
         <p className="text-muted-foreground">Loading...</p>

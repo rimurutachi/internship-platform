@@ -220,16 +220,8 @@ export default function MyStudents() {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        <AdvisorSidebar />
-        
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <AdvisorHeader />
-          
-          <div className="flex-1 overflow-y-auto p-8 bg-muted">
-            <div className="space-y-6">
+    <>
+      <div className="space-y-6 p-8">
               {/* Header */}
               <div>
                 <h1 className="text-3xl font-bold text-foreground">My Students</h1>
@@ -456,145 +448,6 @@ export default function MyStudents() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <MobileHeader 
-          title="My Students"
-          subtitle={`${filteredStudents.length} student${filteredStudents.length !== 1 ? 's' : ''}`}
-        />
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-primary">{stats.active}</div>
-                  <div className="text-xs text-muted-foreground">Active</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search..."
-                className="pl-9 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Mobile Section Filter */}
-            {sections.length > 0 && (
-              <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Section" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sections</SelectItem>
-                  {sections.map(section => (
-                    <SelectItem key={section} value={section}>Section {section}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Mobile Year Level Filter */}
-            {yearLevels.length > 0 && (
-              <Select value={yearLevelFilter} onValueChange={setYearLevelFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Year Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Year Levels</SelectItem>
-                  {yearLevels.map(yl => (
-                    <SelectItem key={yl} value={yl}>{yl}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Students List - Mobile */}
-            {filteredStudents.map((student) => (
-              <Card key={student.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <Avatar className="h-12 w-12">
-                      {student.avatar_url ? (
-                        <AvatarImage src={student.avatar_url} alt={student.name} />
-                      ) : (
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-                          {getInitials(student.name)}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-sm truncate">{student.name}</h3>
-                        <Badge className={`${getStatusColor(student.internship?.status)} text-xs border`}>
-                          {getStatusLabel(student)}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{student.program}</p>
-                      {student.year_level && student.year_level !== 'N/A' && (
-                        <p className="text-xs text-muted-foreground">{student.year_level}{student.section && student.section !== 'N/A' ? ` · Section ${student.section}` : ''}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {student.internship ? (
-                    <div className="bg-muted rounded p-3 mb-3 space-y-2">
-                      <p className="font-semibold text-sm">{student.internship.company}</p>
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span>Progress</span>
-                          <span className="font-semibold">
-                            {hoursProgressMap[student.internship.id]?.toFixed(1) || student.internship.progress}%
-                          </span>
-                        </div>
-                        <Progress 
-                          value={hoursProgressMap[student.internship.id] || student.internship.progress} 
-                          className="h-1.5" 
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-muted/50 border border-dashed border-muted-foreground/30 rounded p-2 mb-3">
-                      <p className="text-xs text-muted-foreground">⏳ No internship assigned yet</p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    {student.internship && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewDetails(student.id)}
-                        className="flex-1 text-xs"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-        <BottomNavigation type="advisor" />
-      </div>
 
       {/* Student Details Dialog */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
@@ -825,7 +678,7 @@ export default function MyStudents() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

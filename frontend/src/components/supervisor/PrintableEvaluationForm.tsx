@@ -1,5 +1,5 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 
 import { useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -23,7 +23,7 @@ interface PrintableEvaluationFormProps {
   workPeriod: string;
   criterionScores: CriterionScore[];
   totalScore: number;
-  gradeEquivalent: number | null;
+
   attendance: string;
   punctuality: string;
   supervisorComments: string;
@@ -89,7 +89,7 @@ export default function PrintableEvaluationForm({
   workPeriod,
   criterionScores,
   totalScore,
-  gradeEquivalent,
+
   attendance,
   punctuality,
   supervisorComments,
@@ -169,7 +169,7 @@ export default function PrintableEvaluationForm({
             }, 1000);
         }, 500);
     };
-  }, [studentName]);
+  }, []);
 
   // Determine which score range the total falls into for highlighting
   const getScoreRangeHighlight = (minScore: number, maxScore: number) => {

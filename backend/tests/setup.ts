@@ -9,6 +9,9 @@ jest.mock('@supabase/supabase-js', () => {
         data: { user: { id: 'test-user-id' } },
         error: null,
     });
+    const signInWithPassword = jest.fn();
+    const signOut = jest.fn();
+    const createUser = jest.fn();
 
     // In-memory store for internships
     let internships: any[] = [];
@@ -88,7 +91,12 @@ jest.mock('@supabase/supabase-js', () => {
 
     return {
         createClient: jest.fn(() => ({
-            auth: { getUser },
+            auth: { 
+                getUser,
+                signInWithPassword,
+                signOut,
+                admin: { createUser }
+            },
             from,
         })),
     };
