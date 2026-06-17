@@ -6,7 +6,7 @@ Aligned with database schema: evaluations, evaluation_criterion_scores, internsh
 Version: 2.0.0 - Historical Trend Analysis
 Purpose: Decision support for admin based on approved evaluation data
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -60,8 +60,8 @@ class EvaluationData(BaseModel):
     approved_at: str = Field(..., description="ISO timestamp when evaluation was approved")
     submitted_at: Optional[str] = None
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "evaluation_id": "550e8400-e29b-41d4-a716-446655440001",
                 "internship_id": "550e8400-e29b-41d4-a716-446655440002",
@@ -85,6 +85,7 @@ class EvaluationData(BaseModel):
                 "approved_at": "2026-01-10T10:30:00Z"
             }
         }
+    )
 
 
 class TrendAnalysisRequest(BaseModel):
@@ -103,8 +104,8 @@ class TrendAnalysisRequest(BaseModel):
     top_n_skills: int = Field(10, ge=1, le=50, description="Number of top skills to return")
     top_n_companies: int = Field(10, ge=1, le=50, description="Number of top companies to analyze")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "evaluations": [],  # Array of EvaluationData
                 "include_recommendations": True,
@@ -112,6 +113,7 @@ class TrendAnalysisRequest(BaseModel):
                 "top_n_companies": 10
             }
         }
+    )
 
 
 # =============================================================================
@@ -223,8 +225,8 @@ class TrendAnalysisResponse(BaseModel):
     processing_time_ms: float
     ai_version: str = "2.0.0-trends"
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "success",
                 "total_evaluations_analyzed": 150,
@@ -252,6 +254,7 @@ class TrendAnalysisResponse(BaseModel):
                 ]
             }
         }
+    )
 
 
 # =============================================================================

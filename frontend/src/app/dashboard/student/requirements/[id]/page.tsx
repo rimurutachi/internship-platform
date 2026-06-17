@@ -19,10 +19,6 @@ import {
   File,
   Trash2,
 } from 'lucide-react';
-import { StudentSidebar } from '@/components/student/StudentSidebar';
-import { StudentHeader } from '@/components/student/StudentHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -427,25 +423,9 @@ export default function StudentRequirementDetailPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      {!isMobile && <StudentSidebar />}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        {isMobile ? (
-          <MobileHeader title="Requirement Details" />
-        ) : (
-          <StudentHeader />
-        )}
-
-        {/* Content */}
-        <main className={cn(
-          "flex-1 overflow-y-auto p-4 lg:p-6",
-          isMobile && "pb-20"
-        )}>
-          {/* Back Button */}
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+        {/* Back Button */}
           <Button
             variant="ghost"
             onClick={() => router.back()}
@@ -674,11 +654,7 @@ export default function StudentRequirementDetailPage() {
               </CardContent>
             </Card>
           )}
-        </main>
-
-        {/* Mobile Navigation */}
-        {isMobile && <BottomNavigation type="student" />}
-      </div>
+      </main>
 
       {/* Confirm Upload Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

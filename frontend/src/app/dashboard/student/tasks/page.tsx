@@ -1,11 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { StudentSidebar } from '@/components/student/StudentSidebar';
-import { StudentHeader } from '@/components/student/StudentHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -558,36 +553,9 @@ export default function TaskListsPage() {
   );
 
   // Desktop layout
-  const Desktop = () => (
-    <div className="hidden lg:flex h-full">
-      <StudentSidebar />
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <StudentHeader />
-        <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-gray-50">
-          <div className="max-w-5xl mx-auto">
-            <TasksContent />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Mobile layout
-  const Mobile = () => (
-    <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-      <MobileHeader title="Task Lists" />
-      <div className="flex-1 overflow-y-auto p-4 pb-20 bg-gray-50">
-        <TasksContent />
-      </div>
-      <BottomNavigation type="student" />
-    </div>
-  );
-
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      <Desktop />
-      <Mobile />
-
+    <>
+      <TasksContent />
       {/* Create Task Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
@@ -622,7 +590,6 @@ export default function TaskListsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Edit Task Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
@@ -657,7 +624,6 @@ export default function TaskListsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[450px]">
@@ -683,6 +649,6 @@ export default function TaskListsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

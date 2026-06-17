@@ -8,10 +8,7 @@ import {
   Building2,
   Search,
 } from 'lucide-react';
-import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
-import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -195,20 +192,8 @@ export default function EvaluationsReports() {
   };
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        {/* Left Sidebar */}
-        <AdvisorSidebar />
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Header */}
-          <AdvisorHeader />
-          
-          {/* Page Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
-            <div className="space-y-8">
+    <>
+      <div className="space-y-8 p-8 xl:p-12">
               {/* Header */}
               <div>
                 <h1 className="text-4xl font-bold text-gray-900">Final Evaluations</h1>
@@ -343,75 +328,6 @@ export default function EvaluationsReports() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <MobileHeader 
-          title="Final Evaluations"
-          subtitle="Review student evaluations"
-        />
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <div className="space-y-4">
-            {/* Mobile stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-yellow-600">{evaluationStats.pendingReview}</div>
-                  <div className="text-xs text-gray-600">Submitted</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-[#4CAF50]">{evaluationStats.approved}</div>
-                  <div className="text-xs text-gray-600">Approved</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Mobile evaluations list */}
-            <div className="space-y-3">
-              {filteredEvaluations.map((evaluation) => (
-                <Card key={evaluation.id}>
-                  <CardContent className="p-4">
-                    <Badge className={`${getStatusColor(evaluation.status)} text-xs px-2 py-1 mb-2`}>
-                      {evaluation.status.replace('_', ' ')}
-                    </Badge>
-                    <h3 className="font-semibold text-sm mb-1">{evaluation.studentName}</h3>
-                    <p className="text-xs text-gray-600 mb-2">{evaluation.company}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-[#4CAF50]">{evaluation.total_score ?? 'N/A'}/{getMaxScore(evaluation) || '—'}</div>
-                        <div className="text-xs text-gray-600">Total</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-gray-900">{getPercentageScore(evaluation) ? `${getPercentageScore(evaluation)}%` : 'N/A'}</div>
-                        <div className="text-xs text-gray-600">Percent</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-[#4CAF50]">{evaluation.final_grade?.toFixed(2) ?? 'N/A'}</div>
-                        <div className="text-xs text-gray-600">Grade</div>
-                      </div>
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={() => handleViewEvaluation(evaluation)}
-                      >
-                        View
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-        <BottomNavigation type="advisor" />
-      </div>
-
       {/* Evaluation Review Modal */}
       <Dialog open={isEvaluationModalOpen} onOpenChange={setIsEvaluationModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -510,6 +426,6 @@ export default function EvaluationsReports() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

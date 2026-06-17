@@ -13,7 +13,7 @@ describe('Server Health Check', () => {
             .expect(200);
 
         expect(response.body).toMatchObject({
-            status: 'OK',
+            status: 'ok',
             message: 'Intern-Galing API is running smoothly.'
         });
     });

@@ -17,7 +17,7 @@ export interface Contact {
   last_name: string;
   email: string;
   role: string;
-  profile_data?: any;
+  profile_data?: Record<string, unknown>;
   unread_count?: number;
 }
 

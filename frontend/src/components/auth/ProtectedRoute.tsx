@@ -75,8 +75,12 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4 animate-in">
+          <div className="w-12 h-12 rounded-xl bg-muted skeleton-shimmer mx-auto" />
+          <div className="h-4 w-32 bg-muted rounded skeleton-shimmer mx-auto" />
+          <div className="h-3 w-24 bg-muted rounded skeleton-shimmer mx-auto" />
+        </div>
       </div>
     );
   }

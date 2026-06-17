@@ -17,11 +17,9 @@ import {
   Filter,
   ChevronRight,
 } from 'lucide-react';
-import { StudentSidebar } from '@/components/student/StudentSidebar';
-import { StudentHeader } from '@/components/student/StudentHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Card, CardContent } from '@/components/ui/card';
+import { AnimateIn } from '@/components/ui/AnimateIn';
+import { CardGridSkeleton } from '@/components/ui/skeletons/PageSkeleton';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -150,34 +148,19 @@ export default function StudentRequirementsPage() {
     : 0;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      {!isMobile && <StudentSidebar />}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        {isMobile ? (
-          <MobileHeader title="Required Documents" />
-        ) : (
-          <StudentHeader />
-        )}
-
-        {/* Content */}
-        <main className={cn(
-          "flex-1 overflow-y-auto p-4 lg:p-6",
-          isMobile && "pb-20"
-        )}>
-          {/* Page Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Required Documents</h1>
-            <p className="text-gray-600 mt-1">
-              Submit and track your required document submissions
-            </p>
-          </div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+        {/* Page Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Required Documents</h1>
+          <p className="text-gray-600 mt-1">
+            Submit and track your required document submissions
+          </p>
+        </div>
 
           {/* Progress Card */}
-          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+          <AnimateIn staggerIndex={1}>
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 hover-lift">
             <CardContent className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex-1">
@@ -214,9 +197,10 @@ export default function StudentRequirementsPage() {
               </div>
             </CardContent>
           </Card>
+          </AnimateIn>
 
           {/* Filters */}
-          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          <AnimateIn staggerIndex={2} className="flex flex-col lg:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -240,12 +224,12 @@ export default function StudentRequirementsPage() {
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </AnimateIn>
 
           {/* Requirements List */}
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="py-4">
+              <CardGridSkeleton count={4} columns={1} />
             </div>
           ) : filteredRequirements.length === 0 ? (
             <Card>
@@ -265,11 +249,11 @@ export default function StudentRequirementsPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {filteredRequirements.map((requirement) => (
+              {filteredRequirements.map((requirement, i) => (
+                <AnimateIn key={requirement.id} staggerIndex={Math.min((i % 12) + 3, 12)}>
                 <Card 
-                  key={requirement.id} 
                   className={cn(
-                    "hover:shadow-md transition-shadow cursor-pointer",
+                    "hover-lift hover:shadow-md transition-shadow cursor-pointer",
                     requirement.is_overdue && requirement.submission_status !== 'approved' 
                       && "border-red-200 bg-red-50/50"
                   )}
@@ -335,14 +319,11 @@ export default function StudentRequirementsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </AnimateIn>
               ))}
             </div>
           )}
         </main>
-
-        {/* Mobile Navigation */}
-        {isMobile && <BottomNavigation type="student" />}
-      </div>
     </div>
   );
 }

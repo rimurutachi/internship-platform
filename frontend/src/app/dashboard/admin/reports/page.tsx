@@ -22,10 +22,6 @@ import {
   GraduationCap,
   RefreshCw
 } from 'lucide-react';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { AdminHeader } from '@/components/admin/AdminHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,8 +36,7 @@ import {
   ReportOverview,
   MonthlyStat,
   UserGrowthPeriod,
-  InternshipStatusData,
-  EvaluationMetrics,
+  InternshipStatusData
 } from '@/types/reports';
 import {
   LineChart,
@@ -159,7 +154,6 @@ export default function ReportsPage() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStat[]>([]);
   const [userGrowth, setUserGrowth] = useState<UserGrowthPeriod[]>([]);
   const [internshipStatus, setInternshipStatus] = useState<InternshipStatusData | null>(null);
-  const [evaluationMetrics, setEvaluationMetrics] = useState<EvaluationMetrics | null>(null);
 
   // AI Insights states
   const [aiInsights, setAiInsights] = useState<DetailedAIInsight[]>([]);
@@ -454,19 +448,17 @@ export default function ReportsPage() {
       const dateRange = computeDateRange(exportRange);
       const { months, groupBy, periods } = getChartPeriods(exportRange);
 
-      const [overviewData, monthlyData, growthData, statusData, evalData] = await Promise.all([
+      const [overviewData, monthlyData, growthData, statusData] = await Promise.all([
         adminReportsAPI.getOverview(dateRange),
         adminReportsAPI.getMonthlyStats(months),
         adminReportsAPI.getUserGrowth(groupBy, periods),
         adminReportsAPI.getInternshipStatus('status', dateRange),
-        adminReportsAPI.getEvaluationMetrics(dateRange),
       ]);
 
       setOverview(overviewData);
       setMonthlyStats(monthlyData.data);
       setUserGrowth(growthData.data);
       setInternshipStatus(statusData);
-      setEvaluationMetrics(evalData);
 
       await fetchAIInsights();
     } catch (err) {
@@ -532,7 +524,7 @@ export default function ReportsPage() {
   const handleExport = async (format: 'csv' | 'json' | 'pdf' | 'xlsx') => {
     setExporting(true);
     try {
-      let dateRangeOptions: { start?: string, end?: string, type?: string } = { type: exportRange };
+      const dateRangeOptions: { start?: string, end?: string, type?: string } = { type: exportRange };
       
       if (exportRange !== 'all-time') {
         const now = new Date();
@@ -1444,43 +1436,5 @@ export default function ReportsPage() {
     </div>
   );
 
-  return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        <AdminSidebar />
-        
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <AdminHeader />
-          
-          <div className="flex-1 overflow-y-auto p-6">
-            <ReportsContent />
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <div className="flex-shrink-0">
-          <MobileHeader 
-            title="Reports"
-            subtitle="Analytics"
-            logo={
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-            }
-          />
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <ReportsContent />
-        </div>
-
-        <div className="flex-shrink-0">
-          <BottomNavigation type="admin" />
-        </div>
-      </div>
-    </div>
-  );
+  return <ReportsContent />;
 }

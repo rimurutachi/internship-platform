@@ -10,15 +10,10 @@ import {
   Users,
   BarChart3
 } from 'lucide-react';
-import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
-import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 /**
@@ -28,14 +23,7 @@ import { useUserContext } from '@/components/providers/UserProvider';
  * Includes overview with AI-powered grade recommendations.
  */
 const AdvisorDashboard = () => {
-  const { user } = useUserContext();
-  
-  const getInitials = () => {
-    if (!user?.first_name || !user?.last_name) return 'AD';
-    return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
-  };
-
-  const initials = getInitials();
+  useUserContext();
 
   const keyMetrics = [
     {
@@ -103,19 +91,7 @@ const AdvisorDashboard = () => {
   ];
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        {/* Left Sidebar */}
-        <AdvisorSidebar />
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Header */}
-          <AdvisorHeader />
-          
-          {/* Dashboard Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6">
+    <div className="space-y-6">
             <div className="space-y-6">
             {/* Key Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -349,119 +325,7 @@ const AdvisorDashboard = () => {
                 </CardContent>
               </Card>
             </div>
-            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <MobileHeader 
-          title="Advisor Portal"
-          subtitle={user?.email || 'Advisor'}
-          logo={
-            <div className="w-8 h-8 bg-gradient-ai rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">{initials}</span>
-            </div>
-          }
-        />
-
-        {/* Mobile Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
-          {/* Welcome Card */}
-          <Card className="bg-gradient-to-br from-ai/10 to-purple-500/10 border-ai/20">
-            <CardContent className="p-4 flex items-center space-x-4">
-              <Avatar className="w-16 h-16 border-2 border-ai">
-                <AvatarFallback className="bg-gradient-ai text-white font-bold text-lg">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="text-xl font-bold text-foreground">Welcome, {user?.first_name || 'Advisor'}!</h2>
-                <p className="text-sm text-muted-foreground">{user?.email || 'Advisor Portal'}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Key Metrics - Mobile */}
-          <div className="grid grid-cols-3 gap-3">
-            {keyMetrics.map((metric, index) => (
-              <Card key={index}>
-                <CardContent className="pt-4">
-                  <div className="text-center">
-                    <div className={`${metric.bgColor} p-2 rounded-lg inline-block mb-2`}>
-                      <metric.icon className={`w-5 h-5 ${metric.color}`} />
-                    </div>
-                    <div className="text-xl font-bold text-foreground">{metric.value}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{metric.title}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* AI Evaluations Pending Badge */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground">AI Evaluations</h3>
-                  <p className="text-sm text-muted-foreground">15 pending reviews</p>
-                </div>
-                <Badge className="bg-gradient-ai text-white border-0 px-3 py-1 text-sm">
-                  15 PENDING
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI Grade Recommendations - Mobile Simplified */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2 text-base">
-                <Brain className="w-4 h-4 text-ai" />
-                <span>AI Grade Recommendations</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Recent evaluations ready for review
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {evaluationCards.slice(0, 2).map((evaluation) => (
-                <Card key={evaluation.id} className="border-border">
-                  <CardContent className="pt-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-sm text-foreground">
-                          {evaluation.studentName}
-                        </h4>
-                        <p className="text-xs text-muted-foreground">{evaluation.company}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-success">{evaluation.grade}</div>
-                        <div className="text-xs text-ai">{evaluation.confidence}%</div>
-                      </div>
-                    </div>
-                    {evaluation.hasBiasAlert && (
-                      <Badge variant="outline" className="text-warning border-warning/30 text-xs mt-2">
-                        ⚠️ Bias Alert
-                      </Badge>
-                    )}
-                    <Button size="sm" className="w-full mt-3" variant="outline">
-                      <Eye className="w-3 h-3 mr-2" />
-                      Review
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Bottom Navigation */}
-        <BottomNavigation type="advisor" />
-      </div>
     </div>
   );
 };
