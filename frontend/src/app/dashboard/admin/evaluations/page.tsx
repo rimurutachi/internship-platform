@@ -11,10 +11,6 @@ import {
 import { convertScoreToGrade } from '@/components/admin/evaluations/gradeUtils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { AdminHeader } from '@/components/admin/AdminHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { useUserContext } from '@/components/providers/UserProvider';
 import { useToast } from '@/hooks/use-toast';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -30,10 +26,7 @@ import {
 
 export default function AdminEvaluationsPage() {
   const { toast } = useToast();
-  const { user } = useUserContext();
-  const initials = user?.first_name && user?.last_name
-    ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase()
-    : 'AD';
+  useUserContext();
   
   // State
   const [evaluations, setEvaluations] = useState<EvaluationWithRelations[]>([]);
@@ -260,8 +253,6 @@ export default function AdminEvaluationsPage() {
     }
   };
 
-
-
   const handleFiltersChange = (newFilters: EvaluationFilters) => {
     setFilters(newFilters);
   };
@@ -271,15 +262,7 @@ export default function AdminEvaluationsPage() {
   };
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        <AdminSidebar />
-
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <AdminHeader />
-
-          <div className="flex-1 overflow-y-auto p-6">
+    <div className="space-y-6">
             <div className="space-y-6">
               {/* Breadcrumbs */}
               <nav className="text-sm text-muted-foreground" aria-label="Breadcrumb">
@@ -350,107 +333,24 @@ export default function AdminEvaluationsPage() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <div className="flex-shrink-0">
-          <MobileHeader 
-            title="Evaluations"
-            subtitle="Monitor and validate evaluations"
-            logo={
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{initials}</span>
-              </div>
-            }
-          />
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center flex-wrap gap-2">
-              <div>
-                <h1 className="text-2xl font-bold">Evaluations</h1>
-                <p className="text-sm text-muted-foreground">Monitor and validate</p>
-              </div>
-            </div>
-
-            {metrics && <EvaluationStatsCards metrics={metrics} loading={loading} />}
-
-            <EvaluationFiltersComponent
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              onReset={handleResetFilters}
-            />
-
-            <EvaluationTable
-              evaluations={evaluations}
-              loading={loading}
-              onView={handleViewEvaluation}
-              onApprove={handleOpenApprove}
-              onReject={handleOpenReject}
-              onReprocess={handleRequestReprocess}
-            />
-
-            {!loading && evaluations.length > 0 && (
-              <div className="flex justify-between items-center p-4 border rounded-lg">
-                <p className="text-xs text-muted-foreground">
-                  {evaluations.length} of {pagination.total}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pagination.page === 1}
-                    onClick={() => setFilters({ ...filters, page: pagination.page - 1 })}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="px-3 py-1 text-xs flex items-center">
-                    {pagination.page} / {pagination.totalPages}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pagination.page === pagination.totalPages}
-                    onClick={() => setFilters({ ...filters, page: pagination.page + 1 })}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-shrink-0">
-          <BottomNavigation type="admin" />
-        </div>
-      </div>
-
       {/* Modals */}
       <ViewEvaluationModal
         evaluation={selectedEvaluation}
         open={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
       />
-
       <ApproveEvaluationModal
         evaluation={selectedEvaluation}
         open={approveModalOpen}
         onClose={() => setApproveModalOpen(false)}
         onConfirm={handleApprove}
       />
-
       <RejectEvaluationModal
         evaluation={selectedEvaluation}
         open={rejectModalOpen}
         onClose={() => setRejectModalOpen(false)}
         onConfirm={handleArchive}
       />
-
       <OverrideGradeModal
         evaluation={selectedEvaluation}
         open={overrideModalOpen}

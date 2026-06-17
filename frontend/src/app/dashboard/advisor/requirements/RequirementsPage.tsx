@@ -17,10 +17,6 @@ import {
   Filter,
   MoreVertical,
 } from 'lucide-react';
-import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
-import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +55,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import {
   DocumentRequirement,
@@ -72,7 +67,6 @@ import {
 
 export default function DocumentRequirementsPage() {
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   
   // State
   const [requirements, setRequirements] = useState<DocumentRequirement[]>([]);
@@ -299,24 +293,7 @@ export default function DocumentRequirementsPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      {!isMobile && <AdvisorSidebar />}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        {isMobile ? (
-          <MobileHeader title="Document Requirements" />
-        ) : (
-          <AdvisorHeader />
-        )}
-
-        {/* Content */}
-        <main className={cn(
-          "flex-1 overflow-y-auto p-4 lg:p-6",
-          isMobile && "pb-20"
-        )}>
+    <>
           {/* Page Header */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
             <div>
@@ -527,11 +504,6 @@ export default function DocumentRequirementsPage() {
               ))}
             </div>
           )}
-        </main>
-
-        {/* Mobile Navigation */}
-        {isMobile && <BottomNavigation type="advisor" />}
-      </div>
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -724,6 +696,6 @@ export default function DocumentRequirementsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }

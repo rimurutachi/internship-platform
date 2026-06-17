@@ -3,14 +3,15 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle, Search, UserPlus, X, Users } from 'lucide-react';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AnimateIn } from '@/components/ui/AnimateIn';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CardGridSkeleton } from '@/components/ui/skeletons/PageSkeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { documentsAPI } from '@/lib/api/documents';
@@ -18,13 +19,11 @@ import { useUser } from '@/hooks/use-user';
 import type { DocumentWithDetails } from '@/types/documents';
 
 interface DocumentsPageProps {
-  sidebar: ReactNode;
-  header: ReactNode;
   userType: 'student' | 'advisor' | 'supervisor';
   defaultUploadType?: string;
 }
 
-export function DocumentsPage({ sidebar, header, userType, defaultUploadType = 'report' }: DocumentsPageProps) {
+export function DocumentsPage({ userType, defaultUploadType = 'report' }: DocumentsPageProps) {
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -549,20 +548,14 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
   };
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
+    <>
       {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        {sidebar}
-        
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {header}
-          
-          <div className="flex-1 overflow-y-auto p-8 xl:p-12 bg-muted">
+      <div className="hidden lg:block min-h-screen bg-muted p-8 xl:p-12">
 
 
             {loading && (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <div className="py-4">
+                <CardGridSkeleton count={5} columns={1} />
               </div>
             )}
 
@@ -708,34 +701,43 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
 
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <Card className="bg-card border border-border">
-                    <CardContent className="p-6">
-                      <div className="text-3xl font-bold text-foreground">{stats.total}</div>
-                      <div className="text-base text-muted-foreground mt-1">Total Documents</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-card border border-border">
-                    <CardContent className="p-6">
-                      <div className="text-3xl font-bold text-blue-600">{stats.shared}</div>
-                      <div className="text-base text-muted-foreground mt-1">Shared</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-card border border-border">
-                    <CardContent className="p-6">
-                      <div className="text-3xl font-bold text-purple-600">{stats.categories}</div>
-                      <div className="text-base text-muted-foreground mt-1">Categories</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-card border border-border">
-                    <CardContent className="p-6">
-                      <div className="text-3xl font-bold text-primary">{stats.versions}</div>
-                      <div className="text-base text-muted-foreground mt-1">Total Versions</div>
-                    </CardContent>
-                  </Card>
+                  <AnimateIn staggerIndex={1}>
+                    <Card className="bg-card border border-border hover-lift">
+                      <CardContent className="p-6">
+                        <div className="text-3xl font-bold text-foreground">{stats.total}</div>
+                        <div className="text-base text-muted-foreground mt-1">Total Documents</div>
+                      </CardContent>
+                    </Card>
+                  </AnimateIn>
+                  <AnimateIn staggerIndex={2}>
+                    <Card className="bg-card border border-border hover-lift">
+                      <CardContent className="p-6">
+                        <div className="text-3xl font-bold text-blue-600">{stats.shared}</div>
+                        <div className="text-base text-muted-foreground mt-1">Shared</div>
+                      </CardContent>
+                    </Card>
+                  </AnimateIn>
+                  <AnimateIn staggerIndex={3}>
+                    <Card className="bg-card border border-border hover-lift">
+                      <CardContent className="p-6">
+                        <div className="text-3xl font-bold text-purple-600">{stats.categories}</div>
+                        <div className="text-base text-muted-foreground mt-1">Categories</div>
+                      </CardContent>
+                    </Card>
+                  </AnimateIn>
+                  <AnimateIn staggerIndex={4}>
+                    <Card className="bg-card border border-border hover-lift">
+                      <CardContent className="p-6">
+                        <div className="text-3xl font-bold text-primary">{stats.versions}</div>
+                        <div className="text-base text-muted-foreground mt-1">Total Versions</div>
+                      </CardContent>
+                    </Card>
+                  </AnimateIn>
                 </div>
 
                 {/* Search and Filter */}
-                <Card className="bg-card border border-border">
+                <AnimateIn animation="fadeInUp" staggerIndex={5}>
+                  <Card className="bg-card border border-border hover-lift">
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       <Input
@@ -756,6 +758,7 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                     </div>
                   </CardContent>
                 </Card>
+                </AnimateIn>
 
                 {/* Documents List */}
                 <div className="space-y-4">
@@ -767,8 +770,9 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                       </CardContent>
                     </Card>
                   ) : (
-                    filteredDocuments.map((doc) => (
-                      <Card key={doc.id} className="hover:shadow-md transition-shadow bg-card border border-border">
+                    filteredDocuments.map((doc, index) => (
+                      <AnimateIn key={doc.id} staggerIndex={Math.min((index % 12) + 1, 12)}>
+                        <Card className="hover-lift bg-card border border-border">
                         <CardContent className="p-6">
                           <div className="flex items-center gap-5">
                             <div className="p-4 bg-muted rounded-lg">
@@ -839,20 +843,17 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
                           </div>
                         </CardContent>
                       </Card>
+                      </AnimateIn>
                     ))
                   )}
                 </div>
               </div>
             )}
-          </div>
         </div>
-      </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <MobileHeader title="Documents" subtitle="Manage and share your documents" />
-        
-        <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
+      <div className="lg:hidden min-h-screen bg-background">
+        <div className="p-4 space-y-4">
           <Button 
             className="w-full bg-primary hover:bg-primary/90"
             onClick={() => setUploadDialogOpen(true)}
@@ -896,11 +897,9 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
 
           <div className="space-y-2">
             {loading ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Loader2 className="w-10 h-10 text-primary mx-auto animate-spin" />
-                </CardContent>
-              </Card>
+              <div className="py-4">
+                <CardGridSkeleton count={4} columns={1} />
+              </div>
             ) : filteredDocuments.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
@@ -932,8 +931,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
             )}
           </div>
         </div>
-
-        <BottomNavigation type={userType} />
       </div>
 
       {/* View Document Dialog */}
@@ -1280,6 +1277,6 @@ export function DocumentsPage({ sidebar, header, userType, defaultUploadType = '
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

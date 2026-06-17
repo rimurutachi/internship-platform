@@ -1,8 +1,6 @@
 'use client';
 
 import { useUser } from '@/hooks/use-user';
-import { SupervisorSidebar } from '@/components/supervisor/SupervisorSidebar';
-import { SupervisorHeader } from '@/components/supervisor/SupervisorHeader';
 import MessagesPage from '@/components/shared/MessagesPage';
 import { Loader2 } from 'lucide-react';
 
@@ -11,7 +9,7 @@ export default function SupervisorMessagesPage() {
 
   if (loading || !user) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
@@ -19,9 +17,12 @@ export default function SupervisorMessagesPage() {
 
   return (
     <MessagesPage 
-      currentUser={user as any} 
-      sidebar={<SupervisorSidebar />} 
-      header={<SupervisorHeader />} 
+      currentUser={{
+        id: user.id,
+        role: user.role || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || ''
+      }} 
     />
   );
 }

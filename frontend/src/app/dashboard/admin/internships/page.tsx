@@ -51,10 +51,6 @@ import { ArchiveInternshipDialog } from '@/components/admin/ArchiveInternshipDia
 import { UnarchiveInternshipDialog } from '@/components/admin/UnarchiveInternshipDialog';
 import BulkActionsToolbar from '@/components/admin/BulkActionsToolbar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { AdminHeader } from '@/components/admin/AdminHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 export default function AdminInternshipsPage() {
@@ -610,56 +606,14 @@ export default function AdminInternshipsPage() {
   );
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        {/* Left Sidebar */}
-        <AdminSidebar />
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Header */}
-          <AdminHeader />
-          
-          {/* Page Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <InternshipsContent />
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        {/* Mobile Header - Fixed */}
-        <div className="flex-shrink-0">
-          <MobileHeader 
-            title="Internships"
-            subtitle="Management"
-            logo={
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{initials}</span>
-              </div>
-            }
-          />
-        </div>
-
-        {/* Mobile Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <InternshipsContent />
-        </div>
-
-        {/* Bottom Navigation - Fixed */}
-        <div className="flex-shrink-0">
-          <BottomNavigation type="admin" />
-        </div>
-      </div>
+    <>
+      <InternshipsContent />
       {/* Modals - Rendered at the root level so they don't unmount when InternshipsContent re-renders */}
       <CreateInternshipModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSuccess={handleSuccess}
       />
-
       {selectedInternship && (
         <>
           <EditInternshipModal
@@ -671,7 +625,6 @@ export default function AdminInternshipsPage() {
             internship={selectedInternship}
             onSuccess={handleSuccess}
           />
-
           <ViewInternshipModal
             open={viewModalOpen}
             onClose={() => {
@@ -680,7 +633,6 @@ export default function AdminInternshipsPage() {
             }}
             internshipId={selectedInternship.id}
           />
-
           <ArchiveInternshipDialog
             open={archiveDialogOpen}
             onClose={() => {
@@ -690,7 +642,6 @@ export default function AdminInternshipsPage() {
             internship={selectedInternship}
             onSuccess={handleSuccess}
           />
-
           <UnarchiveInternshipDialog
             open={unarchiveDialogOpen}
             onClose={() => {
@@ -702,6 +653,6 @@ export default function AdminInternshipsPage() {
           />
         </>
       )}
-    </div>
+    </>
   );
 }

@@ -18,10 +18,6 @@ import {
   MessageSquare,
   Zap,
 } from 'lucide-react';
-import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
-import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -368,24 +364,8 @@ export default function RequirementDetailPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      {!isMobile && <AdvisorSidebar />}
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        {isMobile ? (
-          <MobileHeader title="Requirement Details" />
-        ) : (
-          <AdvisorHeader />
-        )}
-
-        {/* Content */}
-        <main className={cn(
-          "flex-1 overflow-y-auto p-4 lg:p-6",
-          isMobile && "pb-20"
-        )}>
+    <>
+      <div className="space-y-6">
           {/* Back Button */}
           <Button
             variant="ghost"
@@ -619,11 +599,7 @@ export default function RequirementDetailPage() {
               )}
             </CardContent>
           </Card>
-        </main>
-
-        {/* Mobile Navigation */}
-        {isMobile && <BottomNavigation type="advisor" />}
-      </div>
+    </div>
 
       {/* Review Dialog */}
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
@@ -740,6 +716,6 @@ export default function RequirementDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

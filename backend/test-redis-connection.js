@@ -35,7 +35,7 @@ redis.on('ready', async () => {
     console.log('\n📝 Testing SET (session cache)...');
     await redis.set('session:test-user-123', JSON.stringify({
       userId: '123',
-      email: 'test@cvsu.edu.ph',
+      email: 'test@example.com',
       role: 'student',
       loginTime: new Date().toISOString()
     }), 'EX', 3600); // 1 hour expiry

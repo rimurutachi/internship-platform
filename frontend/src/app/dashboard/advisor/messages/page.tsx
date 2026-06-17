@@ -1,17 +1,15 @@
-'use client';
+"use client";
 
-import { useUser } from '@/hooks/use-user';
-import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
-import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
-import MessagesPage from '@/components/shared/MessagesPage';
-import { Loader2 } from 'lucide-react';
+import { useUser } from "@/hooks/use-user";
+import MessagesPage from "@/components/shared/MessagesPage";
+import { Loader2 } from "lucide-react";
 
 export default function AdvisorMessagesPage() {
   const { user, loading } = useUser();
 
   if (loading || !user) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
@@ -19,9 +17,12 @@ export default function AdvisorMessagesPage() {
 
   return (
     <MessagesPage 
-      currentUser={user as any} 
-      sidebar={<AdvisorSidebar />} 
-      header={<AdvisorHeader />} 
+      currentUser={{
+        id: user.id,
+        role: user.role || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || ''
+      }} 
     />
   );
 }

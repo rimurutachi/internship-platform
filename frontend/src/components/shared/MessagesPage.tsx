@@ -7,8 +7,7 @@ import { useBackendSocket, useSocketEvent } from '@/hooks/use-backend-socket';
 import { messagesApi, Contact, Message } from '@/lib/api/messages';
 import { Send, Search, Loader2, Smile, MessageSquareDashed, ChevronLeft } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { MobileHeader } from '@/components/mobile/MobileHeader';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
+
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 
 // Lazy load emoji picker to avoid SSR issues
@@ -21,8 +20,6 @@ interface MessagesPageProps {
     first_name: string;
     last_name: string;
   };
-  sidebar: React.ReactNode;
-  header: React.ReactNode;
 }
 
 function getInitials(first: string, last: string) {
@@ -58,7 +55,7 @@ function getRoleBadgeStyle(role: string) {
   }
 }
 
-export default function MessagesPage({ currentUser, sidebar, header }: MessagesPageProps) {
+export default function MessagesPage({ currentUser }: MessagesPageProps) {
   const { theme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   
@@ -219,7 +216,7 @@ export default function MessagesPage({ currentUser, sidebar, header }: MessagesP
             <button
               key={contact.id}
               onClick={() => handleContactSelect(contact)}
-              className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-all duration-150 relative
+              className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-all duration-150 relative hover-lift
                 ${isActive
                   ? 'bg-violet-50 dark:bg-violet-500/10 border-r-2 border-r-violet-500'
                   : 'hover:bg-slate-50/70 dark:hover:bg-white/5 border-r-2 border-r-transparent'
@@ -385,17 +382,9 @@ export default function MessagesPage({ currentUser, sidebar, header }: MessagesP
   // Render
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen bg-background overflow-hidden flex flex-col">
-
+    <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-8rem)] bg-background overflow-hidden flex flex-col rounded-xl border border-border shadow-sm">
       {/* ── DESKTOP ── */}
-      <div className="hidden lg:flex h-full">
-        {sidebar}
-
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {header}
-
-          {/* Full-bleed chat shell */}
-          <div className="flex-1 overflow-hidden flex bg-muted/40">
+      <div className="hidden lg:flex flex-1 bg-muted/40">
 
             {/* ── Contacts panel ── */}
             <div className="w-[300px] xl:w-[340px] flex-shrink-0 flex flex-col bg-card border-r border-border h-full">
@@ -475,17 +464,13 @@ export default function MessagesPage({ currentUser, sidebar, header }: MessagesP
               )}
             </div>
           </div>
-        </div>
-      </div>
 
       {/* ── MOBILE ── */}
-      <div className="lg:hidden flex flex-col h-screen overflow-hidden bg-background">
+      <div className="lg:hidden flex flex-col flex-1 overflow-hidden bg-background">
         {/* Mobile: Contacts view */}
         {!isMobileChatOpen ? (
-          <>
-            <MobileHeader title="Messages" />
-            <div className="flex-1 overflow-hidden flex flex-col bg-card">
-              {/* Search */}
+          <div className="flex-1 overflow-hidden flex flex-col bg-card">
+            {/* Search */}
               <div className="px-4 py-3 border-b border-border">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -500,8 +485,6 @@ export default function MessagesPage({ currentUser, sidebar, header }: MessagesP
               </div>
               {renderContactList()}
             </div>
-            <BottomNavigation type={currentUser.role as any} />
-          </>
         ) : (
           /* Mobile: Chat view (slide-in overlay) */
           <div className="flex flex-col h-full bg-card">

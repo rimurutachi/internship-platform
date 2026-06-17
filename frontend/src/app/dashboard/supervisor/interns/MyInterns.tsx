@@ -159,16 +159,8 @@ export default function MyInterns() {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        <SupervisorSidebar />
-        
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <SupervisorHeader />
-          
-          <div className="flex-1 overflow-y-auto p-8 bg-muted">
-            <div className="space-y-6">
+    <>
+      <div className="space-y-6 p-8">
               {/* Header */}
               <div>
                 <h1 className="text-3xl font-bold text-foreground">My Interns</h1>
@@ -369,110 +361,6 @@ export default function MyInterns() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <MobileHeader 
-          title="My Interns"
-          subtitle={`${filteredStudents.length} intern${filteredStudents.length !== 1 ? 's' : ''}`}
-          logo={
-            <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
-          }
-        />
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <div className="space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-primary">{stats.active}</div>
-                  <div className="text-xs text-muted-foreground">Active</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search..."
-                className="pl-9 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Interns List - Mobile */}
-            {filteredStudents.map((student) => (
-              <Card key={student.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-                        {getInitials(student.first_name, student.last_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-sm truncate">{student.first_name} {student.last_name}</h3>
-                        {student.internship?.status && (
-                          <Badge className={`${getStatusColor(student.internship.status)} text-xs border`}>
-                            {student.internship.status}
-                          </Badge>
-                        )}
-                      </div>
-                      {student.internship && (
-                        <p className="text-xs text-muted-foreground">{student.internship.position}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {student.internship?.progress !== undefined && (
-                    <div className="bg-muted rounded p-3 mb-3 space-y-2">
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span>Hours Progress</span>
-                          <span className="font-semibold">
-                            {hoursProgressMap[student.internship.id]?.toFixed(1) || student.internship.progress}%
-                          </span>
-                        </div>
-                        <Progress 
-                          value={hoursProgressMap[student.internship.id] || student.internship.progress} 
-                          className="h-1.5" 
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewDetails(student)}
-                      className="flex-1 text-xs"
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-        <BottomNavigation type="supervisor" />
-      </div>
 
       {/* Intern Details Dialog */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
@@ -709,7 +597,7 @@ export default function MyInterns() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

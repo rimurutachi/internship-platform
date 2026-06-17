@@ -1,4 +1,46 @@
 import request from 'supertest';
+
+// Force test environment
+process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost/fake';
+process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'service-key';
+
+// Mock auth middleware to bypass Supabase verification
+jest.mock('../src/middleware/auth', () => ({
+    authenticateToken: (req: any, _res: any, next: any) => {
+        // Attach a mock user for any request with a Bearer token
+        const auth = req.headers['authorization'] || '';
+        if (auth.startsWith('Bearer ')) {
+            req.user = {
+                id: 'test-user-id',
+                email: 'test@example.com',
+                role: 'admin',
+            };
+        }
+        next();
+    },
+    requireRole: (_roles: string[]) => (_req: any, _res: any, next: any) => next(),
+}));
+
+// Mock notificationService (named + default export for archiveService compatibility)
+jest.mock('../src/services/notificationService', () => {
+    const mockInstance = {
+        createNotification: jest.fn(async () => ({})),
+        getUserNotifications: jest.fn(async () => []),
+        getUnreadNotificationsCount: jest.fn(async () => 0),
+        markAsRead: jest.fn(async () => undefined),
+        markAllAsRead: jest.fn(async () => undefined),
+        deleteNotification: jest.fn(async () => undefined),
+    };
+    return {
+        __esModule: true,
+        NotificationService: jest.fn(() => mockInstance),
+        default: mockInstance,
+    };
+});
+
+// Import app AFTER mocks
 import app from '../src/server';
 
 describe('Internship APIs', () => {

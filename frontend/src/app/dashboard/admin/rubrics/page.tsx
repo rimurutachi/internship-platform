@@ -490,16 +490,8 @@ export default function AdminRubricsPage() {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop View */}
-      <div className="hidden lg:flex h-full">
-        <AdminSidebar />
-        
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <AdminHeader />
-          
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
+    <>
+      <div className="space-y-6">
               {/* Page Header */}
               <div className="flex items-center justify-between">
                 <div>
@@ -625,94 +617,7 @@ export default function AdminRubricsPage() {
                   )}
                 </CardContent>
               </Card>
-            </div>
-          </div>
-        </div>
       </div>
-
-      {/* Mobile View */}
-      <div className="lg:hidden h-screen flex flex-col overflow-hidden">
-        <MobileHeader 
-          title="Rubrics"
-          subtitle="Manage Evaluation Rubrics"
-        />
-
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <div className="space-y-4">
-            <Button onClick={openCreateDialog} className="w-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Rubric
-            </Button>
-
-            {rubrics.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-sm text-muted-foreground">No rubrics found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {rubrics.map((rubric) => (
-                  <Card key={rubric.id} className={rubric.is_active ? 'border-green-500 border-2' : ''}>
-                    <CardContent className="pt-4 pb-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="font-semibold text-sm">{rubric.rubric_name}</div>
-                            <div className="text-xs text-muted-foreground">v{rubric.version}</div>
-                          </div>
-                          {rubric.is_active && (
-                            <Badge className="bg-green-500/10 text-green-600" style={{ fontSize: '0.65rem' }}>
-                              Active
-                            </Badge>
-                          )}
-                        </div>
-
-                        <p className="text-xs text-muted-foreground">{rubric.description}</p>
-
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs"
-                            onClick={() => openEditDialog(rubric)}
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs"
-                            onClick={() => openHistoryDialog(rubric)}
-                          >
-                            <History className="w-3 h-3 mr-1" />
-                            History
-                          </Button>
-                          {!rubric.is_active && (
-                            <Button
-                              size="sm"
-                              className="flex-1 text-xs bg-green-600"
-                              onClick={() => handleActivateRubric(rubric)}
-                            >
-                              <Power className="w-3 h-3 mr-1" />
-                              Activate
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <BottomNavigation type="admin" />
-      </div>
-
       {/* Create Rubric Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1101,6 +1006,6 @@ export default function AdminRubricsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
