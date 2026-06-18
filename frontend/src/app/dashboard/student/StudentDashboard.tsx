@@ -50,12 +50,16 @@ const StudentDashboard = () => {
 
         // Load daily logs count
         try {
-          const r = await fetch('/api/student/daily-reports/count', { credentials: 'include' });
-          if (r.ok) {
-            const d = await r.json();
-            setLogsCount(d.count ?? 0);
-          } else {
-            console.warn('⚠️ Daily logs count request failed', r.status);
+          if (response.data.internship?.id) {
+            const reportsRes = await studentAPI.getDailyReports(response.data.internship.id);
+            if (reportsRes.success) {
+              const count = Array.isArray(reportsRes.data) 
+                ? reportsRes.data.length 
+                : (reportsRes.data as any)?.data?.length || 0;
+              setLogsCount(count);
+            } else {
+              console.warn('⚠️ Daily logs count request failed');
+            }
           }
         } catch (e) {
           console.warn('⚠️ Daily logs count fetch error:', e);

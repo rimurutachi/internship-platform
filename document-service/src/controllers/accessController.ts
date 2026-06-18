@@ -48,6 +48,62 @@ export async function grantAccess(req: AuthRequest, res: Response) {
       return res.status(403).json({ success: false, error: "No permission to grant access." });
     }
 
+    if (user_id === "ALL_STUDENTS") {
+      if (req.user.role !== "advisor") {
+        return res.status(403).json({ success: false, error: "Only advisors can share with all students." });
+      }
+
+      console.log("🔐 [Access] Granting access to ALL active students for advisor", req.user.id);
+
+      // Fetch all active students assigned to this advisor
+      const { data: internships, error: intError } = await supabase
+        .from("internships")
+        .select("student_id")
+        .eq("advisor_id", req.user.id)
+        .in("status", ["active", "pending"]);
+
+      if (intError) {
+        console.error("❌ [Access] Fetch students error", intError);
+        throw intError;
+      }
+
+      const studentIds = [...new Set(internships.map(i => i.student_id))];
+
+      if (studentIds.length === 0) {
+        return res.status(400).json({ success: false, error: "No active students found for this advisor." });
+      }
+
+      // Create access records for all students
+      const accessRecords = studentIds.map(studentId => ({
+        document_id: documentId,
+        user_id: studentId,
+        permission_level,
+        expires_at: expires_at || null,
+        granted_by: req.user!.id,
+        granted_at: new Date().toISOString(),
+      }));
+
+      const { data, error } = await supabase
+        .from("document_access_control")
+        .insert(accessRecords)
+        .select();
+
+      if (error) {
+        console.error("❌ [Access] Grant multiple error", error);
+        throw error;
+      }
+
+      await auditService.logAction({
+        documentId,
+        userId: req.user.id,
+        action: "access_granted_to_all_students",
+        metadata: { student_count: studentIds.length, level: permission_level },
+      });
+
+      console.log(`✅ [Access] Access granted to ${studentIds.length} students`);
+      return res.status(201).json({ success: true, data });
+    }
+
     console.log("🔐 [Access] Granting access", {
       documentId: documentId.substring(0, 8),
       targetUser: user_id.substring(0, 8),

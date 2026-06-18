@@ -76,9 +76,7 @@ exports.collaborationService = {
         try {
             const { error } = await supabase
                 .from("collaboration_sessions")
-                .update({
-                ended_at: new Date().toISOString(),
-            })
+                .update({ ended_at: new Date().toISOString() })
                 .eq("session_id", sessionId);
             if (error) {
                 console.error("❌ [Collab] Session end error", error);
@@ -239,7 +237,7 @@ exports.collaborationService = {
             }
             const users = (data || []).map((session) => ({
                 userId: session.user_id,
-                userName: session.user?.[0]?.first_name + ' ' + session.user?.[0]?.last_name,
+                userName: session.user?.[0]?.first_name + " " + session.user?.[0]?.last_name,
                 userEmail: session.user?.[0]?.email,
                 color: session.color,
                 isEditing: false, // Not tracked in current schema
@@ -270,7 +268,6 @@ exports.collaborationService = {
             const change = state.undoStack.pop();
             state.redoStack.push(change);
             state.currentIndex--;
-            // Create inverse operation
             const inverseChange = {
                 documentId,
                 userId,
@@ -357,7 +354,7 @@ exports.collaborationService = {
         });
         try {
             const now = new Date();
-            let cutoffTime = new Date();
+            const cutoffTime = new Date();
             if (timePeriod === "1h") {
                 cutoffTime.setHours(cutoffTime.getHours() - 1);
             }
@@ -385,27 +382,21 @@ exports.collaborationService = {
                     peakActivity: { hour: 0, count: 0 },
                 };
             }
-            // Group by user
             const changesByUserMap = new Map();
             const operationMap = new Map();
             const hourlyMap = new Map();
             for (const change of changes) {
-                // By user
                 const key = change.user_id;
-                const userArray = Array.isArray(change.user) ? change.user : [change.user];
+                const userArray = Array.isArray(change.user)
+                    ? change.user
+                    : [change.user];
                 const userName = userArray?.[0]?.first_name || "Unknown";
                 if (!changesByUserMap.has(key)) {
-                    changesByUserMap.set(key, {
-                        userId: change.user_id,
-                        userName,
-                        count: 0,
-                    });
+                    changesByUserMap.set(key, { userId: change.user_id, userName, count: 0 });
                 }
                 changesByUserMap.get(key).count++;
-                // By operation type
                 const opCount = (operationMap.get(change.operation) || 0) + 1;
                 operationMap.set(change.operation, opCount);
-                // By hour
                 const hour = new Date(change.timestamp).getHours();
                 const hourCount = (hourlyMap.get(hour) || 0) + 1;
                 hourlyMap.set(hour, hourCount);
