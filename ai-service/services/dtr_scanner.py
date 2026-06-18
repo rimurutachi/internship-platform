@@ -243,10 +243,33 @@ If you cannot read the document at all, respond with:
             # Parse JSON
             parsed = json.loads(response_text)
             
+            daily_breakdown = parsed.get("daily_breakdown", [])
+            
+            # Process overtime and validate limits
+            for day in daily_breakdown:
+                hours = float(day.get("hours", 0))
+                regular_hours = min(8.0, hours)
+                overtime_hours = max(0.0, hours - 8.0)
+                
+                day["regular_hours"] = regular_hours
+                day["overtime_hours"] = overtime_hours
+                
+                # Check for > 10 hours limit (8 regular + max 2 overtime)
+                if hours > 10.0:
+                    logger.warning(f"⚠️ [DTRScanner] Validation failed: Day {day.get('date')} has {hours} hours (exceeds 10-hour limit).")
+                    return DTRScanResult(
+                        status="failed",
+                        total_hours=0,
+                        daily_breakdown=daily_breakdown,
+                        confidence_score=float(parsed.get("confidence_score", 0)),
+                        notes=parsed.get("notes", ""),
+                        error=f"Invalid DTR: Rendered hours on {day.get('date', 'a specific day')} ({hours} hours) exceed the maximum limit of 10 hours per day (8 regular + 2 overtime). Please submit an updated DTR."
+                    )
+            
             return DTRScanResult(
                 status="success",
                 total_hours=float(parsed.get("total_hours", 0)),
-                daily_breakdown=parsed.get("daily_breakdown", []),
+                daily_breakdown=daily_breakdown,
                 confidence_score=float(parsed.get("confidence_score", 0)),
                 notes=parsed.get("notes", "")
             )
@@ -280,6 +303,7 @@ If you cannot read the document at all, respond with:
             patterns = [
                 r'"total_hours":\s*(\d+\.?\d*)',
                 r'[Tt]otal\s*(?:hours?)?\s*[:=]\s*(\d+\.?\d*)',
+                r'[Tt]otal\s+hours\s+worked\s+is\s+(\d+\.?\d*)',
                 r'(\d+\.?\d*)\s*(?:total\s+)?hours?\s+(?:total|worked)',
             ]
             

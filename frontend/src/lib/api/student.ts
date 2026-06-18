@@ -464,6 +464,14 @@ export const studentAPI = {
     }>('/student/dashboard');
   },
 
+  // ============ Daily Reports APIs ============
+
+  /**
+   * Get daily reports for an internship
+   */
+  getDailyReports: async (internshipId: string) => {
+    return apiCall<{ data: any[] }>(`/student/daily-reports?internship_id=${internshipId}`);
+  },
 
 };
 

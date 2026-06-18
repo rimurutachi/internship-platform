@@ -345,51 +345,93 @@ async function deleteDocument(req, res) {
                 error: "You don't have permission to delete this document",
             });
         }
-        console.log('🗑️ [Documents] Deleting document and related records:', id);
-        // Step 1: Get all files associated with this document for storage cleanup
+        console.log('🗑️ [Documents] Deleting document and all related records:', id);
+        // Step 1: Collect storage files for later cleanup
         const { data: files } = await supabase
             .from("document_files")
             .select("id, storage_path")
             .eq("document_id", id);
-        // Step 2: Delete files from Supabase Storage
+        const { data: fileVersions } = await supabase
+            .from("document_file_versions")
+            .select("id, storage_path")
+            .eq("document_id", id);
+        // Step 2: Delete grandchild records that reference document_signatures
+        const { data: signatures } = await supabase
+            .from("document_signatures")
+            .select("id")
+            .eq("document_id", id);
+        if (signatures && signatures.length > 0) {
+            const signatureIds = signatures.map(s => s.id);
+            await supabase
+                .from("signature_verification_attempts")
+                .delete()
+                .in("signature_id", signatureIds);
+            await supabase
+                .from("signature_verification_queue")
+                .delete()
+                .in("signature_id", signatureIds);
+        }
+        // Step 3: Delete grandchild records that reference document_workflows
+        const { data: workflows } = await supabase
+            .from("document_workflows")
+            .select("id")
+            .eq("document_id", id);
+        if (workflows && workflows.length > 0) {
+            const workflowIds = workflows.map(w => w.id);
+            await supabase
+                .from("document_approvals")
+                .delete()
+                .in("workflow_id", workflowIds);
+            await supabase
+                .from("workflow_states")
+                .delete()
+                .in("workflow_id", workflowIds);
+        }
+        // Step 4: Null out self-referencing parent_comment_id in document_comments
+        await supabase
+            .from("document_comments")
+            .update({ parent_comment_id: null })
+            .eq("document_id", id);
+        // Step 5: Delete all direct child records of the document (in safe order)
+        const childTables = [
+            "document_audit_log",
+            "document_changes",
+            "collaboration_sessions",
+            "document_comments",
+            "document_signatures",
+            "document_workflows",
+            "document_access_control",
+            "document_files",
+            "document_file_versions",
+            "document_content_versions",
+        ];
+        for (const table of childTables) {
+            const { error: deleteChildError } = await supabase
+                .from(table)
+                .delete()
+                .eq("document_id", id);
+            if (deleteChildError) {
+                console.warn(`⚠️ [Documents] Could not delete from ${table}:`, deleteChildError.message);
+            }
+        }
+        // Step 6: Delete files from Supabase Storage (after DB records removed)
         if (files && files.length > 0) {
-            console.log(`📁 [Documents] Deleting ${files.length} files from storage`);
+            console.log(`📁 [Documents] Removing ${files.length} files from storage`);
             for (const file of files) {
                 if (file.storage_path) {
                     await storageService_1.storageService.removeFile(file.storage_path);
                 }
             }
         }
-        // Step 3: Delete document_files records (if not cascade)
-        await supabase
-            .from("document_files")
-            .delete()
-            .eq("document_id", id);
-        // Step 4: Delete document_access_control records
-        await supabase
-            .from("document_access_control")
-            .delete()
-            .eq("document_id", id);
-        // Step 5: Delete file version history records
-        const { data: fileVersions } = await supabase
-            .from("document_file_versions")
-            .select("id, storage_path")
-            .eq("document_id", id);
-        // Delete version files from storage
         if (fileVersions && fileVersions.length > 0) {
-            console.log(`📁 [Documents] Deleting ${fileVersions.length} version files from storage`);
+            console.log(`📁 [Documents] Removing ${fileVersions.length} version files from storage`);
             for (const version of fileVersions) {
                 if (version.storage_path) {
                     await storageService_1.storageService.removeFile(version.storage_path);
                 }
             }
         }
-        // Delete version history records
-        await supabase
-            .from("document_file_versions")
-            .delete()
-            .eq("document_id", id);
-        // Step 6: Finally delete the document itself
+        // Step 7: Finally delete the document itself
         const { error } = await supabase
             .from("documents")
             .delete()

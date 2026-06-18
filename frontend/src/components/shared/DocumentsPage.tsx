@@ -982,15 +982,17 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                   <Download className="w-4 h-4 mr-2" />
                   Download
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={() => {
-                  if (viewingDocument) {
-                    setViewDialogOpen(false);
-                    handleShareDocument(viewingDocument);
-                  }
-                }} disabled={!viewingDocument}>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
+                {userType !== 'supervisor' && (
+                  <Button variant="outline" className="flex-1" onClick={() => {
+                    if (viewingDocument) {
+                      setViewDialogOpen(false);
+                      handleShareDocument(viewingDocument);
+                    }
+                  }} disabled={!viewingDocument}>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -1077,6 +1079,29 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                 </Button>
               </div>
             </div>
+
+            {userType === 'advisor' && (
+              <div className="pt-2">
+                <Button 
+                  variant="secondary" 
+                  className="w-full border-dashed bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                  onClick={() => {
+                    setSelectedShareUser({
+                      id: "ALL_STUDENTS",
+                      first_name: "All",
+                      last_name: "My Students",
+                      email: "Share document with all active students assigned to you",
+                      role: "student"
+                    });
+                    setShareSearchResults([]);
+                    setShareSearchQuery('');
+                  }}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Share to all my students
+                </Button>
+              </div>
+            )}
 
             {/* Search Results */}
             {shareSearchResults.length > 0 && !selectedShareUser && (
