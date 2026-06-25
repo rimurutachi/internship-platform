@@ -22,6 +22,7 @@ import { hoursApi } from '@/lib/api/hours';
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { DocumentTracker } from '@/components/advisor/DocumentTracker';
+import { WelcomeCard } from '@/components/shared/WelcomeCard';
 import type { InternshipHoursSummary } from '@/types/hours';
 
 export default function MyStudents() {
@@ -222,11 +223,8 @@ export default function MyStudents() {
   return (
     <>
       <div className="space-y-6 p-8">
-              {/* Header */}
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">My Students</h1>
-                <p className="text-muted-foreground mt-1">Monitor and manage your advisee students</p>
-              </div>
+              {/* Welcome Card */}
+              <WelcomeCard />
 
               {/* Error Alert */}
               {error && (
