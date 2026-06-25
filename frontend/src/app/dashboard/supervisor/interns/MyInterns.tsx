@@ -21,6 +21,7 @@ import supervisorStudentsAPI, { SupervisorStudent } from '@/lib/api/supervisor-s
 import { hoursApi } from '@/lib/api/hours';
 import type { InternshipHoursSummary } from '@/types/hours';
 import { createSupabaseClient } from '@/lib/supabase';
+import { WelcomeCard } from '@/components/shared/WelcomeCard';
 
 export default function MyInterns() {
   const router = useRouter();
@@ -161,11 +162,8 @@ export default function MyInterns() {
   return (
     <>
       <div className="space-y-6 p-8">
-              {/* Header */}
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">My Interns</h1>
-                <p className="text-muted-foreground mt-1">Monitor and evaluate your interns' performance</p>
-              </div>
+              {/* Welcome Card */}
+              <WelcomeCard />
 
               {/* Error Alert */}
               {error && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { AdminAnalyticsOJT } from '@/components/analytics/AdminAnalyticsOJT';
+import { WelcomeCard } from '@/components/shared/WelcomeCard';
 import { useUserContext } from '@/components/providers/UserProvider';
 
 /**
@@ -14,6 +15,9 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
+            {/* Welcome Card */}
+            <WelcomeCard />
+            
             <div className="space-y-6">
               {/* OJT Analytics Content */}
               <AdminAnalyticsOJT />

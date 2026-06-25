@@ -434,3 +434,13 @@ body {
     animation-delay: 0ms !important;
   }
 }
+
+/* Weather icon float animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}

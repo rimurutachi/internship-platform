@@ -11,6 +11,7 @@ import { TasksCard } from '@/components/student/TasksCard';
 
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { studentAPI } from '@/lib/api/student';
+import { WelcomeCard } from '@/components/shared/WelcomeCard';
 import type { DashboardData } from '@/types/student';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -125,15 +126,8 @@ const StudentDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="mb-2">
-        <h1 className="text-3xl font-bold text-foreground mb-1">
-          Welcome back, {user?.first_name}!
-        </h1>
-        <p className="text-base text-muted-foreground">
-          {user?.profile_data?.education || 'CvSU Student'}
-        </p>
-      </div>
+      {/* Welcome Card */}
+      <WelcomeCard />
 
       {/* Dashboard Content Layout */}
       <div className="space-y-8">

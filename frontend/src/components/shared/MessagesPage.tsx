@@ -382,7 +382,7 @@ export default function MessagesPage({ currentUser }: MessagesPageProps) {
   // Render
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-[calc(100vh-6rem)] lg:h-[calc(100vh-8rem)] bg-background overflow-hidden flex flex-col rounded-xl border border-border shadow-sm">
+    <div className="flex-1 min-h-[500px] w-full bg-background overflow-hidden flex flex-col rounded-xl border border-border shadow-sm">
       {/* ── DESKTOP ── */}
       <div className="hidden lg:flex flex-1 bg-muted/40">
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { Users, Building2, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, Briefcase, Sparkles, ArrowUpRight, Activity, GraduationCap, CalendarDays } from "lucide-react";
+import { Users, Building2, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, Briefcase, Sparkles, ArrowUpRight, Activity, GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -217,7 +217,7 @@ export function AdminAnalyticsOJT() {
   return (
     <div className="space-y-8">
       {/* Modern Header with Gradient Background */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 border">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
         <div className="relative flex justify-between items-start">
           <div className="space-y-1">
@@ -227,15 +227,9 @@ export function AdminAnalyticsOJT() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-foreground">OJT Platform Overview</h2>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    {new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                  {lastUpdated && (
-                    <span className="text-xs text-muted-foreground/70">• Refreshed {lastUpdated.toLocaleTimeString()}</span>
-                  )}
-                </div>
+                {lastUpdated && (
+                  <span className="text-xs text-muted-foreground/70 mt-0.5 block">Refreshed {lastUpdated.toLocaleTimeString()}</span>
+                )}
               </div>
             </div>
           </div>
