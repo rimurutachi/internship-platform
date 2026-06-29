@@ -11,9 +11,17 @@ import {
   Loader2,
   Eye,
   AlertCircle,
+  Save,
+  Send,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 import { useToast } from '@/hooks/use-toast';
 import { createSupabaseClient } from '@/lib/supabase';
@@ -45,13 +53,27 @@ export default function DailyReportsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Data state
   const [internship, setInternship] = useState<Internship | null>(null);
   const [reports, setReports] = useState<DailyReport[]>([]);
 
+  // Dialog states
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
-
+  // Form state
+  const [formData, setFormData] = useState({
+    report_date: new Date().toISOString().split('T')[0],
+    activities: '',
+    learnings: '',
+    hours_worked: 8,
+  });
   useEffect(() => {
     fetchData();
   }, []);
@@ -142,16 +164,184 @@ export default function DailyReportsPage() {
   };
 
   const openCreateDialog = () => {
-    // Intentionally empty since we've removed the state sets
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({
+      report_date: today,
+      activities: '',
+      learnings: '',
+      hours_worked: 8,
+    });
+    setIsEditing(false);
+    setSelectedReport(null);
+    setCreateDialogOpen(true);
   };
 
   const openViewDialog = (report: DailyReport) => {
-    console.log(report);
+    setSelectedReport(report);
+    setFormData({
+      report_date: report.report_date,
+      activities: report.activities,
+      learnings: report.learnings || '',
+      hours_worked: report.hours_worked,
+    });
+    setIsEditing(false);
+    setViewDialogOpen(true);
   };
 
+  const handleCreateReport = async () => {
+    if (!internship) return;
 
+    if (!formData.activities || formData.activities.trim().length < 10) {
+      toast({
+        title: 'Validation Error',
+        description: 'Activities must be at least 10 characters',
+        variant: 'destructive',
+      });
+      return;
+    }
 
+    if (formData.hours_worked < 0 || formData.hours_worked > 24) {
+      toast({
+        title: 'Validation Error',
+        description: 'Hours worked must be between 0 and 24',
+        variant: 'destructive',
+      });
+      return;
+    }
 
+    try {
+      setSubmitting(true);
+      const apiBase = getApiBase();
+      const headers = await getAuthHeaders();
+
+      const payload = {
+        internship_id: internship.id,
+        report_date: formData.report_date,
+        activities: formData.activities.trim(),
+        learnings: formData.learnings?.trim() || null,
+        hours_worked: formData.hours_worked,
+      };
+
+      const response = await fetch(`${apiBase}/student/daily-reports`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Failed to submit report');
+      }
+
+      toast({
+        title: 'Report Submitted',
+        description: `Daily report for ${formatDate(formData.report_date)} submitted successfully`,
+      });
+
+      setCreateDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to submit report',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateReport = async () => {
+    if (!selectedReport) return;
+
+    if (!formData.activities || formData.activities.trim().length < 10) {
+      toast({
+        title: 'Validation Error',
+        description: 'Activities must be at least 10 characters',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const apiBase = getApiBase();
+      const headers = await getAuthHeaders();
+
+      const payload = {
+        activities: formData.activities.trim(),
+        learnings: formData.learnings?.trim() || null,
+        hours_worked: formData.hours_worked,
+      };
+
+      const response = await fetch(`${apiBase}/student/daily-reports/${selectedReport.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Failed to update report');
+      }
+
+      toast({
+        title: 'Report Updated',
+        description: 'Your daily report has been updated',
+      });
+
+      setViewDialogOpen(false);
+      setSelectedReport(null);
+      setIsEditing(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update report',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteReport = async () => {
+    if (!selectedReport) return;
+
+    try {
+      setDeleting(true);
+      const apiBase = getApiBase();
+      const headers = await getAuthHeaders();
+
+      const response = await fetch(`${apiBase}/student/daily-reports/${selectedReport.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Failed to delete report');
+      }
+
+      toast({
+        title: 'Report Deleted',
+        description: 'Your daily report has been deleted',
+      });
+
+      setDeleteDialogOpen(false);
+      setViewDialogOpen(false);
+      setSelectedReport(null);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete report',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -320,6 +510,205 @@ export default function DailyReportsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Report Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Log Daily Report</DialogTitle>
+            <DialogDescription>
+              Record your activities and hours for the day
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Date <span className="text-destructive">*</span></Label>
+              <Input
+                type="date"
+                value={formData.report_date}
+                onChange={(e) => setFormData({ ...formData, report_date: e.target.value })}
+                max={new Date().toISOString().split('T')[0]}
+                min={internship.start_date}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label>Activities <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Describe what you did today (minimum 10 characters)..."
+                value={formData.activities}
+                onChange={(e) => setFormData({ ...formData, activities: e.target.value })}
+                rows={5}
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.activities.length} / 10 characters minimum
+              </p>
+            </div>
+
+            <div>
+              <Label>Hours Worked <span className="text-destructive">*</span></Label>
+              <Input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                value={formData.hours_worked}
+                onChange={(e) => setFormData({ ...formData, hours_worked: parseFloat(e.target.value) || 0 })}
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Total hours worked today (0-24)
+              </p>
+            </div>
+
+            <div>
+              <Label>Learnings (Optional)</Label>
+              <Textarea
+                placeholder="What did you learn today..."
+                value={formData.learnings}
+                onChange={(e) => setFormData({ ...formData, learnings: e.target.value })}
+                rows={3}
+                className="mt-2"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              className="w-full"
+              onClick={handleCreateReport}
+              disabled={submitting || formData.activities.length < 10}
+            >
+              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+              Submit Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View/Edit Report Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={(open) => {
+        setViewDialogOpen(open);
+        if (!open) {
+          setIsEditing(false);
+          setSelectedReport(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedReport ? formatDate(selectedReport.report_date) : 'Report'}
+            </DialogTitle>
+            <DialogDescription>
+              {isEditing ? 'Edit your daily report' : 'View report details'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Activities</Label>
+              <Textarea
+                value={formData.activities}
+                onChange={(e) => setFormData({ ...formData, activities: e.target.value })}
+                rows={5}
+                className="mt-2"
+                disabled={!isEditing}
+              />
+            </div>
+
+            <div>
+              <Label>Hours Worked</Label>
+              <Input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                value={formData.hours_worked}
+                onChange={(e) => setFormData({ ...formData, hours_worked: parseFloat(e.target.value) || 0 })}
+                className="mt-2"
+                disabled={!isEditing}
+              />
+            </div>
+
+            <div>
+              <Label>Learnings</Label>
+              <Textarea
+                value={formData.learnings}
+                onChange={(e) => setFormData({ ...formData, learnings: e.target.value })}
+                rows={3}
+                className="mt-2"
+                disabled={!isEditing}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            {isEditing ? (
+              <div className="flex gap-2 w-full">
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleUpdateReport}
+                  disabled={submitting || formData.activities.length < 10}
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save Changes
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2 w-full">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Report</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the report for {selectedReport ? formatDate(selectedReport.report_date) : ''}? 
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteReport}
+              disabled={deleting}
+            >
+              {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 

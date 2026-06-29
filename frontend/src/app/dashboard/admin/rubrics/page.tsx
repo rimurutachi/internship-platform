@@ -533,8 +533,8 @@ export default function AdminRubricsPage() {
                       {rubrics.map((rubric) => (
                         <Card key={rubric.id} className={`hover:shadow-card transition-shadow ${rubric.is_active ? 'border-green-500 border-2' : ''}`}>
                           <CardContent className="pt-6">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-2">
                                   <h3 className="font-semibold text-lg text-foreground">{rubric.rubric_name}</h3>
                                   {rubric.is_active && (
@@ -568,7 +568,7 @@ export default function AdminRubricsPage() {
                                 </div>
                               </div>
 
-                              <div className="flex gap-2 ml-4">
+                              <div className="flex flex-wrap gap-2 sm:ml-4 mt-4 sm:mt-0">
                                 <Button
                                   variant="outline"
                                   size="sm"

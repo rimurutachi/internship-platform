@@ -62,7 +62,7 @@ export function DashboardShell({ sidebar, header, bottomNavType, children }: Das
         </div>
 
         {/* Mobile Content — this is what changes per route */}
-        <div className="flex-1 overflow-y-auto p-4 pb-20 bg-muted flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 pb-24 bg-muted flex flex-col">
           <div className="page-transition flex-1 flex flex-col">
             {children}
           </div>

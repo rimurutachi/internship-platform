@@ -70,14 +70,14 @@ export const MobileHeader = ({
   const paths = getRolePaths();
 
   return (
-    <header className="lg:hidden bg-background border-b border-border z-40 px-3 sm:px-4 py-2 sm:py-3 flex-shrink-0 shadow-sm">
+    <header className="lg:hidden bg-background border-b border-border z-40 px-3 sm:px-4 py-3 sm:py-3.5 flex-shrink-0 shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+        <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
           {onMenuClick && (
             <Button 
               variant="ghost" 
               size="icon" 
-              className="lg:hidden flex-shrink-0 h-9 w-9"
+              className="lg:hidden flex-shrink-0 h-10 w-10"
               onClick={onMenuClick}
             >
               <Menu className="w-5 h-5 text-muted-foreground" />
@@ -88,15 +88,15 @@ export const MobileHeader = ({
           <Image 
             src="/cvsu-logo.png" 
             alt="CvSU Logo" 
-            width={32} 
-            height={32}
-            className="object-contain flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8"
+            width={36} 
+            height={36}
+            className="object-contain flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9"
           />
           
           <div className="min-w-0 flex-1">
-            <h1 className="text-sm sm:text-base font-bold text-foreground truncate">{title}</h1>
+            <h1 className="text-[15px] sm:text-base font-bold text-foreground truncate">{title}</h1>
             {subtitle && (
-              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{subtitle}</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground truncate">{subtitle}</p>
             )}
           </div>
         </div>

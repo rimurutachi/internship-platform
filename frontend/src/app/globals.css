@@ -108,21 +108,23 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  font-size: clamp(14px, 2.5vw, 18px);
+  font-size: clamp(15px, 2.5vw, 18px);
   line-height: 1.7;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Responsive font size utilities */
 .text-responsive-xs {
-  font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+  font-size: clamp(0.7rem, 1.8vw, 0.75rem);
 }
 
 .text-responsive-sm {
-  font-size: clamp(0.75rem, 2vw, 0.875rem);
+  font-size: clamp(0.8rem, 2.2vw, 0.875rem);
 }
 
 .text-responsive-base {
-  font-size: clamp(0.875rem, 2.5vw, 1rem);
+  font-size: clamp(0.9rem, 2.5vw, 1rem);
 }
 
 .text-responsive-lg {
@@ -143,6 +145,57 @@ body {
 
 .text-responsive-4xl {
   font-size: clamp(1.875rem, 6vw, 2.25rem);
+}
+
+/* ============================================
+   Mobile-First Dynamic Scaling
+   Makes elements scale proportionally on mobile
+   ============================================ */
+
+/* Mobile: Boost interactive element sizes for better touch UX */
+@media (max-width: 1023px) {
+  /* Buttons — ensure minimum 44px height for touch targets */
+  button,
+  [role="button"],
+  a[class*="btn"],
+  .touch-target {
+    min-height: 44px;
+  }
+
+  /* Form inputs — larger on mobile for easy tapping */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+
+  /* Cards — add a touch more padding on mobile for breathing room */
+  [class*="rounded-lg"][class*="border"],
+  [class*="rounded-xl"][class*="border"] {
+    --card-mobile-padding: 1rem;
+  }
+
+  /* Headings — slightly larger on mobile for readability */
+  h1 { font-size: clamp(1.375rem, 5.5vw, 2rem); }
+  h2 { font-size: clamp(1.2rem, 4.5vw, 1.5rem); }
+  h3 { font-size: clamp(1.05rem, 3.5vw, 1.25rem); }
+
+  /* Badge/Chip sizing — slightly larger for readability */
+  [class*="badge"],
+  [class*="chip"] {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.625rem;
+  }
+
+  /* Tables — better mobile readability */
+  table {
+    font-size: 0.85rem;
+  }
+
+  th, td {
+    padding: 0.625rem 0.5rem;
+  }
 }
 
 /* Mobile-first responsive spacing */
@@ -172,6 +225,12 @@ body {
 .touch-target {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Enhanced touch target — larger for primary actions */
+.touch-target-lg {
+  min-height: 48px;
+  min-width: 48px;
 }
 
 /* Responsive gap utilities */
@@ -210,12 +269,12 @@ body {
 
 /* Bottom navigation spacing - accounts for fixed bottom nav */
 .has-bottom-nav {
-  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 640px) {
   .has-bottom-nav {
-    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -223,6 +282,29 @@ body {
   .has-bottom-nav {
     padding-bottom: 0;
   }
+}
+
+/* Bottom nav scroll fade — hints that more items exist */
+.bottom-nav-scroll-fade {
+  position: relative;
+}
+
+.bottom-nav-scroll-fade::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2rem;
+  background: linear-gradient(to right, transparent, var(--background));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+
+.bottom-nav-scroll-fade.scrolled-end::after {
+  opacity: 0;
 }
 
 /* Hide scrollbar but allow scrolling */
