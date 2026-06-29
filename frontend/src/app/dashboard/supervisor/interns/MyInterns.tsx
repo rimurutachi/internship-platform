@@ -252,9 +252,9 @@ export default function MyInterns() {
                   {filteredStudents.map((student) => (
                     <Card key={student.id} className="hover:border-primary/30 transition-colors">
                       <CardContent className="p-5">
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                           {/* Student Info */}
-                          <div className="flex items-start gap-4 flex-1">
+                          <div className="flex items-start gap-4 flex-1 w-full">
                             <Avatar className="h-14 w-14">
                               <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
                                 {getInitials(student.first_name, student.last_name)}

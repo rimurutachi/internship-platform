@@ -291,7 +291,7 @@ export default function EvaluationsReports() {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
+                          <div className="flex flex-wrap items-center gap-4 sm:gap-6 mt-4 lg:mt-0">
                             <div className="text-center">
                               <div className="text-2xl font-bold text-primary">
                                 {evaluation.total_score ?? 'N/A'}/{getMaxScore(evaluation) || '—'}
