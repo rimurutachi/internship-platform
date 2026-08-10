@@ -332,11 +332,19 @@ export default function StudentRequirementDetailPage() {
         setSelectedFile(null);
         fetchData();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading document:', error);
+      
+      let errorMessage = 'Failed to upload document';
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to upload document',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

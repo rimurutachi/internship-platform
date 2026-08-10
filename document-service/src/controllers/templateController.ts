@@ -9,12 +9,12 @@ export async function createTemplate(req: AuthRequest, res: Response) {
       return res.status(401).json({ success: false, error: "Authentication required." });
     }
 
-    const { name, description, content, fields, category, tags, is_public, requires_approval } = req.body;
+    const { name, description, content, fields, category, tags, is_public, requires_approval, file_url } = req.body;
 
-    if (!name || !content || !fields) {
+    if (!name) {
       return res.status(400).json({
         success: false,
-        error: "name, content, and fields are required.",
+        error: "name is required.",
       });
     }
 
@@ -22,7 +22,7 @@ export async function createTemplate(req: AuthRequest, res: Response) {
 
     const result = await templateService.createTemplate(
       req.user.id,
-      { name, description, content, fields, category, tags, is_public, requires_approval },
+      { name, description, content, fields: fields || [], category, tags, is_public, requires_approval, file_url },
       req.user.role === "admin"
     );
 
@@ -31,10 +31,10 @@ export async function createTemplate(req: AuthRequest, res: Response) {
     }
 
     await auditService.logAction({
-      documentId: result.id,
+      documentId: undefined,
       userId: req.user.id,
       action: "template_created",
-      metadata: { template_name: name, field_count: fields.length },
+      metadata: { template_id: result.id, template_name: name, field_count: fields?.length || 0 },
     });
 
     console.log("✅ [Template Controller] Template created");
@@ -77,10 +77,24 @@ export async function listTemplates(req: AuthRequest, res: Response) {
 
     const { category, is_public, created_by, limit = 50, offset = 0 } = req.query;
 
+    // Fetch user profile to enforce visibility rules
+    const { createClient } = await import("@supabase/supabase-js");
+    const { env } = await import("../config/env");
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('role, profile_data')
+      .eq('id', req.user.id)
+      .single();
+
     const templates = await templateService.listTemplates({
       category: category as string | undefined,
       is_public: is_public === "true",
       created_by: created_by as string | undefined,
+      user_id: req.user.id,
+      user_role: userProfile?.role,
+      assigned_advisor_id: userProfile?.profile_data?.assigned_advisor_id,
       limit: Math.min(parseInt(String(limit)), 100),
       offset: parseInt(String(offset)),
     });

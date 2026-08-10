@@ -101,3 +101,7 @@ coverage/
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# GESF developer logs (developer-only, not for remote)
+.dev-logs/
+.ges

@@ -93,6 +93,9 @@ router.post("/", documentController.createDocument);
 router.get("/:id", documentController.getDocument);
 router.put("/:id", documentController.updateDocument);
 router.delete("/:id", documentController.deleteDocument); // Allow owners to delete
+router.post("/:id/generate-docx", documentController.generateDocx);
+router.get("/:id/extract-fields", documentController.extractFields);
+router.get("/:id/secure-pdf-url", documentController.getSecurePdfUrl);
 
 // Version control
 router.get("/:id/versions", documentController.getVersions);

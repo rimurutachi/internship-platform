@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import notificationService from './notificationService';
 import { dtrSubmissionService } from './dtrSubmissionService';
+import axios from 'axios';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -96,6 +97,14 @@ export class DocumentSubmissionsService {
 
     const currentVersion = existingSubmissions?.[0]?.version || 0;
 
+    // 4.5. Run AI Signature Scanning (Phase 4)
+    let aiScanResult: any = null;
+    const isScanEligible = data.mime_type === 'application/pdf' || data.mime_type.startsWith('image/');
+    
+    if (isScanEligible) {
+      aiScanResult = await this.runAiSignatureScan(data.file_url, data.requirement_id);
+    }
+
     // 5. Create the submission
     const { data: submission, error: submitError } = await supabase
       .from('document_submissions')
@@ -108,6 +117,7 @@ export class DocumentSubmissionsService {
         mime_type: data.mime_type,
         version: currentVersion + 1,
         status: 'pending',
+        metadata: aiScanResult ? { ai_scan_result: aiScanResult } : {},
         submitted_at: new Date().toISOString(),
       })
       .select()
@@ -159,6 +169,14 @@ export class DocumentSubmissionsService {
       throw new Error('The document requirement is no longer active');
     }
 
+    // 3.5. Run AI Signature Scanning (Phase 4)
+    let aiScanResult: any = null;
+    const isScanEligible = data.mime_type === 'application/pdf' || data.mime_type.startsWith('image/');
+    
+    if (isScanEligible) {
+      aiScanResult = await this.runAiSignatureScan(data.file_url, original.requirement_id);
+    }
+
     // 4. Create new submission with incremented version
     const { data: submission, error: submitError } = await supabase
       .from('document_submissions')
@@ -171,6 +189,7 @@ export class DocumentSubmissionsService {
         mime_type: data.mime_type,
         version: original.version + 1,
         status: 'pending',
+        metadata: aiScanResult ? { ai_scan_result: aiScanResult } : {},
         submitted_at: new Date().toISOString(),
       })
       .select()
@@ -191,6 +210,44 @@ export class DocumentSubmissionsService {
 
     console.log(`📄 Document resubmitted: ${submission.id} (v${submission.version}) by student ${studentId}`);
     return submission;
+  }
+
+  /**
+   * Run AI Signature Scan
+   */
+  private async runAiSignatureScan(file_url: string, requirement_id: string): Promise<any> {
+    try {
+      console.log(`🤖 [Submission AI] Scanning document for signatures: ${file_url}`);
+      const { data: signedData, error: signError } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(file_url, 3600);
+        
+      if (signError || !signedData) {
+        console.warn("⚠️ [Submission AI] Failed to generate signed URL for scanning", signError);
+        return null;
+      }
+      
+      const aiResponse = await axios.post(`${process.env.AI_SERVICE_URL}/api/scan-signatures`, {
+        file_url: signedData.signedUrl,
+        document_id: requirement_id
+      });
+      
+      const aiResult = aiResponse.data;
+      if (!aiResult.has_signature) {
+        throw new Error("AI Signature Verification Failed: No handwritten signatures detected on the document.");
+      }
+      return aiResult;
+    } catch (error: any) {
+      if (error.response?.status === 503) {
+         console.warn("⚠️ [Submission AI] AI service unavailable, bypassing scan.");
+         return null; // Bypass if AI is down
+      }
+      if (error.message.includes("Verification Failed") || error.response?.data?.error) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      console.error("❌ [Submission AI] Scanning error:", error.message);
+      return null;
+    }
   }
 
   /**

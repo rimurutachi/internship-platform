@@ -29,4 +29,26 @@ router.get('/signatures/verify/:signatureId', async (req: any, res: any) => {
   }
 });
 
+/**
+ * @route   GET /api/public/documents/verify/:documentId
+ * @desc    Verify pre-approved/approved document integrity via QR code (public)
+ * @access  Public
+ */
+router.get('/documents/verify/:documentId', async (req: any, res: any) => {
+  try {
+    console.log('🔍 [Backend Public] Document verification request:', req.params.documentId.substring(0, 8));
+    
+    const result = await documentServiceProxy.verifyDocumentPublic(req.params.documentId);
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error('❌ [Backend Public] Document verification failed:', error.message);
+    res.status(error.response?.status || 500).json({ 
+      success: false,
+      error: error.message || 'Document verification failed',
+      status: error.response?.data?.status
+    });
+  }
+});
+
 export default router;

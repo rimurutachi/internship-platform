@@ -6,9 +6,12 @@ import documentRoutes from "./routes/documents";
 import workflowRoutes from "./routes/workflows";
 import templateRoutes from "./routes/templates";
 import accessRoutes from "./routes/access";
+import publicRoutes from "./routes/public";
 import { env } from "./config/env";
 import morgan from "morgan";
 import { generalLimiter } from "./middleware/rateLimiter";
+import { Server as SocketIOServer } from "socket.io";
+import { setupWebSocket } from "./websocket";
 
 const app = express();
 const server = http.createServer(app);
@@ -66,6 +69,29 @@ app.use(morgan("dev"));
 app.use(generalLimiter); // Apply general rate limiter to all routes
 
 // =============================================================================
+// Initialize Socket.io
+// =============================================================================
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  },
+  transports: ['websocket', 'polling']
+});
+
+// Setup WebSocket handlers
+setupWebSocket(io);
+
+// =============================================================================
 // Enhanced Health Check Route
 // =============================================================================
 app.get("/health", (req, res) => {
@@ -83,6 +109,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/access", accessRoutes);
 app.use("/api/workflows", workflowRoutes);
 app.use("/api/templates", templateRoutes);
+app.use("/api/public", publicRoutes);
 
 // =============================================================================
 // Improved 404 Handler
@@ -100,6 +127,7 @@ app.use((req, res, next) => {
       'GET /api/access/*',
       'POST /api/workflows/*',
       'GET /api/templates/*',
+      'GET /api/public/verify/*',
     ],
     timestamp: new Date().toISOString()
   });
@@ -142,13 +170,15 @@ app.use(
 // Start Server (unified port for HTTP)
 const PORT = env.PORT;
 
-server.listen(PORT, () => {
-  console.log(`🟢 HTTP server running on port ${PORT}`);
-  console.log(`   - HTTP API: http://localhost:${PORT}/api/documents`);
-  console.log(`   - HTTP API: http://localhost:${PORT}/api/access`);
-  console.log(`   - HTTP API: http://localhost:${PORT}/api/workflows`);
-  console.log(`   - HTTP API: http://localhost:${PORT}/api/templates`);
-  console.log(`   - Health: http://localhost:${PORT}/health`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    console.log(`🟢 HTTP server running on port ${PORT}`);
+    console.log(`   - HTTP API: http://localhost:${PORT}/api/documents`);
+    console.log(`   - HTTP API: http://localhost:${PORT}/api/access`);
+    console.log(`   - HTTP API: http://localhost:${PORT}/api/workflows`);
+    console.log(`   - HTTP API: http://localhost:${PORT}/api/templates`);
+    console.log(`   - Health: http://localhost:${PORT}/health`);
+  });
+}
 
 export { app, server };
