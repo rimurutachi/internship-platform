@@ -27,8 +27,8 @@ export class InternshipsController {
         search,
       } = req.query;
 
-      const pageNum = parseInt(page as string);
-      const limitNum = parseInt(limit as string);
+      const pageNum = Number(page as string);
+      const limitNum = Number(limit as string);
 
       let query = supabase
         .from('internships')

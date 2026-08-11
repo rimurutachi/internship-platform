@@ -19,8 +19,8 @@ class ReportsController {
 
   static async getMonthlyStats(req: Request, res: Response) {
     try {
-      const months = parseInt(req.query.months as string) || 12;
-      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const months = Number(req.query.months as string) || 12;
+      const year = req.query.year ? Number(req.query.year as string) : undefined;
       const data = await ReportsService.generateMonthlyStats(months, year);
       res.json({ data });
     } catch (err) {
@@ -31,7 +31,7 @@ class ReportsController {
   static async getUserGrowth(req: Request, res: Response) {
     try {
       const groupBy = (req.query.groupBy as string) || 'month';
-      const periods = parseInt(req.query.periods as string) || 12;
+      const periods = Number(req.query.periods as string) || 12;
       const data = await ReportsService.generateUserGrowth(groupBy, periods);
       res.json({ data });
     } catch (err) {
@@ -87,8 +87,8 @@ class ReportsController {
   static async getActivityTimeline(req: Request, res: Response) {
     try {
       const timeframe = (req.query.timeframe as string) || '24h';
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const page = Number(req.query.page as string) || 1;
+      const limit = Number(req.query.limit as string) || 20;
       const data = await ReportsService.generateActivityTimeline(timeframe, page, limit);
       res.json(data);
     } catch (err) {
@@ -99,7 +99,7 @@ class ReportsController {
   static async getMetricTrend(req: Request, res: Response) {
     try {
       const metric = ensureString(req.params.metric, 'metric');
-      const days = parseInt(req.query.days as string) || 30;
+      const days = Number(req.query.days as string) || 30;
       const data = await ReportsService.generateMetricTrend(metric, days);
       res.json({ metric, trend: data });
     } catch (err) {

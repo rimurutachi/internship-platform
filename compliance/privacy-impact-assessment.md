@@ -4,7 +4,7 @@
 
 - **Project**: internship-platform
 - **Type**: generic-web-application
-- **Assessment Date**: 2026-06-30
+- **Assessment Date**: 2026-08-11
 - **Assessor**: [To be completed]
 
 ## Data Processing Description
