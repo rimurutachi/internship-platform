@@ -73,12 +73,8 @@ export const collaborationService = {
       const { error } = await supabase.from("collaboration_sessions").insert({
         document_id: documentId,
         user_id: userId,
-        user_name: userName,
-        user_email: userEmail,
-        session_id: sessionId,
-        color,
-        started_at: new Date().toISOString(),
-        last_activity: new Date().toISOString(),
+        is_active: true,
+        last_seen: new Date().toISOString(),
       });
 
       if (error) {
@@ -121,8 +117,13 @@ export const collaborationService = {
     try {
       const { error } = await supabase
         .from("collaboration_sessions")
-        .update({ ended_at: new Date().toISOString() })
-        .eq("session_id", sessionId);
+        .update({ 
+          is_active: false,
+          last_seen: new Date().toISOString() 
+        })
+        .eq("document_id", documentId)
+        .eq("user_id", userId)
+        .is("is_active", true);
 
       if (error) {
         console.error("❌ [Collab] Session end error", error);
@@ -139,7 +140,7 @@ export const collaborationService = {
         .select("id")
         .eq("document_id", documentId)
         .eq("user_id", userId)
-        .is("ended_at", null);
+        .is("is_active", true);
 
       if (activeSessions.data?.length === 0) {
         undoRedoStates.delete(key);
@@ -165,11 +166,11 @@ export const collaborationService = {
       const { error } = await supabase.from("document_changes").insert({
         document_id: change.documentId,
         user_id: change.userId,
-        operation: change.operation,
-        index: change.index,
+        operation_type: change.operation,
+        position: change.index,
         content: change.content || null,
-        timestamp: change.timestamp,
-        metadata: change.metadata || {},
+        attributes: change.metadata || {},
+        timestamp: change.timestamp || new Date().toISOString()
       });
 
       if (error) {
@@ -264,13 +265,11 @@ export const collaborationService = {
       const updated = { ...existing, ...presence, lastActive: new Date().toISOString() };
       userPresence.set(userId, updated);
 
-      // Update in database
       await supabase
         .from("collaboration_sessions")
         .update({
           cursor_position: presence.cursorPosition || null,
           is_editing: presence.isEditing ?? false,
-          last_activity: new Date().toISOString(),
         })
         .eq("user_id", userId)
         .eq("document_id", documentId)
@@ -295,26 +294,38 @@ export const collaborationService = {
       const { data, error } = await supabase
         .from("collaboration_sessions")
         .select(
-          "id, user_id, color, last_activity, user:users!user_id(id, first_name, last_name, email)"
+          "id, user_id, user:users!user_id(id, first_name, last_name, email)"
         )
         .eq("document_id", documentId)
-        .is("ended_at", null)
-        .order("last_activity", { ascending: false });
+        .is("is_active", true);
 
       if (error) {
         console.error("❌ [Collab] Get active users error", error);
         return [];
       }
 
-      const users: UserPresence[] = (data || []).map((session: any) => ({
-        userId: session.user_id,
-        userName:
-          session.user?.[0]?.first_name + " " + session.user?.[0]?.last_name,
-        userEmail: session.user?.[0]?.email,
-        color: session.color,
-        isEditing: false, // Not tracked in current schema
-        lastActive: session.last_activity,
-      }));
+      const uniqueUsersMap = new Map<string, UserPresence>();
+      
+      (data || []).forEach((session: any) => {
+        const userObj = Array.isArray(session.user) ? session.user[0] : session.user;
+        const firstName = userObj?.first_name || '';
+        const lastName = userObj?.last_name || '';
+        const name = `${firstName} ${lastName}`.trim();
+        
+        // Only keep the most recent session per user (if duplicates exist)
+        if (!uniqueUsersMap.has(session.user_id)) {
+          uniqueUsersMap.set(session.user_id, {
+            userId: session.user_id,
+            userName: name || "Unknown User",
+            userEmail: userObj?.email || "unknown@example.com",
+            color: session.user_color || PRESENCE_COLORS[Math.floor(Math.random() * PRESENCE_COLORS.length)],
+            isEditing: false, // Not tracked in current schema
+            lastActive: session.last_seen || new Date().toISOString(),
+          });
+        }
+      });
+
+      const users: UserPresence[] = Array.from(uniqueUsersMap.values());
 
       console.log("✅ [Collab] Active users retrieved", { count: users.length });
       return users;

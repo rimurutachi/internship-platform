@@ -18,6 +18,7 @@ export type DocumentType =
 export type DocumentStatus = 
   | 'draft'
   | 'in_review'
+  | 'pre_approved'
   | 'approved'
   | 'published'
   | 'archived'

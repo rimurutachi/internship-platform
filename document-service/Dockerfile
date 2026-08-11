@@ -11,6 +11,9 @@ RUN npm ci
 # Copy source code and config files
 COPY . .
 
+# Install LibreOffice for DOCX to PDF conversion
+RUN apk add --no-cache libreoffice ttf-liberation
+
 # Build TypeScript
 RUN npm run build
 

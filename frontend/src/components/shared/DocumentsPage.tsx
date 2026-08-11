@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { useState, useEffect, ReactNode } from 'react';
-import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle, Search, UserPlus, X, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Upload, Download, Share2, Trash2, Eye, File, FileText, Archive, History, Edit, Loader2, AlertCircle, CheckCircle, Search, UserPlus, X, Users, Lock, Unlock, ShieldCheck, Bot, ExternalLink, FileUp, BookTemplate, ClipboardList, Copy } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,11 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CardGridSkeleton } from '@/components/ui/skeletons/PageSkeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { documentsAPI } from '@/lib/api/documents';
 import { useUser } from '@/hooks/use-user';
+import { TemplateLibrary } from './TemplateLibrary';
+import { StudentRequirementsQueue } from './StudentRequirementsQueue';
 import type { DocumentWithDetails } from '@/types/documents';
 
 interface DocumentsPageProps {
@@ -25,6 +29,9 @@ interface DocumentsPageProps {
 
 export function DocumentsPage({ userType, defaultUploadType = 'report' }: DocumentsPageProps) {
   const { user } = useUser();
+  const router = useRouter();
+  // Primary tab: 'documents' | 'templates' | 'submissions'
+  const [primaryTab, setPrimaryTab] = useState<'documents' | 'templates' | 'submissions'>('documents');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
@@ -71,6 +78,11 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
   }>>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
+
+  // Hybrid Workflow state
+  const [preApproving, setPreApproving] = useState(false);
+  const [preApproveConfirmDoc, setPreApproveConfirmDoc] = useState<DocumentWithDetails | null>(null);
+  const [reverting, setReverting] = useState(false);
   
   const [shareSearchQuery, setShareSearchQuery] = useState('');
   const [shareSearchResults, setShareSearchResults] = useState<Array<{
@@ -517,6 +529,87 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
     return user?.id === doc.owner_id;
   };
 
+  // =============================
+  // HYBRID WORKFLOW HANDLERS
+  // =============================
+
+  /** Navigate to the collaborative editor for a document */
+  const handleOpenEditor = (doc: DocumentWithDetails) => {
+    router.push(`/dashboard/${userType}/documents/${doc.id}`);
+  };
+
+  /** Pre-approve a document (advisor only): locks content + generates secure PDF */
+  const handlePreApprove = (doc: DocumentWithDetails) => {
+    setPreApproveConfirmDoc(doc);
+  };
+
+  const handleConfirmPreApprove = async () => {
+    if (!preApproveConfirmDoc) return;
+    try {
+      setPreApproving(true);
+      await documentsAPI.preApproveDocument(preApproveConfirmDoc.id);
+      loadDocuments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to pre-approve document');
+    } finally {
+      setPreApproving(false);
+      setPreApproveConfirmDoc(null);
+    }
+  };
+
+  /** Revert pre-approval back to draft (advisor only) */
+  const handleRevertPreApproval = async (doc: DocumentWithDetails) => {
+    const reason = prompt('Why do you want to revert this document to draft?', 'Needs further editing');
+    if (reason === null) return;
+
+    try {
+      setReverting(true);
+      await documentsAPI.revertPreApproval(doc.id, reason);
+      loadDocuments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to revert pre-approval');
+    } finally {
+      setReverting(false);
+    }
+  };
+
+  /** Student revert submission back to draft */
+  const handleStudentRevertToDraft = async (doc: DocumentWithDetails) => {
+    if (!confirm('Are you sure you want to revert this document to draft? Your advisor will no longer be able to review it until you submit it again.')) return;
+
+    try {
+      setReverting(true);
+      await documentsAPI.updateDocument(doc.id, { status: "draft" });
+      loadDocuments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to revert document to draft');
+    } finally {
+      setReverting(false);
+    }
+  };
+
+  /** Download the secure pre-approved PDF */
+  const handleDownloadSecurePdf = async (doc: DocumentWithDetails) => {
+    try {
+      const url = await documentsAPI.getSecurePdfUrl(doc.id);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('❌ [Download Secure PDF] Error:', err);
+      alert('Secure PDF is not available. Please try pre-approving the document again.');
+    }
+  };
+
+  /** Get status badge variant and color based on document status */
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'draft': return <Badge variant="outline" className="capitalize text-sm border-slate-400 text-slate-600">Draft</Badge>;
+      case 'pre_approved': return <Badge className="capitalize text-sm bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700">🔒 Pre-Approved</Badge>;
+      case 'approved': return <Badge className="capitalize text-sm bg-green-100 text-green-800 border border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">✅ Approved</Badge>;
+      case 'in_review': return <Badge className="capitalize text-sm bg-blue-100 text-blue-800 border border-blue-400 font-medium shadow-sm dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-600">⏳ In Review</Badge>;
+      default: return <Badge className="capitalize text-sm">{status}</Badge>;
+    }
+  };
+
   const getFileIcon = (type: string) => {
     switch (type) {
       case 'pdf': return <FileText className="w-6 h-6 text-red-500" />;
@@ -537,14 +630,17 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || doc.type === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const isOwnedByMe = user?.id ? doc.owner_id === user.id : true;
+    return matchesSearch && matchesCategory && isOwnedByMe;
   });
 
+  const ownedDocuments = documents.filter(doc => user?.id ? doc.owner_id === user.id : true);
+  
   const stats = {
-    total: documents.length,
+    total: ownedDocuments.length,
     shared: 0,
     categories: categories.length - 1,
-    versions: documents.reduce((sum, doc) => sum + (doc.versions?.length || 0), 0)
+    versions: ownedDocuments.reduce((sum, doc) => sum + (doc.versions?.length || 0), 0)
   };
 
   return (
@@ -577,15 +673,67 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                     <p className="text-muted-foreground mt-2 text-lg">Manage and share your internship documents</p>
                   </div>
                   
-                  <Button 
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-base px-6 py-6"
-                    onClick={() => setUploadDialogOpen(true)}
-                  >
-                    <Upload className="w-5 h-5 mr-2" />
-                    Upload Document
-                  </Button>
+                  {primaryTab === 'documents' && (
+                    <Button 
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-base px-6 py-6"
+                      onClick={() => setUploadDialogOpen(true)}
+                    >
+                      <Upload className="w-5 h-5 mr-2" />
+                      Upload Document
+                    </Button>
+                  )}
                 </div>
 
+                {/* ── Primary Tab Switcher ─────────────────────────────── */}
+                <div className="flex items-center gap-1 bg-muted p-1 rounded-lg w-fit">
+                  <button
+                    onClick={() => setPrimaryTab('documents')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      primaryTab === 'documents'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    My Documents
+                  </button>
+                  <button
+                    onClick={() => setPrimaryTab('templates')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      primaryTab === 'templates'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <File className="w-4 h-4" />
+                    Official Templates
+                  </button>
+                  {(userType === 'advisor' || userType === 'supervisor') && (
+                    <button
+                      onClick={() => setPrimaryTab('submissions')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        primaryTab === 'submissions'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <ClipboardList className="w-4 h-4" />
+                      Student Submissions
+                    </button>
+                  )}
+                </div>
+
+                {/* ── Tab Content ──────────────────────────────────────── */}
+                {primaryTab === 'templates' && (
+                  <TemplateLibrary userType={userType} />
+                )}
+
+                {primaryTab === 'submissions' && (userType === 'advisor' || userType === 'supervisor') && (
+                  <StudentRequirementsQueue userType={userType as 'advisor' | 'supervisor'} />
+                )}
+
+
+                {primaryTab === 'documents' && (<>
                 {/* Upload Document Dialog */}
                 <Dialog open={uploadDialogOpen} onOpenChange={handleDialogClose}>
                   <DialogContent className="max-w-2xl">
@@ -782,7 +930,7 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                               <div className="flex items-center gap-3">
                                 <h3 className="font-semibold text-foreground text-lg">{doc.title}</h3>
                                 <Badge variant="outline" className="text-sm border-border">v{doc.version}</Badge>
-                                <Badge className="capitalize text-sm">{doc.status}</Badge>
+                                {getStatusBadge(doc.status)}
                               </div>
                               <div className="flex items-center gap-3 mt-2 text-base text-muted-foreground">
                                 <span>Created {new Date(doc.created_at).toLocaleDateString()}</span>
@@ -805,7 +953,7 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                               <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              {/* Version History Button - Opens dedicated dialog */}
+                              {/* Version History Button */}
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
@@ -815,8 +963,8 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                                 <History className="w-4 h-4" />
                               </Button>
 
-                              {/* Edit button - only show for document owner */}
-                              {isDocumentOwner(doc) && (
+                              {/* Edit button - only for draft documents owned by user */}
+                              {isDocumentOwner(doc) && doc.status === 'draft' && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
@@ -827,8 +975,8 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                                 </Button>
                               )}
                               
-                              {/* Delete button - only show for document owner */}
-                              {isDocumentOwner(doc) && (
+                              {/* Delete button - only for draft documents owned by user */}
+                              {isDocumentOwner(doc) && doc.status === 'draft' && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
@@ -841,12 +989,149 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                               )}
                             </div>
                           </div>
+
+                          {/* ── Hybrid Workflow Action Bar ── */}
+                          <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border flex-wrap">
+                            {/* Draft: View Document (all roles) */}
+                            {doc.status === 'draft' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-primary border-primary/30 hover:bg-primary/5"
+                                onClick={() => handleOpenEditor(doc)}
+                              >
+                                <Eye className="w-4 h-4 mr-1.5" />
+                                View Document
+                              </Button>
+                            )}
+
+                            {/* Draft: Pre-Approve (advisor only) */}
+                            {doc.status === 'draft' && userType === 'advisor' && (
+                              <Button 
+                                size="sm" 
+                                className="bg-amber-500 hover:bg-amber-600 text-white"
+                                onClick={() => handlePreApprove(doc)}
+                                disabled={preApproving}
+                              >
+                                {preApproving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Lock className="w-4 h-4 mr-1.5" />}
+                                Pre-Approve & Lock
+                              </Button>
+                            )}
+
+                            {/* In Review: Revert to Draft (student only) */}
+                            {doc.status === 'in_review' && isDocumentOwner(doc) && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                onClick={() => handleStudentRevertToDraft(doc)}
+                                disabled={reverting}
+                              >
+                                {reverting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Unlock className="w-4 h-4 mr-1.5" />}
+                                Revert to Draft
+                              </Button>
+                            )}
+
+                            {/* Pre-Approved: Download Secure PDF (all roles) */}
+                            {doc.status === 'pre_approved' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-primary border-primary/30 hover:bg-primary/5"
+                                onClick={() => handleDownloadSecurePdf(doc)}
+                              >
+                                <Download className="w-4 h-4 mr-1.5" />
+                                Download Secure PDF
+                              </Button>
+                            )}
+
+                            {/* Pre-Approved: Revert to Draft (advisor) */}
+                            {doc.status === 'pre_approved' && userType === 'advisor' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                onClick={() => handleRevertPreApproval(doc)}
+                                disabled={reverting}
+                              >
+                                {reverting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Unlock className="w-4 h-4 mr-1.5" />}
+                                Revert to Draft
+                              </Button>
+                            )}
+
+                            {/* Approved: Download Signed Document */}
+                            {doc.status === 'approved' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
+                                onClick={() => handleDownloadDocument(doc)}
+                              >
+                                <Download className="w-4 h-4 mr-1.5" />
+                                Download Signed Document
+                              </Button>
+                            )}
+
+                            {/* Approved: View AI Scan Report */}
+                            {doc.status === 'approved' && (doc as any).metadata?.ai_scan_result && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-violet-600 hover:text-violet-700"
+                                onClick={() => {
+                                  const result = (doc as any).metadata.ai_scan_result;
+                                  alert(`🤖 AI Signature Scan Report\n\nSignature Detected: ${result.has_signature ? 'Yes ✅' : 'No ❌'}\nConfidence: ${(result.confidence_score * 100).toFixed(0)}%\nNotes: ${result.notes}`);
+                                }}
+                                title="View AI scan report"
+                              >
+                                <Bot className="w-4 h-4 mr-1.5" />
+                                AI Report
+                              </Button>
+                            )}
+
+                            {/* Share - available for all statuses */}
+                            {userType !== 'supervisor' && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleShareDocument(doc)}
+                                title="Share document"
+                              >
+                                <Share2 className="w-4 h-4 mr-1.5" />
+                                Share
+                              </Button>
+                            )}
+
+                            {/* Save as Official Template (Advisor/Supervisor) */}
+                            {(userType === 'advisor' || userType === 'supervisor') && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                                onClick={async () => {
+                                  try {
+                                    await documentsAPI.saveDocumentAsTemplate(doc.id, {
+                                      name: doc.title,
+                                      category: doc.type || 'general',
+                                    });
+                                    setPrimaryTab('templates');
+                                  } catch (err) {
+                                    console.error('❌ Failed to save as template:', err);
+                                  }
+                                }}
+                              >
+                                <Copy className="w-4 h-4 mr-1.5" />
+                                Save as Official Template
+                              </Button>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                       </AnimateIn>
                     ))
                   )}
                 </div>
+                </>)}
               </div>
             )}
         </div>
@@ -1302,6 +1587,31 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
           </div>
         </DialogContent>
       </Dialog>
+      {/* Pre-Approve Confirmation Dialog */}
+      <AlertDialog open={!!preApproveConfirmDoc} onOpenChange={(open) => !open && setPreApproveConfirmDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pre-approve "{preApproveConfirmDoc?.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will lock the document content and generate a secure PDF with a QR code and watermark for physical signing. You cannot edit the content after pre-approval.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={preApproving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmPreApprove();
+              }} 
+              disabled={preApproving}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {preApproving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
+              {preApproving ? 'Pre-approving...' : 'Yes, Pre-approve & Lock'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -6,6 +6,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || ''
 );
 
+export interface DocumentSchema {
+  id: string;
+  name: string;
+  created_at: Date;
+  updated_at: Date;
+  created_by: string;
+  updated_by: string;
+  deleted_at?: Date | null;
+}
+
 export class DocumentModel {
   // Get all documents with filters and pagination
   static async findAll(

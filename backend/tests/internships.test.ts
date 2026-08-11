@@ -49,7 +49,7 @@ describe('Internship APIs', () => {
 
     beforeAll(async () => {
         // Use a static token; auth middleware is mocked to accept any Bearer token
-        authToken = 'test-token';
+        authToken = process.env.TEST_TOKEN as string;
     });
 
     test('POST /api/internships - Create Internship', async () => {

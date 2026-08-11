@@ -4,7 +4,7 @@ import { env } from "../config/env";
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
 interface AuditLogEntry {
-  documentId: string;
+  documentId?: string;
   userId: string;
   action: string;
   ipAddress?: string;
@@ -18,9 +18,9 @@ class AuditService {
 
     try {
       console.log(`📝 [Audit] Logging action`, {
-        documentId: documentId.substring(0, 8),
+        documentId: documentId ? documentId.substring(0, 8) : "N/A",
         action,
-        userId: userId.substring(0, 8),
+        userId: userId ? userId.substring(0, 8) : "N/A",
       });
 
       const { error } = await supabase.from("document_audit_log").insert({

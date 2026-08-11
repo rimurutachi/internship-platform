@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { AuthRequest } from "../middleware/auth";
 import { env } from "../config/env";
 import storageService from "../services/storageService";
-
+import mammoth from "mammoth";
+import JSZip from "jszip";
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
 async function ensureDocumentAccess(documentId: string, userId: string, isAdmin: boolean) {
@@ -90,9 +91,93 @@ export async function uploadFile(req: AuthRequest, res: Response) {
     }
 
     if (isPrimary) {
+      let documentContent = undefined;
+
+      // Extract text from docx if it's a Word document
+      if (file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        try {
+          const options = {
+            styleMap: [
+              "p[style-name='Title'] => h1:fresh",
+              "p[style-name='Heading 1'] => h1:fresh",
+              "p[style-name='Heading 2'] => h2:fresh",
+              "p[style-name='Heading 3'] => h3:fresh",
+              "p[style-name='Subtitle'] => h2:fresh",
+              "p[alignment='center'] => p[style='text-align: center']:fresh",
+              "p[alignment='right'] => p[style='text-align: right']:fresh",
+              "p[alignment='justify'] => p[style='text-align: justify']:fresh",
+              "b => strong",
+              "i => em",
+              "u => u",
+              "strike => del"
+            ]
+          };
+
+          // 1. Extract Main Body
+          const result = await mammoth.convertToHtml({ buffer: file.buffer }, options);
+          let mainHtml = result.value || "";
+
+          // 2. Extract Headers and Footers via JSZip hack
+          let headerHtml = "";
+          let footerHtml = "";
+          
+          try {
+            const zip = await JSZip.loadAsync(file.buffer);
+            
+            // Extract Header
+            const headerXml = zip.file("word/header1.xml");
+            if (headerXml) {
+              const headerContent = await headerXml.async("string");
+              const headerZip = await JSZip.loadAsync(file.buffer); // fresh copy
+              headerZip.file("word/document.xml", headerContent);
+              const headerZipBuffer = await headerZip.generateAsync({ type: "nodebuffer" });
+              const headerResult = await mammoth.convertToHtml({ buffer: headerZipBuffer }, options);
+              headerHtml = headerResult.value || "";
+              console.log("📝 [Files] Extracted Header HTML");
+            }
+
+            // Extract Footer
+            const footerXml = zip.file("word/footer1.xml");
+            if (footerXml) {
+              const footerContent = await footerXml.async("string");
+              const footerZip = await JSZip.loadAsync(file.buffer); // fresh copy
+              footerZip.file("word/document.xml", footerContent);
+              const footerZipBuffer = await footerZip.generateAsync({ type: "nodebuffer" });
+              const footerResult = await mammoth.convertToHtml({ buffer: footerZipBuffer }, options);
+              footerHtml = footerResult.value || "";
+              console.log("📝 [Files] Extracted Footer HTML");
+            }
+          } catch (zipErr) {
+            console.warn("⚠️ [Files] Could not extract header/footer from zip:", zipErr);
+          }
+
+          if (mainHtml || headerHtml || footerHtml) {
+            documentContent = { 
+              html: mainHtml,
+              headerHtml: headerHtml,
+              footerHtml: footerHtml
+            };
+            console.log("📝 [Files] Extracted content from docx file");
+          }
+        } catch (extractError) {
+          console.warn("⚠️ [Files] Could not extract text from docx:", extractError);
+        }
+      }
+
+      const updateData: any = { 
+        file_url: path, 
+        file_type: file.mimetype, 
+        file_size: file.size, 
+        updated_at: new Date().toISOString() 
+      };
+
+      if (documentContent) {
+        updateData.content = documentContent;
+      }
+
       await supabase
         .from("documents")
-        .update({ file_url: path, file_type: file.mimetype, file_size: file.size, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq("id", documentId);
     }
 

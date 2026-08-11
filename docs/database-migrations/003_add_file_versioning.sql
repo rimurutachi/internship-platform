@@ -26,6 +26,10 @@ CREATE TABLE public.document_file_versions (
   mime_type text,
   uploaded_by uuid REFERENCES public.users(id),
   created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  created_by uuid REFERENCES public.users(id),
+  updated_by uuid REFERENCES public.users(id),
+  deleted_at timestamptz,
   
   -- Optional metadata for tracking version chain
   is_archived boolean DEFAULT true,  -- Old versions are archived by default

@@ -79,8 +79,8 @@ export async function getEvaluations(req: Request, res: Response) {
             supervisor_id: supervisor_id as string,
             status: status as string,
             evaluation_type: evaluation_type as 'weekly' | 'midterm' | 'final' | undefined,
-            limit: limit ? parseInt(limit as string) : undefined,
-            offset: offset ? parseInt(offset as string) : undefined,
+            limit: limit ? Number(limit as string) : undefined,
+            offset: offset ? Number(offset as string) : undefined,
         });
 
         res.json({ success: true, data: evaluations });

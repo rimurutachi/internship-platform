@@ -31,7 +31,11 @@ CREATE TABLE IF NOT EXISTS evaluation_analytics_cache (
   evaluation_count INT NOT NULL,
   generated_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '1 hour'),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES users(id),
+  deleted_at TIMESTAMPTZ
 );
 
 -- Index for quick lookups

@@ -290,8 +290,8 @@ class StudentController {
   async getEvaluations(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const limit = Number(req.query.limit as string) || 10;
+      const offset = Number(req.query.offset as string) || 0;
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -700,7 +700,7 @@ class StudentController {
 
       const { data: conversations, error } = await query
         .order('updated_at', { ascending: false })
-        .range(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string) - 1);
+        .range(Number(offset as string), Number(offset as string) + Number(limit as string) - 1);
 
       if (error) {
         return res.status(500).json({ success: false, error: error.message });
@@ -791,7 +791,7 @@ class StudentController {
         )
         .eq('conversation_id', id)
         .order('created_at', { ascending: false })
-        .range(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string) - 1);
+        .range(Number(offset as string), Number(offset as string) + Number(limit as string) - 1);
 
       if (error) {
         return res.status(500).json({ success: false, error: error.message });
@@ -812,8 +812,8 @@ class StudentController {
           messages: formattedMessages,
           pagination: {
             total: count || 0,
-            limit: parseInt(limit as string),
-            offset: parseInt(offset as string),
+            limit: Number(limit as string),
+            offset: Number(offset as string),
           },
         },
       });
@@ -1032,7 +1032,7 @@ class StudentController {
 
       const { data: notifications, error } = await query
         .order('created_at', { ascending: false })
-        .range(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string) - 1);
+        .range(Number(offset as string), Number(offset as string) + Number(limit as string) - 1);
 
       if (error) {
         return res.status(500).json({ success: false, error: error.message });

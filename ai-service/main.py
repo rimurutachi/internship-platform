@@ -555,6 +555,58 @@ async def scan_dtr(request: Request, body: DTRScanRequest):
 
 
 # =============================================================================
+# SIGNATURE SCANNING ENDPOINT
+# =============================================================================
+
+class SignatureScanRequest(BaseModel):
+    """Request model for signature scanning"""
+    file_url: str
+    document_id: str = ""
+
+@app.post("/api/scan-signatures")
+@limiter.limit(RATE_LIMIT_ANALYSIS)
+async def scan_signatures(request: Request, body: SignatureScanRequest):
+    """
+    Scan a document to detect physical wet signatures.
+    
+    Accepts PDF or image files (JPEG, PNG) via signed URL.
+    Uses Google Gemini Vision API to identify handwritten signatures.
+    
+    Returns:
+        - has_signature: boolean
+        - confidence_score: float
+        - notes: string
+    """
+    try:
+        from services.signature_scanner import signature_scanner
+        
+        logger.info(f"📋 [Signature Scan] Received scan request for document: {body.document_id}")
+        
+        if not body.file_url:
+            raise HTTPException(status_code=400, detail="file_url is required")
+        
+        if not signature_scanner.is_available():
+            logger.warning("⚠️ [Signature Scan] Scanner not available, returning error")
+            raise HTTPException(
+                status_code=503, 
+                detail="Signature scanning service is not configured. GEMINI_API_KEY may be missing."
+            )
+        
+        # Scan the document
+        result = await signature_scanner.scan_document(body.file_url)
+        
+        logger.info(f"✅ [Signature Scan] Complete - Has signature: {result.has_signature} (confidence: {result.confidence_score})")
+        
+        return result.to_dict()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [Signature Scan] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Signature scanning failed: {str(e)}")
+
+
+# =============================================================================
 # RUN SERVER
 # =============================================================================
 

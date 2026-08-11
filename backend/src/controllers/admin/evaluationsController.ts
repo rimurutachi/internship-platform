@@ -28,8 +28,8 @@ export class EvaluationsController {
         search,
       } = req.query;
 
-      const pageNum = parseInt(page as string, 10);
-      const limitNum = parseInt(limit as string, 10);
+      const pageNum = Number(page as string);
+      const limitNum = Number(limit as string);
 
       let query = supabase
         .from('evaluations')

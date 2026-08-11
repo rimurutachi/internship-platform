@@ -26,7 +26,7 @@ beforeEach(() => {
 describe('Validation Middleware', () => {
   describe('validateLoginRequest', () => {
     it('should call next() for valid login', () => {
-      const req = mockRequest({ email: 'user@test.com', password: 'secret123' });
+      const req = mockRequest({ email: 'user@test.com', password: process.env.TEST_PWD as string });
       const res = mockResponse();
 
       validateLoginRequest(req, res, mockNext);
@@ -35,7 +35,7 @@ describe('Validation Middleware', () => {
     });
 
     it('should reject invalid email', () => {
-      const req = mockRequest({ email: 'not-an-email', password: 'secret123' });
+      const req = mockRequest({ email: 'not-an-email', password: process.env.TEST_PWD as string });
       const res = mockResponse();
 
       validateLoginRequest(req, res, mockNext);
@@ -48,7 +48,7 @@ describe('Validation Middleware', () => {
     });
 
     it('should reject missing email', () => {
-      const req = mockRequest({ password: 'secret123' });
+      const req = mockRequest({ password: process.env.TEST_PWD as string });
       const res = mockResponse();
 
       validateLoginRequest(req, res, mockNext);
@@ -72,7 +72,7 @@ describe('Validation Middleware', () => {
   describe('validateRegisterRequest', () => {
     const validBody = {
       email: 'new@test.com',
-      password: 'secret123',
+      password: process.env.TEST_PWD as string,
       first_name: 'John',
       last_name: 'Doe',
       role: 'student',
