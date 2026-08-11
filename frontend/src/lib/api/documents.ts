@@ -551,6 +551,312 @@ export const documentsAPI = {
       throw error;
     }
   },
+
+  /**
+   * Get a fresh signed download URL for the secure PDF
+   */
+  async getSecurePdfUrl(documentId: string): Promise<string> {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${documentId}/secure-pdf-url`,
+        { headers }
+      );
+      
+      const url = response.data.success 
+        ? response.data.url 
+        : response.data.signedUrl;
+      
+      return url;
+    } catch (error) {
+      console.error('❌ [Documents API] Get secure PDF URL error:', error);
+      if (axios.isAxiosError(error)) {
+        const errorMsg = error.response?.data?.error || error.message;
+        throw new Error(errorMsg);
+      }
+      throw error;
+    }
+  },
+
+  // =============================
+  // HYBRID WORKFLOW METHODS
+  // =============================
+
+  /**
+   * Pre-approve a document (locks content, generates SHA-256 hash, creates secure PDF)
+   * Transitions document from 'draft' → 'pre_approved'
+   */
+  async preApproveDocument(documentId: string): Promise<{
+    document: any;
+    secure_pdf_url: string;
+    content_hash: string;
+  }> {
+    try {
+      console.log('🔵 [Documents API] Pre-approving document:', documentId);
+
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${DOCUMENT_SERVICE_URL}/api/workflows/${documentId}/workflows/pre-approve`,
+        {},
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Document pre-approved:', response.data);
+
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Pre-approve error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Revert a pre-approved document back to draft (unlocks content editing)
+   * Transitions document from 'pre_approved' → 'draft'
+   */
+  async revertPreApproval(documentId: string, reason?: string): Promise<{
+    document: any;
+    message: string;
+  }> {
+    try {
+      console.log('🔵 [Documents API] Reverting pre-approval:', documentId);
+
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${DOCUMENT_SERVICE_URL}/api/workflows/${documentId}/workflows/revert-pre-approval`,
+        { reason: reason || 'Reverted by advisor for further editing' },
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Pre-approval reverted:', response.data);
+
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Revert pre-approval error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Upload a scanned, physically signed document for AI verification
+   * Sends the file to the AI service for signature detection
+   * On success: transitions document from 'pre_approved' → 'approved'
+   * On failure: returns error with AI scan analysis
+   */
+  async uploadSignedDocument(documentId: string, fileUrl: string): Promise<{
+    success: boolean;
+    message: string;
+    data?: any;
+    ai_analysis?: {
+      has_signature: boolean;
+      confidence_score: number;
+      notes: string;
+    };
+    error?: string;
+  }> {
+    try {
+      console.log('🔵 [Documents API] Uploading signed document:', documentId);
+
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${DOCUMENT_SERVICE_URL}/api/workflows/${documentId}/workflows/upload-signed`,
+        { file_url: fileUrl },
+        { headers }
+      );
+
+      console.log('🟢 [Documents API] Signed document processed:', response.data);
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Upload signed document error:', error);
+      if (axios.isAxiosError(error)) {
+        // Return the full error response for AI scan failures (400 status)
+        if (error.response?.status === 400) {
+          return {
+            success: false,
+            message: error.response.data?.error || 'Signature verification failed',
+            ai_analysis: error.response.data?.ai_analysis,
+            error: error.response.data?.error,
+          };
+        }
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  // =============================
+  // TEMPLATE MANAGEMENT METHODS
+  // =============================
+
+  /**
+   * Fetch template by ID
+   */
+  async getTemplate(templateId: string): Promise<any> {
+    try {
+      console.log('🔵 [Documents API] Fetching template:', templateId);
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/templates/${templateId}`,
+        { headers }
+      );
+      return response.data.success ? response.data.data : response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Get template error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Create an official master template
+   */
+  async createTemplate(templateData: {
+    name: string;
+    description?: string;
+    content: string;
+    fields?: any[];
+    category?: string;
+    tags?: string[];
+    is_public?: boolean;
+    file_url?: string;
+  }): Promise<any> {
+    try {
+      console.log('🔵 [Documents API] Creating template:', templateData.name);
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${DOCUMENT_SERVICE_URL}/api/templates/`,
+        {
+          name: templateData.name,
+          description: templateData.description || '',
+          content: templateData.content || '<p></p>',
+          fields: templateData.fields || [],
+          category: templateData.category || 'general',
+          tags: templateData.tags || [],
+          is_public: templateData.is_public ?? true,
+          file_url: templateData.file_url || null,
+        },
+        { headers }
+      );
+      console.log('🟢 [Documents API] Template created:', response.data);
+      return response.data.success ? response.data.data : response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Create template error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Convert an existing uploaded document into an official master template
+   */
+  async saveDocumentAsTemplate(
+    documentId: string,
+    templateData: { name: string; description?: string; category?: string }
+  ): Promise<any> {
+    try {
+      console.log('🔵 [Documents API] Converting document to template:', documentId);
+      const headers = await getAuthHeaders();
+
+      // 1. Fetch document details to get content
+      const docResponse = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${documentId}`,
+        { headers }
+      );
+      const doc = docResponse.data.success ? docResponse.data.data : docResponse.data;
+
+      // Extract HTML content string from doc.content object if needed
+      let htmlContent = '<p></p>';
+      if (typeof doc.content === 'string') {
+        htmlContent = doc.content;
+      } else if (doc.content?.html) {
+        htmlContent = doc.content.html;
+      }
+
+      // 2. Call createTemplate endpoint
+      return await this.createTemplate({
+        name: templateData.name || doc.title,
+        description: templateData.description || doc.description || '',
+        content: htmlContent,
+        category: templateData.category || doc.type || 'general',
+        tags: [doc.type || 'document'],
+        is_public: true,
+        file_url: doc.file_url || null,
+      });
+    } catch (error) {
+      console.error('❌ [Documents API] Save doc as template error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Generates a new DOCX file for a document based on its template fields
+   */
+  async generateDocx(
+    documentId: string,
+    fieldValues: Record<string, string>
+  ): Promise<{ message: string; path: string }> {
+    try {
+      console.log('🔵 [Documents API] Generating DOCX for:', documentId);
+      const headers = await getAuthHeaders();
+      const response = await axios.post(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${documentId}/generate-docx`,
+        { field_values: fieldValues },
+        { headers }
+      );
+      console.log('🟢 [Documents API] Generated DOCX:', response.data);
+      return response.data.success ? response.data.data : response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Generate DOCX error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Extracts dynamic template fields from the document's .docx file
+   */
+  async extractTemplateFields(documentId: string): Promise<{ name: string; label: string; required: boolean }[]> {
+    try {
+      console.log('🔵 [Documents API] Extracting fields for:', documentId);
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/documents/${documentId}/extract-fields`,
+        { headers }
+      );
+      console.log('🟢 [Documents API] Extracted fields:', response.data);
+      return response.data.success ? response.data.data.fields : [];
+    } catch (error) {
+      console.error('❌ [Documents API] Extract Fields error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  }
 };
 
 export default documentsAPI;

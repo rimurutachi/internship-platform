@@ -12,8 +12,8 @@ const supabase = createClient(
  */
 export async function getCompanies(req: Request, res: Response) {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = Number(req.query.page as string) || 1;
+    const limit = Number(req.query.limit as string) || 20;
     const search = req.query.search as string;
     const is_verified = req.query.is_verified as string;
     

@@ -176,6 +176,10 @@ class DocumentServiceProxy {
     return this.request('GET', `/api/public/signatures/verify/${signatureId}`);
   }
 
+  async verifyDocumentPublic(documentId: string) {
+    return this.request('GET', `/api/public/verify/${documentId}`);
+  }
+
   // ===== HEALTH CHECK =====
 
   async healthCheck(): Promise<boolean> {

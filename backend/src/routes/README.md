@@ -29,7 +29,7 @@ Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "[REDACTED]"
 }
 ```
 
@@ -55,7 +55,7 @@ Content-Type: application/json
 
 {
   "email": "newuser@example.com",
-  "password": "password123",
+  "password": "[REDACTED]",
   "first_name": "John",
   "last_name": "Doe",
   "role": "student",
@@ -153,7 +153,7 @@ describe('Auth Routes', () => {
       .post('/auth/login')
       .send({
         email: 'test@example.com',
-        password: 'password123'
+        password: '[REDACTED]'
       });
     
     expect(response.status).toBe(200);

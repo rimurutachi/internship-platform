@@ -192,6 +192,15 @@ export function setupWebSocket(io: SocketServer) {
           socket.emit("error", { message: "Access denied. You do not have permission to view this document.", code: "ACCESS_DENIED" });
           return;
         }
+
+        // HYBRID WORKFLOW: Check if document is pre-approved (content-locked)
+        const { data: docStatus } = await supabase
+          .from("documents")
+          .select("status")
+          .eq("id", documentId)
+          .single();
+
+        const isReadOnly = docStatus?.status === "pre_approved";
         
         socket.join(documentId);
 
@@ -209,8 +218,33 @@ export function setupWebSocket(io: SocketServer) {
 
         // Get or create Y.Doc
         if (!documents.has(documentId)) {
-          documents.set(documentId, new Y.Doc());
+          const newDoc = new Y.Doc();
+          documents.set(documentId, newDoc);
+          
+          // Load existing updates from Redis to restore state
+          try {
+            const updates = await redis.lrange(`doc:${documentId}:updates`, 0, -1);
+            if (updates && updates.length > 0) {
+              // Redis lrange returns newest first if we used lpush, or oldest first? 
+              // Wait, lpush adds to the head, so lrange 0 -1 returns newest first. 
+              // Yjs updates need to be applied in order, though Yjs is commutative.
+              // To be safe, we reverse it so oldest is applied first.
+              const reversedUpdates = [...updates].reverse();
+              reversedUpdates.forEach(updateStr => {
+                const updateArray = JSON.parse(updateStr);
+                const update = new Uint8Array(updateArray);
+                Y.applyUpdate(newDoc, update);
+              });
+              console.log(`✅ Loaded ${updates.length} previous updates from Redis for document ${documentId}`);
+            }
+          } catch (redisErr) {
+            console.error(`❌ Failed to load updates from Redis for doc ${documentId}:`, redisErr);
+          }
         }
+        
+        // Sync the client with the current server state
+        const serverState = Y.encodeStateAsUpdate(documents.get(documentId)!);
+        socket.emit("document:update", { update: Array.from(serverState), userId: 'server' });
 
         // Get active collaborators
         const activeUsers = await collaborationService.getActiveUsers(documentId);
@@ -219,16 +253,60 @@ export function setupWebSocket(io: SocketServer) {
         socket.to(documentId).emit("user:joined", {
           userId: socket.user.id,
           socketId: socket.id,
-          userColor: currentSession!.color,
+          userName: userName || socket.user.email?.split('@')[0] || "Unknown",
+          userEmail: userEmail || socket.user.email || "unknown@example.com",
+          color: currentSession!.color,
         });
 
         // Send active users to new joiner
         socket.emit("active:users", activeUsers);
 
-        console.log(`✅ User ${socket.user.id} joined document ${documentId}`);
+        // HYBRID WORKFLOW: Notify client if document is in read-only mode
+        if (isReadOnly) {
+          socket.emit("document:readonly", {
+            locked: true,
+            reason: "Document has been pre-approved and is content-locked.",
+            status: docStatus?.status,
+          });
+          console.log(`🔒 User ${socket.user.id} joined read-only document ${documentId}`);
+        } else {
+          console.log(`✅ User ${socket.user.id} joined document ${documentId}`);
+        }
       } catch (error) {
         console.error("❌ Error joining document:", error);
         socket.emit("error", { message: "Failed to join document", code: "JOIN_ERROR" });
+      }
+    });
+
+    // Handle document HTML save
+    socket.on("document:save", async ({ documentId, htmlContent }) => {
+      try {
+        if (!socket.user) return;
+        
+        // Save the HTML content back to the documents table
+        // First get existing content to prevent overwriting other JSONB fields
+        const { data: doc } = await supabase
+          .from("documents")
+          .select("content")
+          .eq("id", documentId)
+          .single();
+          
+        const existingContent = doc?.content || {};
+
+        const { error } = await supabase
+          .from("documents")
+          .update({ content: { ...existingContent, html: htmlContent } })
+          .eq("id", documentId)
+          .neq("status", "pre_approved") // Prevent saving if locked
+          .neq("status", "approved");
+
+        if (error) {
+          console.error("❌ Failed to save document HTML to DB:", error);
+        } else {
+          console.log(`💾 Saved HTML for document ${documentId}`);
+        }
+      } catch (err) {
+        console.error("❌ Error in document:save:", err);
       }
     });
 
@@ -248,6 +326,21 @@ export function setupWebSocket(io: SocketServer) {
           if (!socket.user || socket.user.id !== userId) {
             console.warn(`🔴 SECURITY: Unauthorized update attempt on document ${documentId}`);
             socket.emit("error", { message: "Unauthorized", code: "UNAUTHORIZED" });
+            return;
+          }
+
+          // HYBRID WORKFLOW: Block edits on pre-approved documents
+          const { data: docCheck } = await supabase
+            .from("documents")
+            .select("status")
+            .eq("id", documentId)
+            .single();
+
+          if (docCheck?.status === "pre_approved") {
+            socket.emit("error", {
+              message: "Document is pre-approved and content-locked. Edits are not allowed.",
+              code: "DOCUMENT_LOCKED",
+            });
             return;
           }
           

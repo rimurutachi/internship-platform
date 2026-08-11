@@ -28,8 +28,8 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
       section,
     } = req.query;
     
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
+    const pageNum = Number(page as string);
+    const limitNum = Number(limit as string);
     const offset = (pageNum - 1) * limitNum;
 
     // Build query

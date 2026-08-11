@@ -16,7 +16,7 @@ describe('AuthService', () => {
       supabase.auth.signInWithPassword.mockResolvedValueOnce({
         data: {
           user: { id: 'u1', email: 'test@test.com' },
-          session: { access_token: 'access123', refresh_token: 'refresh123', expires_at: 1000 },
+          session: { access_token: process.env.TEST_ACCESS_TOKEN as string, refresh_token: process.env.TEST_REFRESH_TOKEN as string, expires_at: 1000 },
         },
         error: null,
       });
@@ -45,10 +45,10 @@ describe('AuthService', () => {
         update: updateMock,
       }));
 
-      const response = await AuthService.login({ email: 'test@test.com', password: 'password' });
+      const response = await AuthService.login({ email: 'test@test.com', password: process.env.TEST_PWD as string });
 
       expect(response).toHaveProperty('success', true);
-      expect((response as any).access_token).toBe('access123');
+      expect((response as any).access_token).toBe(process.env.TEST_ACCESS_TOKEN as string);
       expect((response as any).user.role).toBe('student');
     });
 
@@ -86,7 +86,7 @@ describe('AuthService', () => {
         select: selectMock,
       }));
 
-      const response = await AuthService.login({ email: 'test@test.com', password: 'password' });
+      const response = await AuthService.login({ email: 'test@test.com', password: process.env.TEST_PWD as string });
 
       expect(supabase.auth.signOut).toHaveBeenCalled();
       expect(response).toHaveProperty('error', 'Account Suspended');
@@ -114,7 +114,7 @@ describe('AuthService', () => {
         select: selectMock,
       }));
 
-      const response = await AuthService.login({ email: 'test@test.com', password: 'password' });
+      const response = await AuthService.login({ email: 'test@test.com', password: process.env.TEST_PWD as string });
 
       expect(supabase.auth.signOut).toHaveBeenCalled();
       expect(response).toHaveProperty('error', 'Account Inactive');
@@ -124,7 +124,7 @@ describe('AuthService', () => {
   describe('register', () => {
     const validRegisterData = {
       email: 'new@test.com',
-      password: 'password',
+      password: process.env.TEST_PWD as string,
       role: 'student',
       first_name: 'New',
       last_name: 'User',

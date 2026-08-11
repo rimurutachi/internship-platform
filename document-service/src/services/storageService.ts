@@ -57,6 +57,20 @@ class StorageService {
     }
     console.log("🗑️ [Storage] Deleted", { path });
   }
+
+  async downloadFile(path: string): Promise<Buffer> {
+    const { data, error } = await this.supabase.storage
+      .from(this.bucket)
+      .download(path);
+
+    if (error) {
+      console.error("❌ [Storage] Download failed", { path, error });
+      throw error;
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
 }
 
 export const storageService = new StorageService();

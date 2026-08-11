@@ -25,4 +25,14 @@ router.post("/:approvalId/approvals/submit", authenticateToken, workflowControll
 // Get workflow progress metrics (new)
 router.get("/:workflowId/workflows/progress", authenticateToken, workflowController.getWorkflowProgress);
 
+// Pre-approve a draft document (locks content editing, generates content hash)
+router.post("/:documentId/workflows/pre-approve", authenticateToken, workflowController.preApproveDraft);
+
+// Revert a pre-approved document back to draft (unlocks content editing)
+router.post("/:documentId/workflows/revert-pre-approval", authenticateToken, workflowController.revertPreApproval);
+
+// Upload and AI-scan a physically signed document to finalize approval
+router.post("/:documentId/workflows/upload-signed", authenticateToken, workflowController.uploadSignedDocument);
+
 export default router;
+

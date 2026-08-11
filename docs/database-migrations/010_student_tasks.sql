@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS public.student_tasks (
   completed_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  
+  created_by uuid REFERENCES public.users(id),
+  updated_by uuid REFERENCES public.users(id),
+  deleted_at timestamp with time zone,
   -- Primary key
   CONSTRAINT student_tasks_pkey PRIMARY KEY (id),
   

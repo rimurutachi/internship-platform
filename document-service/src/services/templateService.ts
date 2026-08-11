@@ -24,6 +24,22 @@ interface DocumentTemplate {
   tags?: string[];
   is_public?: boolean;
   requires_approval?: boolean;
+  file_url?: string;
+}
+
+function mapTemplateRow(row: any) {
+  if (!row) return null;
+  const content = row.default_content?.html || (typeof row.default_content === 'string' ? row.default_content : '') || '';
+  const structure = row.structure || {};
+  return {
+    ...row,
+    content,
+    fields: structure.fields || [],
+    tags: structure.tags || [],
+    is_public: structure.is_public ?? true,
+    requires_approval: structure.requires_approval ?? false,
+    file_url: structure.master_file_url || null,
+  };
 }
 
 export const templateService = {
@@ -37,7 +53,7 @@ export const templateService = {
   ): Promise<{ id: string; data: any } | null> {
     console.log("📝 [Template] Creating template", {
       name: template.name,
-      fields: template.fields.length,
+      fields: template.fields?.length || 0,
     });
 
     try {
@@ -48,23 +64,29 @@ export const templateService = {
         throw new Error(`Template validation failed: ${validation.errors.join(", ")}`);
       }
 
+      const structure = {
+        fields: template.fields || [],
+        tags: template.tags || [],
+        is_public: template.is_public ?? true,
+        requires_approval: template.requires_approval ?? false,
+        master_file_url: template.file_url || null,
+      };
+
+      const default_content = typeof template.content === "string" 
+        ? { html: template.content } 
+        : template.content || { html: "" };
+
       const { data, error } = await supabase
         .from("document_templates")
         .insert({
           name: template.name,
-          description: template.description,
-          content: template.content,
-          fields: template.fields,
+          description: template.description || "",
           category: template.category || "general",
-          tags: template.tags || [],
-          is_public: template.is_public || false,
-          requires_approval: template.requires_approval || false,
+          structure,
+          default_content,
           created_by: userId,
           created_at: new Date().toISOString(),
-          metadata: {
-            field_count: template.fields.length,
-            is_admin_created: isAdmin,
-          },
+          updated_at: new Date().toISOString(),
         })
         .select()
         .single();
@@ -76,7 +98,7 @@ export const templateService = {
 
       console.log("✅ [Template] Created", { templateId: data.id.substring(0, 8) });
 
-      return { id: data.id, data };
+      return { id: data.id, data: mapTemplateRow(data) };
     } catch (error) {
       console.error("❌ [Template Service] Create error", error);
       return null;
@@ -98,14 +120,14 @@ export const templateService = {
         .eq("id", templateId)
         .single();
 
-      if (error) {
+      if (error || !data) {
         console.error("❌ [Template] Get error", error);
         return null;
       }
 
       console.log("✅ [Template] Fetched");
 
-      return data;
+      return mapTemplateRow(data);
     } catch (error) {
       console.error("❌ [Template Service] Get error", error);
       return null;
@@ -120,6 +142,9 @@ export const templateService = {
       category?: string;
       is_public?: boolean;
       created_by?: string;
+      user_id?: string;
+      user_role?: string;
+      assigned_advisor_id?: string;
       tags?: string[];
       limit?: number;
       offset?: number;
@@ -128,20 +153,50 @@ export const templateService = {
     console.log("📋 [Template] Listing templates", filters);
 
     try {
+      // First, get all admin IDs
+      const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin');
+      const adminIds = admins?.map(a => `"${a.id}"`).join(',') || '';
+
       let query = supabase
         .from("document_templates")
-        .select("*, creator:users!created_by(id, first_name, last_name)");
+        .select("*, creator:users!created_by(id, first_name, last_name, role)");
 
       if (filters?.category) {
         query = query.eq("category", filters.category);
       }
 
-      if (filters?.is_public !== undefined) {
-        query = query.eq("is_public", filters.is_public);
-      }
-
       if (filters?.created_by) {
         query = query.eq("created_by", filters.created_by);
+      }
+
+      // Apply visibility logic
+      if (filters?.user_role === 'student') {
+        const advisorId = filters.assigned_advisor_id;
+        if (advisorId && adminIds) {
+          // See advisor's templates OR admin's public templates
+          query = query.or(`created_by.eq.${advisorId},and(created_by.in.(${adminIds}),structure->>is_public.eq.true)`);
+        } else if (adminIds) {
+          // See only admin's public templates
+          query = query.or(`and(created_by.in.(${adminIds}),structure->>is_public.eq.true)`);
+        } else if (advisorId) {
+          // See only advisor's templates
+          query = query.eq('created_by', advisorId);
+        } else {
+          // No templates visible
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // Dummy condition to return empty
+        }
+      } else if (filters?.user_role === 'advisor') {
+        if (adminIds && filters.user_id) {
+          // See own templates OR admin's public templates
+          query = query.or(`created_by.eq.${filters.user_id},and(created_by.in.(${adminIds}),structure->>is_public.eq.true)`);
+        } else if (filters.user_id) {
+          // See own templates
+          query = query.eq('created_by', filters.user_id);
+        }
+      }
+      // Admins see everything. If neither student nor advisor (e.g. public list endpoint without role), fallback to is_public filtering if explicitly requested:
+      else if (filters?.is_public !== undefined) {
+        query = query.eq('structure->>is_public', filters.is_public ? 'true' : 'false');
       }
 
       const limit = filters?.limit || 50;
@@ -158,7 +213,7 @@ export const templateService = {
 
       console.log("✅ [Template] Listed", { count: data?.length || 0 });
 
-      return data || [];
+      return (data || []).map(mapTemplateRow);
     } catch (error) {
       console.error("❌ [Template Service] List error", error);
       return [];
@@ -210,10 +265,6 @@ export const templateService = {
         .update({
           ...updates,
           updated_at: new Date().toISOString(),
-          metadata: {
-            field_count: updates.fields?.length || 0,
-            last_updated_by: userId,
-          },
         })
         .eq("id", templateId);
 
@@ -259,9 +310,7 @@ export const templateService = {
 
       const { error } = await supabase
         .from("document_templates")
-        .update({
-          deleted_at: new Date().toISOString(),
-        })
+        .delete()
         .eq("id", templateId);
 
       if (error) {
@@ -315,19 +364,25 @@ export const templateService = {
         content = content.replace(new RegExp(placeholder, "g"), value);
       }
 
+      const masterFileUrl = template.file_url || template.structure?.master_file_url || null;
+
       // Create document in documents table
       const { data: doc, error } = await supabase
         .from("documents")
         .insert({
-          name: documentName || template.name,
+          title: documentName || template.name,
+          type: (template.category as any) || "agreement",
           owner_id: userId,
-          content,
-          is_template_generated: true,
-          template_id: templateId,
+          content: typeof content === "string" ? { html: content } : content,
+          file_url: masterFileUrl,
+          status: "draft",
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
           metadata: {
             field_values: fieldValues,
             generated_from_template: true,
+            document_template_id: templateId,
+            master_file_url: masterFileUrl,
           },
         })
         .select()
@@ -336,6 +391,23 @@ export const templateService = {
       if (error) {
         console.error("❌ [Template] Create document error", error);
         throw error;
+      }
+
+      // If parent template has a master .docx file, attach file entry to document_files for High-Fidelity Preview
+      if (masterFileUrl) {
+        try {
+          const fileName = masterFileUrl.split("/").pop() || `${documentName || template.name}.docx`;
+          await supabase.from("document_files").insert({
+            document_id: doc.id,
+            storage_path: masterFileUrl,
+            file_name: fileName,
+            uploaded_by: userId,
+            is_primary: true,
+          });
+          console.log("📎 [Template] Attached master file to student document", { file_name: fileName });
+        } catch (fileAttachErr) {
+          console.warn("⚠️ [Template] Could not attach document_files entry (non-fatal):", fileAttachErr);
+        }
       }
 
       console.log("✅ [Template] Document created from template", {
@@ -490,7 +562,6 @@ export const templateService = {
         .from("document_templates")
         .select("*, creator:users!created_by(id, first_name, last_name)")
         .eq("category", category)
-        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -504,7 +575,7 @@ export const templateService = {
         count: data?.length || 0,
       });
 
-      return data || [];
+      return (data || []).map(mapTemplateRow);
     } catch (error) {
       console.error("❌ [Template Service] Get by category error", error);
       return [];
@@ -521,8 +592,6 @@ export const templateService = {
       const { data, error } = await supabase
         .from("document_templates")
         .select("*, creator:users!created_by(id, first_name, last_name)")
-        .contains("tags", tags)
-        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -535,7 +604,7 @@ export const templateService = {
         count: data?.length || 0,
       });
 
-      return data || [];
+      return (data || []).map(mapTemplateRow);
     } catch (error) {
       console.error("❌ [Template Service] Search by tags error", error);
       return [];
@@ -552,8 +621,6 @@ export const templateService = {
       const { data, error } = await supabase
         .from("document_templates")
         .select("*, creator:users!created_by(id, first_name, last_name)")
-        .eq("is_public", true)
-        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -566,7 +633,7 @@ export const templateService = {
         count: data?.length || 0,
       });
 
-      return data || [];
+      return (data || []).map(mapTemplateRow);
     } catch (error) {
       console.error("❌ [Template Service] Get public templates error", error);
       return [];
