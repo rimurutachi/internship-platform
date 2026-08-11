@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { Toaster as SonnerToaster } from 'sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -74,6 +75,7 @@ export default function RootLayout({
             <ShadcnToaster />
           </ThemeProvider>
         </QueryProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
