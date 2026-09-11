@@ -184,7 +184,7 @@ export async function createDocument(req: AuthRequest, res: Response) {
     // Check if document with same title exists for this user
     const { data: existingDoc, error: checkError } = await supabase
       .from("documents")
-      .select("id, title, version, content, metadata")
+      .select("id, title, version, content, metadata, status")
       .eq("owner_id", owner_id)
       .eq("title", title)
       .order("created_at", { ascending: false })
@@ -201,8 +201,20 @@ export async function createDocument(req: AuthRequest, res: Response) {
       ...(description ? { description } : {})
     };
 
-    // If document with same title exists, UPDATE it (Google Drive style)
+    // If document with same title exists
     if (existingDoc) {
+      // Pre-Approval Lock: Cannot upload with same name if already pre-approved or approved
+      if (existingDoc.status === 'pre_approved' || existingDoc.status === 'approved') {
+        console.warn(`⚠️ [Documents] Upload blocked: Document "${title}" is already ${existingDoc.status}`);
+        const statusLabel = existingDoc.status === 'pre_approved' ? 'pre-approved' : 'approved';
+        return res.status(400).json({
+          success: false,
+          error: `A document titled "${title}" has already been ${statusLabel} and is content-locked. You cannot upload a new file with the same name. Please rename your document or file before uploading.`,
+          isLocked: true,
+          status: existingDoc.status
+        });
+      }
+
       const currentVersion = existingDoc.version || "1.0.0";
       
       // Parse version and increment (e.g., "1.0.0" -> "2.0.0")
@@ -254,6 +266,7 @@ export async function createDocument(req: AuthRequest, res: Response) {
           content: content || existingDoc.content,
           metadata: metadataWithDesc,
           version: newVersion,
+          status: 'draft',
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingDoc.id)

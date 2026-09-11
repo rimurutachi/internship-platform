@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { documentsAPI } from "@/lib/api/documents";
 import { createSupabaseClient } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 import { DocumentHighFidelityViewer } from "./DocumentHighFidelityViewer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -81,6 +82,8 @@ export function DocumentDualModeContainer({
   const isEditable = !isLocked;
   const isDocxOrDoc = fileType === "docx" || fileType === "doc";
 
+  const { toast } = useToast();
+
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleBack = () => {
     router.push(`/dashboard/${userType}/documents`);
@@ -90,14 +93,21 @@ export function DocumentDualModeContainer({
     try {
       setLoading(true);
 
-      // We no longer manually grant access here - the backend automatically 
-      // grants access to the advisor when status is changed to 'in_review'
-      
       // Update document status to in_review
       await documentsAPI.updateDocument(documentId, { status: "in_review" });
       setDocumentStatus("in_review");
+
+      toast({
+        title: "Submitted for Pre-Approval",
+        description: "Your document has been submitted for pre-approval. Your advisor can now review it in their Student Submissions queue.",
+      });
     } catch (error) {
       console.error("❌ [DualMode] Failed to submit for review:", error);
+      toast({
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : "Failed to submit document for review",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -112,8 +122,18 @@ export function DocumentDualModeContainer({
       // Revert status to draft - backend will automatically revoke advisor access
       await documentsAPI.updateDocument(documentId, { status: "draft" });
       setDocumentStatus("draft");
+
+      toast({
+        title: "Reverted to Draft",
+        description: "Document status reverted to draft. You can now make further edits before re-submitting.",
+      });
     } catch (error) {
       console.error("❌ [DualMode] Failed to revert to draft:", error);
+      toast({
+        title: "Revert Failed",
+        description: error instanceof Error ? error.message : "Failed to revert document to draft",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -182,11 +202,11 @@ export function DocumentDualModeContainer({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex flex-col h-screen bg-background">
+      <div className="flex flex-col h-full min-h-[calc(100vh-140px)] bg-background rounded-lg border border-border overflow-hidden">
         {/* ── Top Navigation Bar ─────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b border-border bg-card shadow-xs gap-2">
           {/* Left: Back + Title */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Button
               variant="ghost"
               size="sm"
@@ -197,7 +217,7 @@ export function DocumentDualModeContainer({
             </Button>
 
             <div className="min-w-0">
-              <h1 className="text-sm font-semibold truncate max-w-[400px]">
+              <h1 className="text-xs sm:text-sm font-semibold truncate max-w-[130px] xs:max-w-[190px] sm:max-w-[300px] md:max-w-[450px]">
                 {documentTitle}
               </h1>
             </div>
@@ -207,7 +227,7 @@ export function DocumentDualModeContainer({
             {isLocked && (
               <Tooltip>
                 <TooltipTrigger>
-                  <Lock className="w-3.5 h-3.5 text-amber-500" />
+                  <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 </TooltipTrigger>
                 <TooltipContent>
                   Content is locked (Pre-Approved)
@@ -216,23 +236,20 @@ export function DocumentDualModeContainer({
             )}
           </div>
 
-          {/* Center: Removed Mode Toggle */}
-          <div className="flex items-center">
-            {/* The fill fields toggle is removed for a cleaner local edit workflow */}
-          </div>
-
           {/* Right: Actions & User Type */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {userType === "student" && documentStatus === "draft" && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Button 
                   size="sm" 
                   variant="outline" 
+                  className="text-xs h-8 px-2 sm:px-3"
                   onClick={() => document.getElementById('upload-edited-doc')?.click()}
                   disabled={uploading}
                 >
-                  {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                  Upload Edited Document
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 sm:mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 sm:mr-1.5" />}
+                  <span className="hidden sm:inline">Upload Edited Document</span>
+                  <span className="sm:hidden">Upload</span>
                 </Button>
                 <input
                   type="file"
@@ -242,8 +259,9 @@ export function DocumentDualModeContainer({
                   onChange={handleUploadEditedDocument}
                 />
                 {hasFile && (
-                  <Button size="sm" onClick={handleSubmitForReview} className="bg-primary hover:bg-primary/90">
-                    Submit for Pre-Approval
+                  <Button size="sm" onClick={handleSubmitForReview} className="bg-primary hover:bg-primary/90 text-xs h-8 px-2.5 sm:px-3">
+                    <span className="hidden sm:inline">Submit for Pre-Approval</span>
+                    <span className="sm:hidden">Submit</span>
                   </Button>
                 )}
               </div>
@@ -253,13 +271,14 @@ export function DocumentDualModeContainer({
                 variant="outline" 
                 size="sm" 
                 onClick={handleRevertToDraft} 
-                className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                className="text-xs h-8 px-2 sm:px-3 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
               >
-                <Unlock className="w-4 h-4 mr-1.5" />
-                Revert to Draft
+                <Unlock className="w-3.5 h-3.5 mr-1" />
+                <span className="hidden sm:inline">Revert to Draft</span>
+                <span className="sm:hidden">Revert</span>
               </Button>
             )}
-            <Badge variant="outline" className="text-xs capitalize">
+            <Badge variant="outline" className="text-xs capitalize hidden md:inline-flex">
               {userType}
             </Badge>
           </div>

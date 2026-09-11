@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as documentController from "../controllers/documentController";
+import * as narrativeReportController from "../controllers/narrativeReportController";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import * as fileController from "../controllers/fileController";
 import multer from "multer";
@@ -90,6 +91,7 @@ router.use(authenticateToken);
 // Document CRUD
 router.get("/", documentController.getDocuments);
 router.post("/", documentController.createDocument);
+router.post("/narrative-report/generate", narrativeReportController.generateNarrativeReport);
 router.get("/:id", documentController.getDocument);
 router.put("/:id", documentController.updateDocument);
 router.delete("/:id", documentController.deleteDocument); // Allow owners to delete

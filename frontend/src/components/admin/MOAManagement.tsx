@@ -151,18 +151,24 @@ export default function MOAManagementPage() {
   const groupedByProgram: ProgramGroup[] = PROGRAMS.map((program) => {
     const programSubs = submissions.filter((s) => s.student_program === program.code);
     
-    // Group by year level
-    const yearGroups: YearGroup[] = YEAR_LEVELS
+    // Group by year level (prioritize standard order, but dynamically support any other values)
+    const presentYears = Array.from(new Set(programSubs.map((s) => s.student_year_level || 'Unassigned')));
+    const orderedYears = [
+      ...YEAR_LEVELS.filter((y) => presentYears.includes(y)),
+      ...presentYears.filter((y) => !YEAR_LEVELS.includes(y)),
+    ];
+
+    const yearGroups: YearGroup[] = orderedYears
       .map((year) => {
-        const yearSubs = programSubs.filter((s) => s.student_year_level === year);
+        const yearSubs = programSubs.filter((s) => (s.student_year_level || 'Unassigned') === year);
         
         // Group by section
-        const sections = new Set(yearSubs.map((s) => s.student_section));
+        const sections = new Set(yearSubs.map((s) => s.student_section || 'Unassigned'));
         const sectionGroups: SectionGroup[] = Array.from(sections)
           .sort()
           .map((section) => ({
             section,
-            submissions: yearSubs.filter((s) => s.student_section === section),
+            submissions: yearSubs.filter((s) => (s.student_section || 'Unassigned') === section),
           }));
         
         return { year_level: year, sectionGroups };
@@ -225,12 +231,20 @@ export default function MOAManagementPage() {
     try {
       const response = await getAdminMOASignedUrl(sub.id);
       if (response.success && response.data?.signedUrl) {
-        const a = document.createElement('a');
-        a.href = response.data.signedUrl;
-        a.download = sub.file_name;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.click();
+        try {
+          const res = await fetch(response.data.signedUrl);
+          const blob = await res.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = sub.file_name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(blobUrl);
+        } catch {
+          window.open(response.data.signedUrl, '_blank');
+        }
       } else {
         toast({ title: 'Error', description: 'Could not generate download URL', variant: 'destructive' });
       }
@@ -511,27 +525,53 @@ export default function MOAManagementPage() {
                       <TableHead>Student</TableHead>
                       <TableHead>Requirement</TableHead>
                       <TableHead>File</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Date Approved</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {unassignedSubs.map((sub) => (
                       <TableRow key={sub.id}>
-                        <TableCell className="font-medium">{sub.student_name}</TableCell>
+                        <TableCell className="font-medium">
+                          {sub.student_name}
+                          <div className="text-xs text-muted-foreground">{sub.student?.email}</div>
+                        </TableCell>
                         <TableCell>{sub.requirement_title}</TableCell>
-                        <TableCell>{sub.file_name}</TableCell>
-                        <TableCell>{formatDate(sub.submitted_at)}</TableCell>
+                        <TableCell className="truncate max-w-[200px]">{sub.file_name}</TableCell>
+                        <TableCell className="text-sm">{formatFileSize(sub.file_size)}</TableCell>
+                        <TableCell className="text-sm">
+                          {sub.reviewed_at ? formatDate(sub.reviewed_at) : formatDate(sub.submitted_at)}
+                        </TableCell>
                         <TableCell>
-                          {sub.file_url && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => window.open(sub.file_url, '_blank')}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <div className="flex gap-2">
+                            {sub.file_url && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title="View document"
+                                disabled={loadingUrl === sub.id}
+                                onClick={() => handleViewFile(sub)}
+                              >
+                                {loadingUrl === sub.id
+                                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                                  : <Eye className="w-4 h-4" />}
+                              </Button>
+                            )}
+                            {sub.file_url && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title="Download document"
+                                disabled={loadingUrl === `dl-${sub.id}`}
+                                onClick={() => handleDownloadFile(sub)}
+                              >
+                                {loadingUrl === `dl-${sub.id}`
+                                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                                  : <Download className="w-4 h-4" />}
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

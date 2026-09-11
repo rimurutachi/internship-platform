@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import templateService from "../services/templateService";
 import auditService from "../services/auditService";
+import storageService from "../services/storageService";
 
 export async function createTemplate(req: AuthRequest, res: Response) {
   try {
@@ -282,6 +283,49 @@ export async function getPublicTemplates(req: AuthRequest, res: Response) {
     return res.json({ success: true, data: templates });
   } catch (error) {
     console.error("❌ [Template Controller] Get public templates error", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return res.status(500).json({ success: false, error: message });
+  }
+}
+
+export async function getTemplateDownloadUrl(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, error: "Authentication required." });
+    }
+
+    const { templateId } = req.params;
+    const template = await templateService.getTemplate(templateId);
+
+    if (!template) {
+      return res.status(404).json({ success: false, error: "Template not found." });
+    }
+
+    const masterFileUrl = template.file_url || template.structure?.master_file_url;
+    if (!masterFileUrl) {
+      return res.status(404).json({
+        success: false,
+        error: "This official template does not have a master .docx file attached for download.",
+      });
+    }
+
+    // Generate signed download URL (valid for 15 minutes)
+    const signedUrl = await storageService.createSignedUrl(masterFileUrl, 900);
+
+    // Extract file extension or default to docx
+    const ext = masterFileUrl.split(".").pop()?.split("?")[0] || "docx";
+    const filename = `${template.name}.${ext}`;
+
+    return res.json({
+      success: true,
+      data: {
+        download_url: signedUrl,
+        filename,
+        storage_path: masterFileUrl,
+      },
+    });
+  } catch (error) {
+    console.error("❌ [Template Controller] Download error", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return res.status(500).json({ success: false, error: message });
   }

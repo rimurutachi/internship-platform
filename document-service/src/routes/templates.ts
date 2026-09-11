@@ -22,6 +22,9 @@ router.delete("/:templateId", authenticateToken, templateController.deleteTempla
 // Create document from template
 router.post("/:templateId/create-document", authenticateToken, templateController.createDocumentFromTemplate);
 
+// Download master template file
+router.get("/:templateId/download", authenticateToken, templateController.getTemplateDownloadUrl);
+
 // Get templates by category
 router.get("/category/:category", authenticateToken, templateController.getTemplatesByCategory);
 

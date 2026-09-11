@@ -5,6 +5,7 @@ import dailyReportsRoutes from './dailyReports';
 import documentRequirementsRoutes from './documentRequirements';
 import tasksRoutes from './tasks';
 import dtrRoutes from './dtr';
+import narrativeReportRoutes from './narrativeReport';
 
 const router = Router();
 
@@ -64,6 +65,9 @@ router.use('/', dailyReportsRoutes);
 
 // Weekly DTR submission routes
 router.use('/', dtrRoutes);
+
+// Narrative Report routes
+router.use('/', narrativeReportRoutes);
 
 // Dashboard route
 router.get('/dashboard', studentController.getDashboardOverview);
