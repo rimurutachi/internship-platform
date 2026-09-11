@@ -91,6 +91,13 @@ export async function uploadFile(req: AuthRequest, res: Response) {
     }
 
     if (isPrimary) {
+      // Unset any previous primary files for this document
+      await supabase
+        .from("document_files")
+        .update({ is_primary: false })
+        .eq("document_id", documentId)
+        .neq("id", record.id);
+
       let documentContent = undefined;
 
       // Extract text from docx if it's a Word document

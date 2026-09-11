@@ -30,7 +30,7 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
     const { data: moaRequirements, error: reqError } = await supabase
       .from('document_requirements')
       .select('id, title')
-      .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%agreement%');
+      .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%agreement%,title.ilike.%M.O.A%');
 
     if (reqError) {
       console.error('Error fetching MOA requirements:', reqError);
@@ -69,9 +69,20 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Keep only the latest approved submission per student per requirement
+    const seen = new Set<string>();
+    const latestApprovedSubmissions: any[] = [];
+    for (const sub of rawSubmissions || []) {
+      const key = `${sub.student_id}-${sub.requirement_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        latestApprovedSubmissions.push(sub);
+      }
+    }
+
     // 3. Fetch student user data in a separate query
     //    (program/section live in profile_data jsonb, not direct columns)
-    const studentIds = [...new Set((rawSubmissions || []).map((s: any) => s.student_id))];
+    const studentIds = [...new Set(latestApprovedSubmissions.map((s: any) => s.student_id))];
     const studentMap: Record<string, any> = {};
 
     if (studentIds.length > 0) {
@@ -92,7 +103,7 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
       (moaRequirements || []).map(r => [r.id, r.title])
     );
 
-    let enrichedSubmissions = (rawSubmissions || []).map((sub: any) => {
+    let enrichedSubmissions = (latestApprovedSubmissions || []).map((sub: any) => {
       const student = studentMap[sub.student_id] || null;
       const pd = student?.profile_data || {};
       return {
@@ -166,7 +177,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
     const { data: moaRequirements } = await supabase
       .from('document_requirements')
       .select('id, title')
-      .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%agreement%');
+      .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%agreement%,title.ilike.%M.O.A%');
 
     const requirementIds = (moaRequirements || []).map(r => r.id);
 
@@ -178,6 +189,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
           total_approved: 0,
           total_pending: 0,
           total_rejected: 0,
+          total_revision_requested: 0,
           by_program: {},
         },
       });
@@ -193,6 +205,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
     const approved = submissions.filter((s: any) => s.status === 'approved');
     const pending = submissions.filter((s: any) => s.status === 'pending');
     const rejected = submissions.filter((s: any) => s.status === 'rejected');
+    const revisionRequested = submissions.filter((s: any) => s.status === 'revision_requested');
 
     // Fetch student profile_data for approved submissions to group by program
     const approvedStudentIds = [...new Set(approved.map((s: any) => s.student_id))];
@@ -218,6 +231,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
         total_approved: approved.length,
         total_pending: pending.length,
         total_rejected: rejected.length,
+        total_revision_requested: revisionRequested.length,
         by_program: byProgram,
       },
     });
@@ -273,6 +287,13 @@ router.get('/submissions/:id/signed-url', async (req: AuthRequest, res: Response
       const parts = withoutPrefix.split('/');
       if (parts.length >= 3) {
         pathsToTry.push([parts[1], parts[0], ...parts.slice(2)].join('/'));
+      }
+    } else {
+      pathsToTry.push(`document-submissions/${basePath}`);
+      const parts = basePath.split('/');
+      if (parts.length >= 2) {
+        pathsToTry.push([parts[1], parts[0], ...parts.slice(2)].join('/'));
+        pathsToTry.push(`document-submissions/${[parts[1], parts[0], ...parts.slice(2)].join('/')}`);
       }
     }
 

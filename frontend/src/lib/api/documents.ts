@@ -725,6 +725,27 @@ export const documentsAPI = {
   },
 
   /**
+   * Get signed download URL for an official template's master .docx file
+   */
+  async getTemplateDownloadUrl(templateId: string): Promise<{ download_url: string; filename: string; storage_path?: string }> {
+    try {
+      console.log('🔵 [Documents API] Getting template download URL:', templateId);
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${DOCUMENT_SERVICE_URL}/api/templates/${templateId}/download`,
+        { headers }
+      );
+      return response.data.success ? response.data.data : response.data;
+    } catch (error) {
+      console.error('❌ [Documents API] Get template download URL error:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  },
+
+  /**
    * Create an official master template
    */
   async createTemplate(templateData: {

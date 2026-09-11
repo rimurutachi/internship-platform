@@ -8,6 +8,7 @@ import { WeeklyLogsCard } from '@/components/student/WeeklyLogsCard';
 import { QuickActionsNewCard } from '@/components/student/QuickActionsNewCard';
 import { FinalEvaluationCard } from '@/components/student/FinalEvaluationCard';
 import { TasksCard } from '@/components/student/TasksCard';
+import { NarrativeReportCard } from '@/components/student/NarrativeReportCard';
 
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { studentAPI } from '@/lib/api/student';
@@ -142,6 +143,9 @@ const StudentDashboard = () => {
           <WeeklyLogsCard logsCount={logsCount} />
           <QuickActionsNewCard />
         </div>
+
+        {/* AI Narrative Report Assistant Card */}
+        <NarrativeReportCard internshipId={dashboardData.internship?.id} />
         
         {/* Final Evaluation and Tasks - Side by Side */}
         <div className="grid md:grid-cols-2 gap-8">

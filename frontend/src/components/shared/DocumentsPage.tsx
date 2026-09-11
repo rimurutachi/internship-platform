@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { documentsAPI } from '@/lib/api/documents';
 import { useUser } from '@/hooks/use-user';
+import { useToast } from '@/hooks/use-toast';
 import { TemplateLibrary } from './TemplateLibrary';
 import { StudentRequirementsQueue } from './StudentRequirementsQueue';
 import type { DocumentWithDetails } from '@/types/documents';
@@ -29,6 +30,7 @@ interface DocumentsPageProps {
 
 export function DocumentsPage({ userType, defaultUploadType = 'report' }: DocumentsPageProps) {
   const { user } = useUser();
+  const { toast } = useToast();
   const router = useRouter();
   // Primary tab: 'documents' | 'templates' | 'submissions'
   const [primaryTab, setPrimaryTab] = useState<'documents' | 'templates' | 'submissions'>('documents');
@@ -196,6 +198,23 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
       return;
     }
 
+    const trimmedTitle = uploadTitle.trim();
+
+    // Client-side pre-check for duplicate title in student's current documents
+    const existingMatchingDoc = documents.find(
+      (d) => d.title.trim().toLowerCase() === trimmedTitle.toLowerCase() && (!user?.id || d.owner_id === user.id)
+    );
+
+    if (existingMatchingDoc) {
+      if (existingMatchingDoc.status === 'pre_approved' || existingMatchingDoc.status === 'approved') {
+        const statusText = existingMatchingDoc.status === 'pre_approved' ? 'pre-approved' : 'approved';
+        setUploadError(
+          `A document titled "${existingMatchingDoc.title}" has already been ${statusText} and is content-locked. You cannot upload a new file with the same name. Please rename your document or file before uploading.`
+        );
+        return;
+      }
+    }
+
     try {
       setUploading(true);
       setUploadError(null);
@@ -220,10 +239,10 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
 
       setUploadProgress(20);
 
-      // Step 1: Create document metadata first
-      console.log('📝 [Upload] Creating document metadata...');
+      // Step 1: Create or update document metadata
+      console.log('📝 [Upload] Creating/updating document metadata...');
       const newDocument = await documentsAPI.createDocument({
-        title: uploadTitle.trim(),
+        title: trimmedTitle,
         type: documentType,
         content: { 
           fileName: uploadFile.name, 
@@ -238,7 +257,7 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
         }
       });
 
-      console.log('✅ [Upload] Document created:', newDocument.id);
+      console.log('✅ [Upload] Document metadata prepared:', newDocument.id);
       setUploadProgress(40);
 
       // Step 2: Upload actual file to Supabase Storage via document-service
@@ -275,7 +294,14 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
 
       setUploadProgress(100);
 
+      const isNewVersion = existingMatchingDoc && existingMatchingDoc.id === newDocument.id;
 
+      toast({
+        title: isNewVersion ? "New Version Created" : "Document Uploaded",
+        description: isNewVersion
+          ? `Uploaded new version for "${trimmedTitle}" (v${newDocument.version || '2.0.0'}). Previous version saved in Version History.`
+          : `Document "${trimmedTitle}" has been uploaded successfully.`,
+      });
 
       setTimeout(() => {
         setUploadDialogOpen(false);
@@ -734,118 +760,6 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
 
 
                 {primaryTab === 'documents' && (<>
-                {/* Upload Document Dialog */}
-                <Dialog open={uploadDialogOpen} onOpenChange={handleDialogClose}>
-                  <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle className="text-2xl">Upload New Document</DialogTitle>
-                        <DialogDescription>
-                          Upload documents to your internship file (Max 50MB)
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      {uploadError && (
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>{uploadError}</AlertDescription>
-                        </Alert>
-                      )}
-
-                      <div className="space-y-4">
-                        {/* File Drop Zone */}
-                        <div
-                          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                            dragActive ? 'border-primary bg-primary/5' : uploadFile ? 'border-green-500 bg-green-500/10' : 'border-border hover:border-primary'
-                          }`}
-                          onDragEnter={handleDrag}
-                          onDragLeave={handleDrag}
-                          onDragOver={handleDrag}
-                          onDrop={handleDrop}
-                          onClick={() => document.getElementById('file-input')?.click()}
-                        >
-                          <input
-                            id="file-input"
-                            type="file"
-                            className="hidden"
-                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
-                            onChange={handleFileInputChange}
-                            disabled={uploading}
-                          />
-                          {uploadFile ? (
-                            <div className="space-y-2">
-                              <CheckCircle className="w-12 h-12 mx-auto text-primary" />
-                              <p className="text-foreground font-medium">{uploadFile.name}</p>
-                              <p className="text-sm text-muted-foreground">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setUploadFile(null);
-                                  setUploadTitle('');
-                                }}
-                                disabled={uploading}
-                              >
-                                Change File
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-                              <p className="text-muted-foreground">Drag and drop your file here</p>
-                              <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
-                              <p className="text-xs text-muted-foreground mt-2">Supported: PDF, DOCX, Images, ZIP</p>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <div>
-                          <Label>Document Title *</Label>
-                          <Input
-                            value={uploadTitle}
-                            onChange={(e) => setUploadTitle(e.target.value)}
-                            placeholder="Enter document title"
-                            className="mt-2"
-                            disabled={uploading}
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">The file type will be automatically detected</p>
-                        </div>
-
-                        {/* Progress */}
-                        {uploading && (
-                          <div className="space-y-2">
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div 
-                                className="bg-primary h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress}%` }}
-                              />
-                            </div>
-                            <p className="text-sm text-muted-foreground text-center">Uploading... {uploadProgress}%</p>
-                          </div>
-                        )}
-
-                        {/* Upload Button */}
-                        <Button
-                          onClick={handleUpload}
-                          disabled={uploading || !uploadFile || !uploadTitle.trim()}
-                          className="w-full bg-primary hover:bg-primary/90"
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Uploading...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4 mr-2" />
-                              Upload Document
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
 
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -1005,18 +919,6 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                               </Button>
                             )}
 
-                            {/* Draft: Pre-Approve (advisor only) */}
-                            {doc.status === 'draft' && userType === 'advisor' && (
-                              <Button 
-                                size="sm" 
-                                className="bg-amber-500 hover:bg-amber-600 text-white"
-                                onClick={() => handlePreApprove(doc)}
-                                disabled={preApproving}
-                              >
-                                {preApproving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Lock className="w-4 h-4 mr-1.5" />}
-                                Pre-Approve & Lock
-                              </Button>
-                            )}
 
                             {/* In Review: Revert to Draft (student only) */}
                             {doc.status === 'in_review' && isDocumentOwner(doc) && (
@@ -1089,18 +991,6 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
                               </Button>
                             )}
 
-                            {/* Share - available for all statuses */}
-                            {userType !== 'supervisor' && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleShareDocument(doc)}
-                                title="Share document"
-                              >
-                                <Share2 className="w-4 h-4 mr-1.5" />
-                                Share
-                              </Button>
-                            )}
 
                             {/* Save as Official Template (Advisor/Supervisor) */}
                             {(userType === 'advisor' || userType === 'supervisor') && (
@@ -1137,86 +1027,470 @@ export function DocumentsPage({ userType, defaultUploadType = 'report' }: Docume
         </div>
 
       {/* Mobile View */}
-      <div className="lg:hidden min-h-screen bg-background">
+      <div className="lg:hidden min-h-screen bg-background pb-20">
         <div className="p-4 space-y-4">
-          <Button 
-            className="w-full bg-primary hover:bg-primary/90"
-            onClick={() => setUploadDialogOpen(true)}
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Upload Document
-          </Button>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-foreground">{stats.total}</div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-primary">{stats.shared}</div>
-                  <div className="text-xs text-muted-foreground">Shared</div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Header & Upload Button */}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Documents</h1>
+              <p className="text-xs text-muted-foreground">Manage and share your internship documents</p>
+            </div>
+            {primaryTab === 'documents' && (
+              <Button 
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 shadow-sm"
+                onClick={() => setUploadDialogOpen(true)}
+              >
+                <Upload className="w-4 h-4 mr-1.5" />
+                Upload Document
+              </Button>
+            )}
           </div>
 
-          <Input
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          {/* ── Mobile Primary Tab Switcher ── */}
+          <div className="flex items-center gap-1.5 p-1 bg-muted rounded-lg overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setPrimaryTab('documents')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
+                primaryTab === 'documents'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              My Documents
+            </button>
+            <button
+              onClick={() => setPrimaryTab('templates')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
+                primaryTab === 'templates'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <BookTemplate className="w-3.5 h-3.5" />
+              Official Templates
+            </button>
+            {(userType === 'advisor' || userType === 'supervisor') && (
+              <button
+                onClick={() => setPrimaryTab('submissions')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
+                  primaryTab === 'submissions'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                Student Submissions
+              </button>
+            )}
+          </div>
 
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-            <TabsList className="w-full grid grid-cols-3 h-auto">
-              {categories.slice(0, 3).map((cat) => (
-                <TabsTrigger key={cat} value={cat} className="capitalize text-xs">{cat}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          {/* ── Tab Content: Official Templates ── */}
+          {primaryTab === 'templates' && (
+            <div className="pt-1">
+              <TemplateLibrary userType={userType} />
+            </div>
+          )}
 
-          <div className="space-y-2">
-            {loading ? (
-              <div className="py-4">
-                <CardGridSkeleton count={4} columns={1} />
+          {/* ── Tab Content: Student Requirements Queue ── */}
+          {primaryTab === 'submissions' && (userType === 'advisor' || userType === 'supervisor') && (
+            <div className="pt-1">
+              <StudentRequirementsQueue userType={userType as 'advisor' | 'supervisor'} />
+            </div>
+          )}
+
+          {/* ── Tab Content: My Documents ── */}
+          {primaryTab === 'documents' && (
+            <div className="space-y-4">
+              {/* 4 Stats Cards in 2x2 Grid */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <Card className="bg-card border border-border shadow-xs">
+                  <CardContent className="p-3.5">
+                    <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Total Documents</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border border-border shadow-xs">
+                  <CardContent className="p-3.5">
+                    <div className="text-2xl font-bold text-blue-600">{stats.shared}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Shared</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border border-border shadow-xs">
+                  <CardContent className="p-3.5">
+                    <div className="text-2xl font-bold text-purple-600">{stats.categories}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Categories</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border border-border shadow-xs">
+                  <CardContent className="p-3.5">
+                    <div className="text-2xl font-bold text-primary">{stats.versions}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Total Versions</div>
+                  </CardContent>
+                </Card>
               </div>
-            ) : filteredDocuments.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground text-sm">No documents found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredDocuments.map((doc) => (
-                <Card key={doc.id}>
-                  <CardContent className="pt-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-muted rounded-lg">{getFileIcon(doc.type)}</div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground text-sm truncate">{doc.title}</h3>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+
+              {/* Search and Category Chips */}
+              <div className="space-y-2.5">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-10 text-sm border-border"
+                  />
+                </div>
+
+                <div className="overflow-x-auto no-scrollbar pb-1">
+                  <div className="flex items-center gap-1.5 min-w-max">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
+                          selectedCategory === cat
+                            ? 'bg-primary text-primary-foreground shadow-xs'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Document List */}
+              {loading ? (
+                <div className="py-4">
+                  <CardGridSkeleton count={4} columns={1} />
+                </div>
+              ) : filteredDocuments.length === 0 ? (
+                <Card className="bg-card border border-border">
+                  <CardContent className="py-12 text-center">
+                    <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm">No documents found</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {filteredDocuments.map((doc, index) => (
+                    <Card key={doc.id} className="bg-card border border-border shadow-xs">
+                      <CardContent className="p-4 space-y-3">
+                        {/* Card Header: Icon + Title + Version + Status + Top Action Icons */}
+                        <div className="flex items-start gap-3">
+                          <div className="p-2.5 bg-muted rounded-lg shrink-0 mt-0.5">
+                            {getFileIcon(doc.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground text-sm leading-snug break-words">
+                              {doc.title}
+                            </h3>
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-border">
+                                v{doc.version}
+                              </Badge>
+                              {getStatusBadge(doc.status)}
+                            </div>
+                          </div>
+
+                          {/* Top Quick Actions */}
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleOpenVersionHistory(doc)}
+                              title="Version history"
+                            >
+                              <History className="w-3.5 h-3.5 text-muted-foreground" />
+                            </Button>
+                            {isDocumentOwner(doc) && doc.status === 'draft' && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleEditDocument(doc)}
+                                title="Edit document"
+                              >
+                                <Edit className="w-3.5 h-3.5 text-muted-foreground" />
+                              </Button>
+                            )}
+                            {isDocumentOwner(doc) && doc.status === 'draft' && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
+                                onClick={() => handleDelete(doc.id, doc.title)}
+                                title="Delete document"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0" 
+                              onClick={() => handleViewDocument(doc)}
+                              title="Document details"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Metadata row */}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                           <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                          {doc.owner && (
+                            <>
+                              <span>•</span>
+                              <span>{doc.owner.first_name} {doc.owner.last_name}</span>
+                            </>
+                          )}
                           <span>•</span>
                           <span className="capitalize">{doc.type}</span>
                         </div>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleViewDocument(doc)}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+                        {doc.updated_at !== doc.created_at && (
+                          <div className="text-[11px] text-muted-foreground">
+                            Last modified: {new Date(doc.updated_at).toLocaleDateString()}
+                          </div>
+                        )}
+
+                        {/* ── Hybrid Workflow Action Bar for Mobile ── */}
+                        <div className="flex items-center gap-2 pt-3 border-t border-border flex-wrap">
+                          {/* Draft: View Document (opens high-fidelity / editor route) */}
+                          {doc.status === 'draft' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs h-8 text-primary border-primary/30 hover:bg-primary/5"
+                              onClick={() => handleOpenEditor(doc)}
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" />
+                              View Document
+                            </Button>
+                          )}
+
+
+                          {/* In Review (Student): Revert to Draft */}
+                          {doc.status === 'in_review' && isDocumentOwner(doc) && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs h-8 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                              onClick={() => handleStudentRevertToDraft(doc)}
+                              disabled={reverting}
+                            >
+                              {reverting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Unlock className="w-3.5 h-3.5 mr-1" />}
+                              Revert to Draft
+                            </Button>
+                          )}
+
+                          {/* Pre-Approved: Download Secure PDF */}
+                          {doc.status === 'pre_approved' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs h-8 text-primary border-primary/30 hover:bg-primary/5"
+                              onClick={() => handleDownloadSecurePdf(doc)}
+                            >
+                              <Download className="w-3.5 h-3.5 mr-1" />
+                              Download Secure PDF
+                            </Button>
+                          )}
+
+                          {/* Pre-Approved (Advisor): Revert to Draft */}
+                          {doc.status === 'pre_approved' && userType === 'advisor' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs h-8 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                              onClick={() => handleRevertPreApproval(doc)}
+                              disabled={reverting}
+                            >
+                              {reverting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Unlock className="w-3.5 h-3.5 mr-1" />}
+                              Revert to Draft
+                            </Button>
+                          )}
+
+                          {/* Approved: Download Signed Document */}
+                          {doc.status === 'approved' && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs h-8 text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
+                              onClick={() => handleDownloadDocument(doc)}
+                            >
+                              <Download className="w-3.5 h-3.5 mr-1" />
+                              Download Signed Document
+                            </Button>
+                          )}
+
+                          {/* Approved: AI Report */}
+                          {doc.status === 'approved' && (doc as any).metadata?.ai_scan_result && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-xs h-8 text-violet-600 hover:text-violet-700"
+                              onClick={() => {
+                                const result = (doc as any).metadata.ai_scan_result;
+                                alert(`🤖 AI Signature Scan Report\n\nSignature Detected: ${result.has_signature ? 'Yes ✅' : 'No ❌'}\nConfidence: ${(result.confidence_score * 100).toFixed(0)}%\nNotes: ${result.notes}`);
+                              }}
+                            >
+                              <Bot className="w-3.5 h-3.5 mr-1" />
+                              AI Report
+                            </Button>
+                          )}
+
+
+                          {/* Save as Official Template (Advisor / Supervisor) */}
+                          {(userType === 'advisor' || userType === 'supervisor') && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs h-8 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                              onClick={async () => {
+                                try {
+                                  await documentsAPI.saveDocumentAsTemplate(doc.id, {
+                                    name: doc.title,
+                                    category: doc.type || 'general',
+                                  });
+                                  setPrimaryTab('templates');
+                                } catch (err) {
+                                  console.error('❌ Failed to save as template:', err);
+                                }
+                              }}
+                            >
+                              <Copy className="w-3.5 h-3.5 mr-1" />
+                              Save as Template
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Upload Document Dialog (Universal) */}
+      <Dialog open={uploadDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl">Upload New Document</DialogTitle>
+            <DialogDescription>
+              Upload documents to your internship file (Max 50MB)
+            </DialogDescription>
+          </DialogHeader>
+
+          {uploadError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{uploadError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            {/* File Drop Zone */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-colors cursor-pointer ${
+                dragActive ? 'border-primary bg-primary/5' : uploadFile ? 'border-green-500 bg-green-500/10' : 'border-border hover:border-primary'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('file-input')?.click()}
+            >
+              <input
+                id="file-input"
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
+                onChange={handleFileInputChange}
+                disabled={uploading}
+              />
+              {uploadFile ? (
+                <div className="space-y-2">
+                  <CheckCircle className="w-10 sm:w-12 h-10 sm:h-12 mx-auto text-primary" />
+                  <p className="text-foreground font-medium break-all">{uploadFile.name}</p>
+                  <p className="text-sm text-muted-foreground">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUploadFile(null);
+                      setUploadTitle('');
+                    }}
+                    disabled={uploading}
+                  >
+                    Change File
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-10 sm:w-12 h-10 sm:h-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-sm sm:text-base">Drag and drop your file here</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">or click to browse</p>
+                  <p className="text-xs text-muted-foreground mt-2">Supported: PDF, DOCX, Images, ZIP</p>
+                </>
+              )}
+            </div>
+
+            {/* Title */}
+            <div>
+              <Label>Document Title *</Label>
+              <Input
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                placeholder="Enter document title"
+                className="mt-2"
+                disabled={uploading}
+              />
+              <p className="text-xs text-muted-foreground mt-1">The file type will be automatically detected</p>
+            </div>
+
+            {/* Progress */}
+            {uploading && (
+              <div className="space-y-2">
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground text-center">Uploading... {uploadProgress}%</p>
+              </div>
+            )}
+
+            {/* Upload Button */}
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !uploadFile || !uploadTitle.trim()}
+              className="w-full bg-primary hover:bg-primary/90"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Document
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* View Document Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>

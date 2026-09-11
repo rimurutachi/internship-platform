@@ -27,6 +27,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Download,
 } from "lucide-react";
 import axios from "axios";
 
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createSupabaseClient } from "@/lib/supabase";
+import { documentsAPI } from "@/lib/api/documents";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -139,6 +141,61 @@ export function TemplateLibrary({ userType }: TemplateLibraryProps) {
   const [editTemplateName, setEditTemplateName] = useState("");
   const [editTemplateDesc, setEditTemplateDesc] = useState("");
   const [isManagingTemplate, setIsManagingTemplate] = useState(false);
+
+  // ── Download Template state (Direct download workflow) ─────────────────────
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [templateToDownload, setTemplateToDownload] = useState<Template | null>(null);
+  const [downloadFilename, setDownloadFilename] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleOpenDownload = (template: Template) => {
+    setTemplateToDownload(template);
+    setDownloadFilename(template.name.trim());
+    setDownloadError(null);
+    setDownloadDialogOpen(true);
+  };
+
+  const handleDownloadTemplate = async () => {
+    if (!templateToDownload) return;
+    try {
+      setDownloading(true);
+      setDownloadError(null);
+
+      const result = await documentsAPI.getTemplateDownloadUrl(templateToDownload.id);
+      if (!result?.download_url) {
+        throw new Error("No download URL returned for this template");
+      }
+
+      // Fetch file blob to ensure custom filename is honored across all browsers
+      const fileResponse = await fetch(result.download_url);
+      if (!fileResponse.ok) {
+        throw new Error("Failed to download template file from storage");
+      }
+      const blob = await fileResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+
+      let filename = downloadFilename.trim();
+      if (!filename.toLowerCase().endsWith(".docx") && !filename.toLowerCase().endsWith(".doc")) {
+        filename = `${filename}.docx`;
+      }
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setDownloadDialogOpen(false);
+    } catch (err: any) {
+      console.error("❌ [TemplateLibrary] Download error:", err);
+      setDownloadError(err instanceof Error ? err.message : "Failed to download template file");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   // ── Create/Upload Master Template handler ──────────────────────────────────
   const handleCreateMasterTemplate = async () => {
@@ -364,7 +421,7 @@ export function TemplateLibrary({ userType }: TemplateLibraryProps) {
   return (
     <div className="space-y-6">
       {/* Search & Actions Bar */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <Input
           placeholder="Search templates by name, description, or category..."
           value={searchQuery}
@@ -375,7 +432,7 @@ export function TemplateLibrary({ userType }: TemplateLibraryProps) {
         {(userType === "advisor" || userType === "supervisor") && (
           <Button
             onClick={() => setUploadTemplateOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-5 gap-2 shrink-0"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-5 gap-2 shrink-0 justify-center"
           >
             <Upload className="w-4 h-4" />
             Upload Master Template
@@ -511,20 +568,30 @@ export function TemplateLibrary({ userType }: TemplateLibraryProps) {
                   {userType === "student" ? (
                     <Button
                       className="w-full bg-primary hover:bg-primary/90 gap-1.5"
-                      onClick={() => handleUseTemplate(template)}
+                      onClick={() => handleOpenDownload(template)}
                     >
-                      <Copy className="w-4 h-4" />
-                      Use Template / Fill My Copy
+                      <Download className="w-4 h-4" />
+                      Download Template
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      className="w-full gap-1.5"
-                      onClick={() => handleUseTemplate(template)}
-                    >
-                      <Copy className="w-4 h-4" />
-                      Create Copy from Template
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 gap-1.5 text-xs h-9"
+                        onClick={() => handleOpenDownload(template)}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="flex-1 gap-1.5 text-xs h-9"
+                        onClick={() => handleUseTemplate(template)}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Create Copy
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -532,6 +599,88 @@ export function TemplateLibrary({ userType }: TemplateLibraryProps) {
           ))}
         </div>
       )}
+
+      {/* ── "Download Template" Dialog ─────────────────────────────────── */}
+      <Dialog
+        open={downloadDialogOpen}
+        onOpenChange={setDownloadDialogOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Download className="w-5 h-5 text-primary" />
+              Download Template
+            </DialogTitle>
+            <DialogDescription>
+              Download this official template to edit locally in Microsoft Word or any document editor.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {templateToDownload && (
+              <div className="p-3 bg-muted/60 rounded-lg border border-border/60">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                  <span className="truncate">{templateToDownload.name}</span>
+                </div>
+                {templateToDownload.description && (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {templateToDownload.description}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <Label>File / Document Name</Label>
+              <Input
+                value={downloadFilename}
+                onChange={(e) => setDownloadFilename(e.target.value)}
+                placeholder="e.g. Student-Internship-MOA-CvSU-Bacoor - Tan, Markus"
+                className="mt-1.5"
+                disabled={downloading}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                You can personalize the file name before downloading. It will be saved as a .docx file.
+              </p>
+            </div>
+
+            {downloadError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{downloadError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setDownloadDialogOpen(false)}
+                disabled={downloading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDownloadTemplate}
+                disabled={downloading || !downloadFilename.trim()}
+                className="bg-primary hover:bg-primary/90 gap-2"
+              >
+                {downloading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Download .DOCX
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── "Use Template" Dialog ────────────────────────────────────────── */}
       <Dialog

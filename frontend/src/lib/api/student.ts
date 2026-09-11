@@ -473,6 +473,95 @@ export const studentAPI = {
     return apiCall<{ data: any[] }>(`/student/daily-reports?internship_id=${internshipId}`);
   },
 
+  // ============ Narrative Report APIs ============
+
+  /**
+   * Check narrative report eligibility (>= 80% rendered hours)
+   */
+  getNarrativeReportEligibility: async () => {
+    return apiCall<{
+      isEligible: boolean;
+      progressPercentage: number;
+      totalHoursWorked: number;
+      requiredHours: number;
+      requiredThresholdHours: number;
+      remainingHoursToUnlock: number;
+      internshipId?: string;
+      metadata?: {
+        studentName: string;
+        degreeProgram: string;
+        department: string;
+        institution: string;
+        campus: string;
+        campusAddress: string;
+        companyName: string;
+        companyAddress?: string;
+        adviserName?: string;
+        supervisorName?: string;
+        startDate?: string;
+        endDate?: string;
+        reportMonthYear: string;
+      };
+    }>('/student/narrative-report/eligibility');
+  },
+
+  /**
+   * Retrieve ethical AI writing guidance & suggestions
+   */
+  getNarrativeReportWritingGuide: async () => {
+    return apiCall<{
+      ethicalNote: string;
+      totalReportsAnalyzed: number;
+      suggestedHighlights: string[];
+      sections: Array<{ title: string; guidelines: string }>;
+    }>('/student/narrative-report/writing-guide');
+  },
+
+  /**
+   * Download generated standard CvSU narrative report .docx
+   */
+  downloadNarrativeReport: async (customMetadata?: any) => {
+    try {
+      const authHeaders = await getAuthHeaders();
+      const url = `${API_BASE_URL}/student/narrative-report/generate`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(customMetadata || {}),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({ error: 'Download failed' }));
+        return { success: false, error: errJson.error || `Server responded with status ${response.status}` };
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition');
+      let fileName = 'OJT_Narrative_Report_CvSU.docx';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) fileName = match[1];
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to download narrative report' };
+    }
+  },
+
 };
 
 export default studentAPI;
