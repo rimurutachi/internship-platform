@@ -296,7 +296,7 @@ export const NarrativeReportModal = ({
               {downloading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Building Standard .docx Document...
+                  Synthesizing Daily Reports with AI & Building .docx...
                 </>
               ) : (
                 <>

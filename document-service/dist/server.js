@@ -12,9 +12,12 @@ const documents_1 = __importDefault(require("./routes/documents"));
 const workflows_1 = __importDefault(require("./routes/workflows"));
 const templates_1 = __importDefault(require("./routes/templates"));
 const access_1 = __importDefault(require("./routes/access"));
+const public_1 = __importDefault(require("./routes/public"));
 const env_1 = require("./config/env");
 const morgan_1 = __importDefault(require("morgan"));
 const rateLimiter_1 = require("./middleware/rateLimiter");
+const socket_io_1 = require("socket.io");
+const websocket_1 = require("./websocket");
 const app = (0, express_1.default)();
 exports.app = app;
 const server = http_1.default.createServer(app);
@@ -62,11 +65,35 @@ app.use((0, cors_1.default)({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Disposition', 'Content-Length']
 }));
 app.use(express_1.default.json({ limit: "50mb" }));
 app.use((0, morgan_1.default)("dev"));
 app.use(rateLimiter_1.generalLimiter); // Apply general rate limiter to all routes
+// =============================================================================
+// Initialize Socket.io
+// =============================================================================
+const io = new socket_io_1.Server(server, {
+    cors: {
+        origin: (origin, callback) => {
+            if (!origin)
+                return callback(null, true);
+            if (allowedOrigins.includes(origin)) {
+                callback(null, true);
+            }
+            else {
+                callback(new Error('Not allowed by CORS'));
+            }
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    },
+    transports: ['websocket', 'polling']
+});
+// Setup WebSocket handlers
+(0, websocket_1.setupWebSocket)(io);
 // =============================================================================
 // Enhanced Health Check Route
 // =============================================================================
@@ -84,6 +111,7 @@ app.use("/api/documents", documents_1.default);
 app.use("/api/access", access_1.default);
 app.use("/api/workflows", workflows_1.default);
 app.use("/api/templates", templates_1.default);
+app.use("/api/public", public_1.default);
 // =============================================================================
 // Improved 404 Handler
 // =============================================================================
@@ -100,6 +128,7 @@ app.use((req, res, next) => {
             'GET /api/access/*',
             'POST /api/workflows/*',
             'GET /api/templates/*',
+            'GET /api/public/verify/*',
         ],
         timestamp: new Date().toISOString()
     });
@@ -130,11 +159,13 @@ app.use((err, req, res, next) => {
 });
 // Start Server (unified port for HTTP)
 const PORT = env_1.env.PORT;
-server.listen(PORT, () => {
-    console.log(`🟢 HTTP server running on port ${PORT}`);
-    console.log(`   - HTTP API: http://localhost:${PORT}/api/documents`);
-    console.log(`   - HTTP API: http://localhost:${PORT}/api/access`);
-    console.log(`   - HTTP API: http://localhost:${PORT}/api/workflows`);
-    console.log(`   - HTTP API: http://localhost:${PORT}/api/templates`);
-    console.log(`   - Health: http://localhost:${PORT}/health`);
-});
+if (process.env.NODE_ENV !== 'test') {
+    server.listen(PORT, () => {
+        console.log(`🟢 HTTP server running on port ${PORT}`);
+        console.log(`   - HTTP API: http://localhost:${PORT}/api/documents`);
+        console.log(`   - HTTP API: http://localhost:${PORT}/api/access`);
+        console.log(`   - HTTP API: http://localhost:${PORT}/api/workflows`);
+        console.log(`   - HTTP API: http://localhost:${PORT}/api/templates`);
+        console.log(`   - Health: http://localhost:${PORT}/health`);
+    });
+}

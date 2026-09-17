@@ -1,5 +1,39 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.extractFields = void 0;
 exports.getDocuments = getDocuments;
 exports.createDocument = createDocument;
 exports.getDocument = getDocument;
@@ -8,9 +42,12 @@ exports.deleteDocument = deleteDocument;
 exports.getVersions = getVersions;
 exports.createVersion = createVersion;
 exports.getVersionDownloadUrl = getVersionDownloadUrl;
+exports.generateDocx = generateDocx;
+exports.getSecurePdfUrl = getSecurePdfUrl;
 const supabase_js_1 = require("@supabase/supabase-js");
 const env_1 = require("../config/env");
 const storageService_1 = require("../services/storageService");
+const docxGenerator_1 = require("../utils/docxGenerator");
 const supabase = (0, supabase_js_1.createClient)(env_1.env.SUPABASE_URL, env_1.env.SUPABASE_SERVICE_KEY);
 async function getDocuments(req, res) {
     try {
@@ -160,7 +197,7 @@ async function createDocument(req, res) {
         // Check if document with same title exists for this user
         const { data: existingDoc, error: checkError } = await supabase
             .from("documents")
-            .select("id, title, version, content, metadata")
+            .select("id, title, version, content, metadata, status")
             .eq("owner_id", owner_id)
             .eq("title", title)
             .order("created_at", { ascending: false })
@@ -174,8 +211,19 @@ async function createDocument(req, res) {
             ...(metadata || {}),
             ...(description ? { description } : {})
         };
-        // If document with same title exists, UPDATE it (Google Drive style)
+        // If document with same title exists
         if (existingDoc) {
+            // Pre-Approval Lock: Cannot upload with same name if already pre-approved or approved
+            if (existingDoc.status === 'pre_approved' || existingDoc.status === 'approved') {
+                console.warn(`⚠️ [Documents] Upload blocked: Document "${title}" is already ${existingDoc.status}`);
+                const statusLabel = existingDoc.status === 'pre_approved' ? 'pre-approved' : 'approved';
+                return res.status(400).json({
+                    success: false,
+                    error: `A document titled "${title}" has already been ${statusLabel} and is content-locked. You cannot upload a new file with the same name. Please rename your document or file before uploading.`,
+                    isLocked: true,
+                    status: existingDoc.status
+                });
+            }
             const currentVersion = existingDoc.version || "1.0.0";
             // Parse version and increment (e.g., "1.0.0" -> "2.0.0")
             const versionParts = currentVersion.split('.').map(Number);
@@ -221,6 +269,7 @@ async function createDocument(req, res) {
                 content: content || existingDoc.content,
                 metadata: metadataWithDesc,
                 version: newVersion,
+                status: 'draft',
                 updated_at: new Date().toISOString(),
             })
                 .eq("id", existingDoc.id)
@@ -295,6 +344,25 @@ async function updateDocument(req, res) {
                 .status(400)
                 .json({ success: false, error: "No update fields provided" });
         }
+        // HYBRID WORKFLOW: Check if document is pre-approved (content-locked)
+        // Pre-approved documents cannot be edited to preserve content integrity
+        const { data: currentDoc, error: fetchError } = await supabase
+            .from("documents")
+            .select("status, owner_id")
+            .eq("id", id)
+            .single();
+        if (fetchError || !currentDoc) {
+            return res
+                .status(404)
+                .json({ success: false, error: "Document not found" });
+        }
+        if (currentDoc.status === "pre_approved") {
+            return res.status(403).json({
+                success: false,
+                error: "Document is pre-approved and content-locked. Revert pre-approval to enable editing.",
+                code: "DOCUMENT_LOCKED",
+            });
+        }
         const { data, error } = await supabase
             .from("documents")
             .update(updates)
@@ -307,6 +375,59 @@ async function updateDocument(req, res) {
             return res
                 .status(404)
                 .json({ success: false, error: "Document not found" });
+        // HYBRID WORKFLOW: Automatically grant/revoke access to advisor based on status
+        if (updates.status === "in_review" || updates.status === "draft") {
+            try {
+                const { data: internship } = await supabase
+                    .from("internships")
+                    .select("advisor_id")
+                    .eq("student_id", currentDoc.owner_id)
+                    .in("status", ["active", "pending"])
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .single();
+                if (internship?.advisor_id) {
+                    if (updates.status === "in_review") {
+                        // Grant view access - check if exists first since there's no unique constraint
+                        const { data: existingAccess } = await supabase
+                            .from("document_access_control")
+                            .select("id")
+                            .eq("document_id", id)
+                            .eq("user_id", internship.advisor_id)
+                            .limit(1)
+                            .maybeSingle();
+                        if (existingAccess) {
+                            await supabase.from("document_access_control").update({
+                                revoked_at: null,
+                                permission_level: "view",
+                                granted_at: new Date().toISOString()
+                            }).eq("id", existingAccess.id);
+                        }
+                        else {
+                            await supabase.from("document_access_control").insert({
+                                document_id: id,
+                                user_id: internship.advisor_id,
+                                permission_level: "view",
+                                granted_by: req.user?.id || currentDoc.owner_id,
+                                granted_at: new Date().toISOString(),
+                                revoked_at: null,
+                            });
+                        }
+                        console.log(`✅ [Documents] Granted advisor view access for document ${id}`);
+                    }
+                    else if (updates.status === "draft") {
+                        // Revoke access by setting revoked_at
+                        await supabase.from("document_access_control").update({
+                            revoked_at: new Date().toISOString()
+                        }).eq("document_id", id).eq("user_id", internship.advisor_id);
+                        console.log(`✅ [Documents] Revoked advisor view access for document ${id} (reverted to draft)`);
+                    }
+                }
+            }
+            catch (accessErr) {
+                console.warn("⚠️ [Documents] Could not update advisor access:", accessErr);
+            }
+        }
         return res.json({ success: true, data });
     }
     catch (error) {
@@ -419,7 +540,18 @@ async function deleteDocument(req, res) {
             console.log(`📁 [Documents] Removing ${files.length} files from storage`);
             for (const file of files) {
                 if (file.storage_path) {
-                    await storageService_1.storageService.removeFile(file.storage_path);
+                    // Verify this storage path is not being used by any Official Template before deleting
+                    const { data: templatesUsingFile } = await supabase
+                        .from("document_templates")
+                        .select("id")
+                        .eq("structure->>master_file_url", file.storage_path)
+                        .limit(1);
+                    if (!templatesUsingFile || templatesUsingFile.length === 0) {
+                        await storageService_1.storageService.removeFile(file.storage_path);
+                    }
+                    else {
+                        console.log(`⚠️ [Documents] Skipping storage deletion for ${file.storage_path}, currently in use by an Official Template.`);
+                    }
                 }
             }
         }
@@ -427,7 +559,17 @@ async function deleteDocument(req, res) {
             console.log(`📁 [Documents] Removing ${fileVersions.length} version files from storage`);
             for (const version of fileVersions) {
                 if (version.storage_path) {
-                    await storageService_1.storageService.removeFile(version.storage_path);
+                    const { data: templatesUsingFile } = await supabase
+                        .from("document_templates")
+                        .select("id")
+                        .eq("structure->>master_file_url", version.storage_path)
+                        .limit(1);
+                    if (!templatesUsingFile || templatesUsingFile.length === 0) {
+                        await storageService_1.storageService.removeFile(version.storage_path);
+                    }
+                    else {
+                        console.log(`⚠️ [Documents] Skipping version storage deletion for ${version.storage_path}, currently in use by an Official Template.`);
+                    }
                 }
             }
         }
@@ -690,6 +832,157 @@ async function getVersionDownloadUrl(req, res) {
     catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         console.error('❌ [Documents] Get version download URL error:', message);
+        return res.status(500).json({ success: false, error: message });
+    }
+}
+async function generateDocx(req, res) {
+    try {
+        const documentId = req.params.id;
+        const { field_values } = req.body;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, error: "Authentication required." });
+        }
+        console.log(`📝 [Documents] Generating DOCX for document: ${documentId}`);
+        // 1. Fetch document and template info
+        const { data: doc, error: docError } = await supabase
+            .from("documents")
+            .select("id, title, file_url, metadata")
+            .eq("id", documentId)
+            .single();
+        if (docError || !doc) {
+            return res.status(404).json({ success: false, error: "Document not found." });
+        }
+        const masterFileUrl = doc.metadata?.master_file_url || doc.file_url;
+        if (!masterFileUrl) {
+            return res.status(400).json({ success: false, error: "No master template file associated with this document." });
+        }
+        // 2. Save the field values to metadata
+        const newMetadata = {
+            ...(doc.metadata || {}),
+            field_values: field_values || doc.metadata?.field_values || {}
+        };
+        // We defer the document update until AFTER we upload the new .docx to get its path.
+        // 3. Get signed URL for the master template to download
+        const signedUrl = await storageService_1.storageService.createSignedUrl(masterFileUrl, 60);
+        // 4. Generate the new DOCX buffer
+        const { docxGenerator } = await Promise.resolve().then(() => __importStar(require("../utils/docxGenerator")));
+        const buffer = await docxGenerator.generateFromUrl(signedUrl, newMetadata.field_values);
+        // 5. Upload the generated buffer to storage
+        const fileName = `${doc.title || 'Generated_Document'}.docx`;
+        const { path } = await storageService_1.storageService.uploadDocumentFile({
+            documentId,
+            buffer,
+            fileName,
+            contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        });
+        // 6. Update document_files table (set previous primary to false)
+        await supabase
+            .from("document_files")
+            .update({ is_primary: false })
+            .eq("document_id", documentId);
+        await supabase
+            .from("document_files")
+            .insert({
+            document_id: documentId,
+            storage_path: path,
+            file_name: fileName,
+            file_size: buffer.length,
+            mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            uploaded_by: userId,
+            is_primary: true
+        });
+        // 7. Update documents table with new file_url and metadata
+        await supabase
+            .from("documents")
+            .update({ metadata: newMetadata, file_url: path })
+            .eq("id", documentId);
+        console.log(`✅ [Documents] Successfully generated and attached DOCX for document: ${documentId}`);
+        return res.json({
+            success: true,
+            data: {
+                message: "Document generated successfully",
+                path
+            }
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error generating docx";
+        console.error('❌ [Documents] Generate DOCX error:', message);
+        return res.status(500).json({ success: false, error: message });
+    }
+}
+const extractFields = async (req, res) => {
+    try {
+        const { id: documentId } = req.params;
+        // 1. Fetch document metadata to get the file_url
+        const { data: document, error: docError } = await supabase
+            .from('documents')
+            .select('id, file_url, title, metadata')
+            .eq('id', documentId)
+            .single();
+        if (docError || !document) {
+            return res.status(404).json({ success: false, error: "Document not found" });
+        }
+        const masterFileUrl = document.metadata?.master_file_url || document.file_url;
+        if (!masterFileUrl) {
+            return res.status(400).json({ success: false, error: "Document has no file associated" });
+        }
+        // 2. We need a signed URL to download the file since the bucket is private
+        const { data: signedUrlData, error: signedUrlError } = await supabase
+            .storage
+            .from('documents')
+            .createSignedUrl(masterFileUrl, 60 * 5); // 5 mins
+        if (signedUrlError || !signedUrlData) {
+            return res.status(500).json({ success: false, error: "Failed to generate signed URL" });
+        }
+        // 3. Extract fields
+        const fields = await docxGenerator_1.docxGenerator.extractFieldsFromUrl(signedUrlData.signedUrl);
+        return res.json({
+            success: true,
+            data: { fields }
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error extracting fields";
+        console.error('❌ [Documents] Extract Fields error:', message);
+        return res.status(500).json({ success: false, error: message });
+    }
+};
+exports.extractFields = extractFields;
+async function getSecurePdfUrl(req, res) {
+    try {
+        const { id } = req.params;
+        if (!req.user?.id)
+            return res.status(401).json({ success: false, error: "Authentication required" });
+        const { data: document, error: docError } = await supabase
+            .from('documents')
+            .select('id, metadata')
+            .eq('id', id)
+            .single();
+        if (docError || !document) {
+            return res.status(404).json({ success: false, error: "Document not found" });
+        }
+        const storagePath = document.metadata?.secure_pdf_storage_path;
+        if (!storagePath) {
+            return res.status(404).json({ success: false, error: "Secure PDF not generated yet" });
+        }
+        // Generate fresh signed url
+        const { data: signedUrlData, error: signedUrlError } = await supabase
+            .storage
+            .from('documents')
+            .createSignedUrl(storagePath, 60 * 60); // 1 hour
+        if (signedUrlError || !signedUrlData) {
+            return res.status(500).json({ success: false, error: "Failed to generate signed URL" });
+        }
+        return res.json({
+            success: true,
+            url: signedUrlData.signedUrl
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error generating secure PDF URL";
+        console.error('❌ [Documents] Get Secure PDF URL error:', message);
         return res.status(500).json({ success: false, error: message });
     }
 }

@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const documentController = __importStar(require("../controllers/documentController"));
+const narrativeReportController = __importStar(require("../controllers/narrativeReportController"));
 const auth_1 = require("../middleware/auth");
 const fileController = __importStar(require("../controllers/fileController"));
 const multer_1 = __importDefault(require("multer"));
@@ -121,9 +122,13 @@ router.use(auth_1.authenticateToken);
 // Document CRUD
 router.get("/", documentController.getDocuments);
 router.post("/", documentController.createDocument);
+router.post("/narrative-report/generate", narrativeReportController.generateNarrativeReport);
 router.get("/:id", documentController.getDocument);
 router.put("/:id", documentController.updateDocument);
 router.delete("/:id", documentController.deleteDocument); // Allow owners to delete
+router.post("/:id/generate-docx", documentController.generateDocx);
+router.get("/:id/extract-fields", documentController.extractFields);
+router.get("/:id/secure-pdf-url", documentController.getSecurePdfUrl);
 // Version control
 router.get("/:id/versions", documentController.getVersions);
 router.post("/:id/versions", documentController.createVersion);

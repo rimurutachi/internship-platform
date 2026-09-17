@@ -18,6 +18,23 @@ import {
   PageBreak,
 } from 'docx';
 
+export interface DailyJournalDayData {
+  date: string;
+  dayNumber: number;
+  dayOfWeek?: string;
+  hoursWorked: number;
+  activities: string;
+  learnings?: string;
+}
+
+export interface WeeklyJournalData {
+  weekNumber: number;
+  dateRange: string;
+  totalHours: number;
+  weeklySummary: string;
+  dailyEntries: DailyJournalDayData[];
+}
+
 export interface NarrativeReportData {
   studentName: string;
   degreeProgram: string;
@@ -32,6 +49,7 @@ export interface NarrativeReportData {
   startDate?: string;
   endDate?: string;
   reportMonthYear: string;
+  weeklyJournals?: WeeklyJournalData[];
 }
 
 // ── Typography & Spacing Constants (CvSU Standard) ──────────────────────────
@@ -123,6 +141,65 @@ function createEmptyLine(): Paragraph {
 }
 
 /**
+ * Creates multiple empty line paragraphs for calibrated vertical spacing.
+ */
+function createEmptyLines(count: number): Paragraph[] {
+  return Array.from({ length: Math.max(0, count) }, () =>
+    new Paragraph({
+      spacing: SINGLE_SPACE,
+      children: [new TextRun({ text: '', font: FONT_FAMILY, size: FONT_SIZE })],
+    })
+  );
+}
+
+/**
+ * Normalizes degree program acronyms (e.g. BSIT, BSCS) to formal university titles.
+ */
+export function normalizeDegreeProgram(deg?: string): string {
+  if (!deg) return 'Bachelor of Science in Computer Science';
+  const trimmed = deg.trim();
+  const upper = trimmed.toUpperCase();
+  if (upper === 'BSIT' || upper === 'BS IT' || upper === 'INFORMATION TECHNOLOGY') {
+    return 'Bachelor of Science in Information Technology';
+  }
+  if (upper === 'BSCS' || upper === 'BS CS' || upper === 'COMPUTER SCIENCE') {
+    return 'Bachelor of Science in Computer Science';
+  }
+  if (upper === 'BSIS' || upper === 'BS IS' || upper === 'INFORMATION SYSTEMS') {
+    return 'Bachelor of Science in Information Systems';
+  }
+  if (upper === 'BSEMC' || upper === 'BS EMC' || upper.includes('ENTERTAINMENT')) {
+    return 'Bachelor of Science in Entertainment and Multimedia Computing';
+  }
+  if (upper === 'BSCPE' || upper === 'BS CPE' || upper.includes('COMPUTER ENG')) {
+    return 'Bachelor of Science in Computer Engineering';
+  }
+  return trimmed;
+}
+
+/**
+ * Dynamically computes title page gaps to prevent overflow while matching the 1.0" bottom margin.
+ */
+function calculateTitlePageGaps(company: string, degree: string): { gap1: number; gap2: number; gap3: number } {
+  const fullTitle = `ON-THE-JOB TRAINING EXPERIENCE AT ${company.toUpperCase()}`;
+  const titleLines = fullTitle.length > 55 ? 2 : 1;
+  const degreeLines = degree.length > 45 ? 2 : 1;
+
+  let gap1 = 15;
+  let gap2 = 13;
+  let gap3 = 15;
+
+  if (titleLines > 1) {
+    gap1 -= (titleLines - 1);
+  }
+  if (degreeLines > 1) {
+    gap2 -= (degreeLines - 1);
+  }
+
+  return { gap1, gap2, gap3 };
+}
+
+/**
  * Creates a Table of Contents entry with dot leaders.
  */
 function createTocEntry(title: string, isBold: boolean = false, isSubItem: boolean = false): Paragraph {
@@ -155,32 +232,235 @@ function createTocEntry(title: string, isBold: boolean = false, isSubItem: boole
 }
 
 /**
- * Creates a List of Figures / Appendices entry.
+ * Creates header rows for List of Figures / Appendices / Appendix Figures.
  */
-function createListRow(col1: string, col2: string): Paragraph {
+function createListHeader(left1: string, left2?: string): Paragraph[] {
+  if (left2) {
+    // Two-line header for LIST OF APPENDIX FIGURES:
+    // Line 1: Appendix (Double spaced, before: 0, after: 0)
+    // Line 2: Figure          Page (Double spaced, before: 0, after: 0)
+    return [
+      new Paragraph({
+        spacing: DOUBLE_SPACE,
+        children: [
+          new TextRun({ text: left1, bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+        ],
+      }),
+      new Paragraph({
+        spacing: DOUBLE_SPACE,
+        tabStops: [{ type: TabStopType.RIGHT, position: TOC_TAB_POSITION }],
+        children: [
+          new TextRun({ text: left2, bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+          new TextRun('\t'),
+          new TextRun({ text: 'Page', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+        ],
+      }),
+    ];
+  }
+
+  // Single-line header for LIST OF FIGURES / LIST OF APPENDICES:
+  // Line 1: Figure / Appendix          Page
+  return [
+    new Paragraph({
+      spacing: DOUBLE_SPACE,
+      tabStops: [{ type: TabStopType.RIGHT, position: TOC_TAB_POSITION }],
+      children: [
+        new TextRun({ text: left1, bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+        new TextRun('\t'),
+        new TextRun({ text: 'Page', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
+      ],
+    }),
+  ];
+}
+
+/**
+ * Creates an aligned row for List of Figures, List of Appendix Figures, and List of Appendices.
+ * - Number is bold, right-aligned under the header column (tab stop 400).
+ * - Title is regular font, indented at tab stop 900 for comfortable spacing.
+ * - Page is regular font, right-aligned at TOC_TAB_POSITION (8300) without dot leaders.
+ */
+function createListItemRow(num: number | string, title: string, page: string = ''): Paragraph {
   return new Paragraph({
     spacing: DOUBLE_SPACE,
     tabStops: [
-      {
-        type: TabStopType.RIGHT,
-        position: TOC_TAB_POSITION,
-        leader: LeaderType.DOT,
-      },
+      { type: TabStopType.RIGHT, position: 400 },
+      { type: TabStopType.LEFT, position: 900 },
+      { type: TabStopType.RIGHT, position: TOC_TAB_POSITION },
     ],
     children: [
+      new TextRun('\t'),
       new TextRun({
-        text: col1,
+        text: String(num),
+        bold: true,
         font: FONT_FAMILY,
         size: FONT_SIZE,
       }),
       new TextRun('\t'),
       new TextRun({
-        text: col2,
+        text: title,
+        font: FONT_FAMILY,
+        size: FONT_SIZE,
+      }),
+      new TextRun('\t'),
+      new TextRun({
+        text: page,
         font: FONT_FAMILY,
         size: FONT_SIZE,
       }),
     ],
   });
+}
+
+/**
+ * Creates the Daily Reflective Journal Section (Appendix 12).
+ * Formatted according to CvSU institutional standards:
+ * - 3 single spaces after Appendix 12 title
+ * - Centered bold "DAILY JOURNAL" heading
+ * - 3 single spaces before content
+ * - Week-by-week reflective summary (AI-Assisted Synthesis)
+ * - Continuous cumulative Day 1..Day N narrative paragraphs with 0.5" first-line indent
+ * - Completely removes grid tables
+ */
+function createDailyReflectiveJournalSection(weeklyJournals?: WeeklyJournalData[]): Paragraph[] {
+  if (!weeklyJournals || weeklyJournals.length === 0) {
+    return [
+      createSubHeading('Appendix 12. Daily Reflective Journal'),
+      createBodyParagraph('[Attach copy of Daily Reflective Journals here]'),
+      new Paragraph({ children: [new PageBreak()] }),
+    ];
+  }
+
+  const elements: Paragraph[] = [];
+
+  // 1. Appendix Title (Left-aligned, bold)
+  elements.push(
+    new Paragraph({
+      alignment: AlignmentType.LEFT,
+      spacing: SINGLE_SPACE,
+      children: [
+        new TextRun({
+          text: 'Appendix 12. Daily Reflective Journal',
+          bold: true,
+          font: FONT_FAMILY,
+          size: FONT_SIZE,
+        }),
+      ],
+    }),
+    // 2. Exactly 3 single line spaces
+    ...createEmptyLines(3),
+    // 3. Centered Major Section Title: DAILY JOURNAL
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: SINGLE_SPACE,
+      children: [
+        new TextRun({
+          text: 'DAILY JOURNAL',
+          bold: true,
+          font: FONT_FAMILY,
+          size: TITLE_SIZE,
+        }),
+      ],
+    }),
+    // 4. Exactly 3 single line spaces
+    ...createEmptyLines(3)
+  );
+
+  // Spacing for Appendix 12 content: Double spacing with before 0pt and after 8pt (160 twips)
+  const JOURNAL_CONTENT_SPACING = { line: 480, before: 0, after: 160 };
+
+  // 5. Week-by-week layout: Weekly Summary preceding daily narrative entries
+  weeklyJournals.forEach((week) => {
+    // Week Header (Clean title without rendered hours)
+    elements.push(
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        spacing: JOURNAL_CONTENT_SPACING,
+        children: [
+          new TextRun({
+            text: `WEEK ${week.weekNumber}: ${week.dateRange.toUpperCase()}`,
+            bold: true,
+            font: FONT_FAMILY,
+            size: FONT_SIZE,
+          }),
+        ],
+      }),
+      // Weekly Reflection Header (Clean title without AI tag)
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        spacing: JOURNAL_CONTENT_SPACING,
+        children: [
+          new TextRun({
+            text: 'Weekly Reflective Summary:',
+            bold: true,
+            font: FONT_FAMILY,
+            size: FONT_SIZE,
+          }),
+        ],
+      }),
+      // Reflection Paragraph (Double spaced, before 0pt, after 8pt, 0.5" first-line indent)
+      new Paragraph({
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: JOURNAL_CONTENT_SPACING,
+        indent: { firstLine: 720 }, // 0.5 inch first-line indent
+        children: [
+          new TextRun({
+            text: week.weeklySummary,
+            font: FONT_FAMILY,
+            size: FONT_SIZE,
+          }),
+        ],
+      })
+    );
+
+    // Continuous Daily Narrative Paragraphs for this week
+    (week.dailyEntries || []).forEach((entry) => {
+      // Day Header: "Day X: Month Day, Year"
+      elements.push(
+        new Paragraph({
+          alignment: AlignmentType.LEFT,
+          spacing: JOURNAL_CONTENT_SPACING,
+          children: [
+            new TextRun({
+              text: `Day ${entry.dayNumber}: ${entry.date}`,
+              bold: true,
+              font: FONT_FAMILY,
+              size: FONT_SIZE,
+            }),
+          ],
+        })
+      );
+
+      // Cohesive reflective narrative paragraph combining daily activities and learnings
+      let narrative = entry.activities ? entry.activities.trim() : '';
+      if (entry.learnings && entry.learnings.trim()) {
+        const lrn = entry.learnings.trim();
+        if (narrative && !/[.!?]$/.test(narrative)) {
+          narrative += '.';
+        }
+        narrative += narrative ? ` ${lrn}` : lrn;
+      }
+
+      elements.push(
+        new Paragraph({
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: JOURNAL_CONTENT_SPACING,
+          indent: { firstLine: 720 }, // 0.5 inch first-line indent
+          children: [
+            new TextRun({
+              text: narrative,
+              font: FONT_FAMILY,
+              size: FONT_SIZE,
+            }),
+          ],
+        })
+      );
+    });
+  });
+
+  // End of Appendix 12 page break before Appendix 13
+  elements.push(new Paragraph({ children: [new PageBreak()] }));
+
+  return elements;
 }
 
 export const narrativeReportDocxGenerator = {
@@ -189,7 +469,7 @@ export const narrativeReportDocxGenerator = {
    */
   async generate(data: NarrativeReportData): Promise<Buffer> {
     const studentName = data.studentName || 'STUDENT NAME';
-    const degree = data.degreeProgram || 'Bachelor of Science in Computer Science';
+    const degree = normalizeDegreeProgram(data.degreeProgram);
     const department = data.department || 'Department of Computer Studies';
     const institution = data.institution || 'Cavite State University';
     const campus = data.campus || 'Bacoor City Campus';
@@ -201,16 +481,16 @@ export const narrativeReportDocxGenerator = {
     const startDate = data.startDate || 'Start Date';
     const endDate = data.endDate || 'End Date';
 
+    const { gap1, gap2, gap3 } = calculateTitlePageGaps(company, degree);
+
     // ── SECTION 1: TITLE PAGE (Unnumbered) ──────────────────────────────────
     const section1Children: Paragraph[] = [
-      // Spacing from top
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
+      // Top spacing
+      ...createEmptyLines(2),
       // Top Report Title
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { line: 360, before: 0, after: 0 },
+        spacing: { line: 280, before: 0, after: 0 },
         children: [
           new TextRun({
             text: `ON-THE-JOB TRAINING EXPERIENCE AT ${company.toUpperCase()}`,
@@ -220,13 +500,8 @@ export const narrativeReportDocxGenerator = {
           }),
         ],
       }),
-      // Spacer down
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
+      // Spacer down to Subtitle block
+      ...createEmptyLines(gap1),
       // Subtitle
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -294,13 +569,8 @@ export const narrativeReportDocxGenerator = {
           }),
         ],
       }),
-      // Spacer down
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
+      // Spacer down to Partial fulfillment
+      ...createEmptyLines(gap2),
       // Partial fulfillment
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -335,14 +605,8 @@ export const narrativeReportDocxGenerator = {
           }),
         ],
       }),
-      // Spacer down to author
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
+      // Spacer down to Author block
+      ...createEmptyLines(gap3),
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: SINGLE_SPACE,
@@ -468,81 +732,57 @@ export const narrativeReportDocxGenerator = {
 
       // 5. LIST OF FIGURES
       createMajorHeading('LIST OF FIGURES'),
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: TOC_TAB_POSITION }],
-        spacing: DOUBLE_SPACE,
-        children: [
-          new TextRun({ text: 'Figure', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-          new TextRun('\t'),
-          new TextRun({ text: 'Page', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-        ],
-      }),
-      createListRow('1   Location map of the Establishment', ''),
-      createListRow('2   Establishment Logo', ''),
-      createListRow('3   Organizational Chart of the Establishment', ''),
-      createListRow('4   Organizational Structure of the Assigned Department', ''),
-      createListRow('5   Facilities and Entrance Hall', ''),
-      createListRow('6   Production and Work Area', ''),
-      createListRow('7   Department Office and Conference Area', ''),
-      createListRow('8   Assigned Workstation and Hardware Setup', ''),
+      ...createListHeader('Figure'),
+      createListItemRow(1, 'Location map of the Establishment'),
+      createListItemRow(2, 'Establishment Logo'),
+      createListItemRow(3, 'Organizational Chart of the Establishment'),
+      createListItemRow(4, 'Organizational Structure of the Assigned Department'),
+      createListItemRow(5, 'Facilities and Entrance Hall'),
+      createListItemRow(6, 'Production and Work Area'),
+      createListItemRow(7, 'Department Office and Conference Area'),
+      createListItemRow(8, 'Assigned Workstation and Hardware Setup'),
       new Paragraph({ children: [new PageBreak()] }),
 
       // 6. LIST OF APPENDIX FIGURES
       createMajorHeading('LIST OF APPENDIX FIGURES'),
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: TOC_TAB_POSITION }],
-        spacing: DOUBLE_SPACE,
-        children: [
-          new TextRun({ text: 'Appendix Figure', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-          new TextRun('\t'),
-          new TextRun({ text: 'Page', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-        ],
-      }),
-      createListRow('1   Approved Endorsement Letter', ''),
-      createListRow('2   Resume', ''),
-      createListRow('3   Approved Job Description', ''),
-      createListRow('4   Parent Certification of Waiver of OJT Practicum', ''),
-      createListRow('5   Trainee Industry Agreement Liability Waiver', ''),
-      createListRow('6   Notarized Memorandum of Agreement', ''),
-      createListRow('7   OJT Placement Form', ''),
-      createListRow('8   Training Schedule Form', ''),
-      createListRow('9   Student Trainee Evaluation Record', ''),
-      createListRow('10  Certificate of Completion', ''),
-      createListRow('11  Daily Time Record', ''),
-      createListRow('12  Identification Card', ''),
-      createListRow('13  Workstation Setup and Tools Used', ''),
-      createListRow('14  Photo Documentation of Daily Tasks and Events', ''),
+      ...createListHeader('Appendix', 'Figure'),
+      createListItemRow(1, 'Approved Endorsement Letter'),
+      createListItemRow(2, 'Resume'),
+      createListItemRow(3, 'Approved Job Description'),
+      createListItemRow(4, 'Parent Certification of Waiver of OJT Practicum'),
+      createListItemRow(5, 'Trainee Industry Agreement Liability Waiver'),
+      createListItemRow(6, 'Notarized Memorandum of Agreement'),
+      createListItemRow(7, 'OJT Placement Form'),
+      createListItemRow(8, 'Training Schedule Form'),
+      createListItemRow(9, 'Student Trainee Evaluation Record'),
+      createListItemRow(10, 'Certificate of Completion'),
+      createListItemRow(11, 'Daily Time Record'),
+      createListItemRow(12, 'Identification Card'),
+      createListItemRow(13, 'Workstation Setup and Tools Used'),
+      createListItemRow(14, 'Photo Documentation of Daily Tasks and Events'),
       new Paragraph({ children: [new PageBreak()] }),
 
       // 7. LIST OF APPENDICES
       createMajorHeading('LIST OF APPENDICES'),
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: TOC_TAB_POSITION }],
-        spacing: DOUBLE_SPACE,
-        children: [
-          new TextRun({ text: 'Appendix', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-          new TextRun('\t'),
-          new TextRun({ text: 'Page', bold: true, font: FONT_FAMILY, size: FONT_SIZE }),
-        ],
-      }),
-      createListRow('1   Endorsement Letter', ''),
-      createListRow('2   Resume', ''),
-      createListRow('3   Job Description', ''),
-      createListRow('4   Parent Certification of Waiver of OJT Practicum', ''),
-      createListRow('5   Trainee Industry Agreement Liability Waiver', ''),
-      createListRow('6   Notarized Memorandum of Agreement', ''),
-      createListRow('7   OJT Placement Form', ''),
-      createListRow('8   Training Schedule Form', ''),
-      createListRow('9   Graded Student Evaluation Form', ''),
-      createListRow('10  Certificate of Completion', ''),
-      createListRow('11  Daily Time Record', ''),
-      createListRow('12  Daily Reflective Journal', ''),
-      createListRow('13  Identification Card', ''),
-      createListRow('14  Photo Documentation', ''),
+      ...createListHeader('Appendix'),
+      createListItemRow(1, 'Endorsement Letter'),
+      createListItemRow(2, 'Resume'),
+      createListItemRow(3, 'Job Description'),
+      createListItemRow(4, 'Parent Certification of Waiver of OJT Practicum'),
+      createListItemRow(5, 'Trainee Industry Agreement Liability Waiver'),
+      createListItemRow(6, 'Notarized Memorandum of Agreement'),
+      createListItemRow(7, 'OJT Placement Form'),
+      createListItemRow(8, 'Training Schedule Form'),
+      createListItemRow(9, 'Graded Student Evaluation Form'),
+      createListItemRow(10, 'Certificate of Completion'),
+      createListItemRow(11, 'Daily Time Record'),
+      createListItemRow(12, 'Daily Reflective Journal'),
+      createListItemRow(13, 'Identification Card'),
+      createListItemRow(14, 'Photo Documentation'),
     ];
 
     // ── SECTION 3: MAIN BODY (Arabic Numerals: 1, 2, 3...) ────────────────────
-    const section3Children: Paragraph[] = [
+    const section3Children: (Paragraph | Table)[] = [
       // 1. INTRODUCTION COVER & PREFACE
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -556,7 +796,7 @@ export const narrativeReportDocxGenerator = {
           }),
         ],
       }),
-      createEmptyLine(),
+      ...createEmptyLines(3),
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: SINGLE_SPACE,
@@ -569,20 +809,36 @@ export const narrativeReportDocxGenerator = {
           }),
         ],
       }),
-      createEmptyLine(),
+      ...createEmptyLines(3),
       new Paragraph({
         alignment: AlignmentType.BOTH,
-        spacing: DOUBLE_SPACE,
+        spacing: { line: 278, before: 0, after: 160 }, // Multiple: 1.16, before: 0pt, after: 8pt
+        border: {
+          top: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 6 },
+          bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000', space: 6 },
+        },
         children: [
           new TextRun({
-            text: `A narrative report submitted to the faculty of the ${department}, ${institution}, ${campus}, in partial fulfillment of the requirements for the degree of ${degree}, with Contribution No. __________. Prepared under the supervision of ${adviser}.`,
+            text: `A narrative report submitted to the faculty of the ${department}, ${institution}, ${campus}, in partial fulfillment of the requirements for the degree of ${degree}, with Contribution No. ____________. Prepared under the supervision of ${adviser}.`,
             font: FONT_FAMILY,
             size: FONT_SIZE,
           }),
         ],
       }),
-      createEmptyLine(),
-      createMajorHeading('INTRODUCTION'),
+      ...createEmptyLines(3),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: SINGLE_SPACE,
+        children: [
+          new TextRun({
+            text: 'INTRODUCTION',
+            bold: true,
+            font: FONT_FAMILY,
+            size: TITLE_SIZE,
+          }),
+        ],
+      }),
+      ...createEmptyLines(3),
       createBodyParagraph(
         'On-the-job training (OJT) or internship is part of this university’s curriculum that aims to train and orient students about workplace standards, professional practice, and career readiness. One of the oldest and most effective forms of experiential learning, OJT bridges the gap between academic theory and industry practice.'
       ),
@@ -764,13 +1020,20 @@ export const narrativeReportDocxGenerator = {
       ),
       new Paragraph({ children: [new PageBreak()] }),
 
-      // 7. APPENDICES (Divider page)
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createEmptyLine(),
-      createMajorHeading('APPENDICES'),
+      // 7. APPENDICES (Divider page - vertically centered with spaced letters)
+      ...createEmptyLines(26),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: SINGLE_SPACE,
+        children: [
+          new TextRun({
+            text: 'A P P E N D I C E S',
+            bold: true,
+            font: FONT_FAMILY,
+            size: TITLE_SIZE,
+          }),
+        ],
+      }),
       new Paragraph({ children: [new PageBreak()] }),
 
       // Individual Appendix placeholders (1 to 14)
@@ -818,9 +1081,7 @@ export const narrativeReportDocxGenerator = {
       createBodyParagraph('[Attach copy of Approved Daily Time Record here]'),
       new Paragraph({ children: [new PageBreak()] }),
 
-      createSubHeading('Appendix 12. Daily Reflective Journal'),
-      createBodyParagraph('[Attach copy of Daily Reflective Journals here]'),
-      new Paragraph({ children: [new PageBreak()] }),
+      ...createDailyReflectiveJournalSection(data.weeklyJournals),
 
       createSubHeading('Appendix 13. Identification Card'),
       createBodyParagraph('[Attach copy of Company ID here]'),
