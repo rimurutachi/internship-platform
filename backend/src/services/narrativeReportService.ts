@@ -7,6 +7,24 @@ const supabase = createClient(
 );
 
 const DOCUMENT_SERVICE_URL = process.env.DOCUMENT_SERVICE_URL || 'http://localhost:6001';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
+
+export interface DailyJournalDay {
+  date: string;
+  dayNumber: number;
+  dayOfWeek?: string;
+  hoursWorked: number;
+  activities: string;
+  learnings?: string;
+}
+
+export interface WeeklyJournal {
+  weekNumber: number;
+  dateRange: string;
+  totalHours: number;
+  weeklySummary: string;
+  dailyEntries: DailyJournalDay[];
+}
 
 export interface NarrativeReportMetadata {
   studentName: string;
@@ -22,6 +40,7 @@ export interface NarrativeReportMetadata {
   startDate?: string;
   endDate?: string;
   reportMonthYear: string;
+  weeklyJournals?: WeeklyJournal[];
 }
 
 export interface EligibilityResult {
@@ -53,6 +72,163 @@ function formatMonthYear(dateStr?: string | null): string {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function normalizeDegreeProgram(deg?: string): string {
+  if (!deg) return 'Bachelor of Science in Computer Science';
+  const trimmed = deg.trim();
+  const upper = trimmed.toUpperCase();
+  if (upper === 'BSIT' || upper === 'BS IT' || upper === 'INFORMATION TECHNOLOGY') {
+    return 'Bachelor of Science in Information Technology';
+  }
+  if (upper === 'BSCS' || upper === 'BS CS' || upper === 'COMPUTER SCIENCE') {
+    return 'Bachelor of Science in Computer Science';
+  }
+  if (upper === 'BSIS' || upper === 'BS IS' || upper === 'INFORMATION SYSTEMS') {
+    return 'Bachelor of Science in Information Systems';
+  }
+  if (upper === 'BSEMC' || upper === 'BS EMC' || upper.includes('ENTERTAINMENT')) {
+    return 'Bachelor of Science in Entertainment and Multimedia Computing';
+  }
+  if (upper === 'BSCPE' || upper === 'BS CPE' || upper.includes('COMPUTER ENG')) {
+    return 'Bachelor of Science in Computer Engineering';
+  }
+  return trimmed;
+}
+
+interface RawDailyReport {
+  id: string;
+  report_date: string;
+  activities: string;
+  learnings?: string | null;
+  hours_worked: number | string;
+}
+
+function isHolidayReport(rep: RawDailyReport): boolean {
+  const text = `${rep.activities || ''} ${rep.learnings || ''}`.toLowerCase();
+  if (
+    text.includes('ahead of') ||
+    text.includes('in preparation for') ||
+    text.includes('following the holiday') ||
+    text.includes('following the long weekend')
+  ) {
+    return false;
+  }
+  return (
+    text.includes('observed nationwide regular') ||
+    text.includes('observed regular') ||
+    text.includes('regular public holiday') ||
+    text.includes('regular holiday') ||
+    text.includes('official holiday') ||
+    (text.includes('holiday') &&
+      (text.includes('closed') ||
+        text.includes('no duty') ||
+        text.includes('no work')))
+  );
+}
+
+function groupReportsIntoWeeks(reports: RawDailyReport[]): {
+  weekNumber: number;
+  dateRange: string;
+  totalHours: number;
+  entries: DailyJournalDay[];
+  fallbackSummary: string;
+}[] {
+  if (!reports || reports.length === 0) return [];
+
+  // Exclude regular holidays from daily reflective journal
+  const workingReports = reports.filter((r) => !isHolidayReport(r));
+  if (workingReports.length === 0) return [];
+
+  // Sort chronologically ascending
+  const sorted = [...workingReports].sort((a, b) => a.report_date.localeCompare(b.report_date));
+
+  // Map each report to its Monday of the week
+  const weekMap = new Map<string, RawDailyReport[]>();
+
+  for (const rep of sorted) {
+    const d = new Date(rep.report_date + 'T00:00:00');
+    const day = d.getDay(); // 0 is Sun, 1 is Mon...
+    const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
+    const mon = new Date(d);
+    mon.setDate(diffToMon);
+    const mondayKey = mon.toISOString().split('T')[0];
+
+    if (!weekMap.has(mondayKey)) {
+      weekMap.set(mondayKey, []);
+    }
+    weekMap.get(mondayKey)!.push(rep);
+  }
+
+  const result: {
+    weekNumber: number;
+    dateRange: string;
+    totalHours: number;
+    entries: DailyJournalDay[];
+    fallbackSummary: string;
+  }[] = [];
+
+  let weekIdx = 1;
+  let cumulativeDay = 1;
+
+  for (const [, weekReports] of weekMap.entries()) {
+    if (!weekReports || weekReports.length === 0) continue;
+
+    let weekHours = 0;
+    const entries: DailyJournalDay[] = [];
+    const activitiesCollected: string[] = [];
+    const learningsCollected: string[] = [];
+
+    weekReports.forEach((r) => {
+      const hrs = Number(r.hours_worked) || 0;
+      weekHours += hrs;
+      const dObj = new Date(r.report_date + 'T00:00:00');
+      const dayOfWeek = isNaN(dObj.getTime())
+        ? ''
+        : dObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+      entries.push({
+        date: formatDisplayDate(r.report_date),
+        dayNumber: cumulativeDay++,
+        dayOfWeek,
+        hoursWorked: hrs,
+        activities: r.activities || '',
+        learnings: r.learnings || '',
+      });
+
+      if (r.activities) {
+        const first = r.activities.split('.')[0].trim();
+        if (first.length > 5) activitiesCollected.push(first);
+      }
+      if (r.learnings) {
+        const firstL = r.learnings.split('.')[0].trim();
+        if (firstL.length > 5) learningsCollected.push(firstL);
+      }
+    });
+
+    const firstDate = formatDisplayDate(weekReports[0].report_date);
+    const lastDate = formatDisplayDate(weekReports[weekReports.length - 1].report_date);
+    const dateRange = weekReports.length === 1 || firstDate === lastDate
+      ? firstDate
+      : `${firstDate} – ${lastDate}`;
+
+    const tasksStr = activitiesCollected.slice(0, 3).join('; ') || 'assigned training responsibilities and technical workflows';
+    const lrnStr = learningsCollected.slice(0, 2).join(' and ') || 'workplace problem solving and operational standards';
+
+    const fallbackSummary = `During Week ${weekIdx} (${dateRange}), I completed ${weekHours.toFixed(1)} hours of structured on-the-job training. Primary tasks and daily assignments involved ${tasksStr.toLowerCase()}. Through these practical duties, I developed essential professional competencies, especially in understanding ${lrnStr.toLowerCase()}, reinforcing my workplace readiness and adaptability.`;
+
+    result.push({
+      weekNumber: weekIdx,
+      dateRange,
+      totalHours: weekHours,
+      entries,
+      fallbackSummary,
+    });
+
+    weekIdx++;
+  }
+
+  return result;
 }
 
 export const narrativeReportService = {
@@ -116,7 +292,7 @@ export const narrativeReportService = {
 
     const metadata: NarrativeReportMetadata = {
       studentName: `${studentUser.first_name || ''} ${studentUser.last_name || ''}`.trim() || 'Student Intern',
-      degreeProgram: profile.course || profile.program || profile.degree || 'Bachelor of Science in Computer Science',
+      degreeProgram: normalizeDegreeProgram(profile.course || profile.program || profile.degree),
       department: profile.department || 'Department of Computer Studies',
       institution: profile.institution || profile.university || 'Cavite State University',
       campus: profile.campus || 'Bacoor City Campus',
@@ -152,7 +328,7 @@ export const narrativeReportService = {
 
     // Fetch student's daily reports for active internship
     const { data: reports } = await supabase
-      .from('daily_reports')
+      .from('student_daily_reports')
       .select('activities, learnings, hours_worked, report_date')
       .eq('student_id', studentId)
       .order('report_date', { ascending: true })
@@ -228,13 +404,84 @@ export const narrativeReportService = {
       ...customMetadata,
     };
 
+    // 3. Fetch student's daily reports for Appendix 12: Daily Reflective Journal
+    const { data: rawReports, error: rawReportsErr } = await supabase
+      .from('student_daily_reports')
+      .select('id, report_date, activities, learnings, hours_worked')
+      .eq('student_id', studentId)
+      .order('report_date', { ascending: true });
+
+    if (rawReportsErr) {
+      console.warn('⚠️ [NarrativeReport] Error fetching student daily reports:', rawReportsErr.message);
+    }
+
+    let weeklyJournals: WeeklyJournal[] = [];
+    if (rawReports && rawReports.length > 0) {
+      console.log(`📋 [NarrativeReport] Compiling ${rawReports.length} daily reports for student ${studentId}...`);
+      const groupedWeeks = groupReportsIntoWeeks(rawReports);
+
+      try {
+        const aiPayload = {
+          student_name: finalPayload.studentName,
+          company_name: finalPayload.companyName,
+          position: 'Student Trainee',
+          weeks: groupedWeeks.map((w) => ({
+            week_number: w.weekNumber,
+            date_range: w.dateRange,
+            daily_entries: w.entries.map((e) => ({
+              date: e.date,
+              day_of_week: e.dayOfWeek,
+              hours_worked: e.hoursWorked,
+              activities: e.activities,
+              learnings: e.learnings,
+            })),
+          })),
+        };
+
+        console.log(`🤖 [NarrativeReport] Requesting weekly summaries from ai-service (${groupedWeeks.length} weeks)...`);
+        const aiRes = await axios.post(`${AI_SERVICE_URL}/api/summarize-weekly-reports`, aiPayload, {
+          timeout: 45000,
+        });
+
+        if (aiRes.data && aiRes.data.success && Array.isArray(aiRes.data.summaries)) {
+          const summariesMap = new Map<number, string>();
+          aiRes.data.summaries.forEach((s: any) => {
+            summariesMap.set(s.week_number, s.summary);
+          });
+
+          weeklyJournals = groupedWeeks.map((w) => ({
+            weekNumber: w.weekNumber,
+            dateRange: w.dateRange,
+            totalHours: w.totalHours,
+            weeklySummary: summariesMap.get(w.weekNumber) || w.fallbackSummary,
+            dailyEntries: w.entries,
+          }));
+          console.log(`✅ [NarrativeReport] Generated AI weekly reflections for ${weeklyJournals.length} weeks.`);
+        } else {
+          throw new Error('Invalid AI response structure');
+        }
+      } catch (aiErr: any) {
+        console.warn('⚠️ [NarrativeReport] AI summarization failed, falling back to extractive synthesis:', aiErr.message);
+        weeklyJournals = groupedWeeks.map((w) => ({
+          weekNumber: w.weekNumber,
+          dateRange: w.dateRange,
+          totalHours: w.totalHours,
+          weeklySummary: w.fallbackSummary,
+          dailyEntries: w.entries,
+        }));
+      }
+    }
+
+    finalPayload.weeklyJournals = weeklyJournals;
+
     console.log('🔄 [NarrativeReport] Requesting DOCX from document-service:', finalPayload.studentName);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (authToken) {
-      headers.Authorization = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+    const token = authToken || process.env.SUPABASE_SERVICE_KEY;
+    if (token) {
+      headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     }
 
     const response = await axios.post(

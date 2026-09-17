@@ -43,6 +43,16 @@ export const authenticateToken = async (
 
     const token = authHeader.replace("Bearer ", "");
 
+    // Service-to-service internal authorization (e.g. backend calling document-service)
+    if (process.env.SUPABASE_SERVICE_KEY && token === process.env.SUPABASE_SERVICE_KEY) {
+      req.user = {
+        id: "service-role",
+        email: "system@service.local",
+        role: "admin",
+      };
+      return next();
+    }
+
     // Verify token with Supabase
     const {
       data: { user },

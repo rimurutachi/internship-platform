@@ -106,7 +106,7 @@ app.use(
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Count']
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count', 'Content-Disposition', 'Content-Length']
   })
 );
 app.use(morgan("combined"));

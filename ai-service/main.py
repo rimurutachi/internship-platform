@@ -20,7 +20,8 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
+from typing import Optional, List, Dict, Any
 import uvicorn
 import os
 import logging
@@ -604,6 +605,62 @@ async def scan_signatures(request: Request, body: SignatureScanRequest):
     except Exception as e:
         logger.error(f"❌ [Signature Scan] Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Signature scanning failed: {str(e)}")
+
+
+# =============================================================================
+# WEEKLY REPORTS SUMMARIZATION (NARRATIVE REPORT APPENDIX 12)
+# =============================================================================
+
+class DailyReportEntryModel(BaseModel):
+    date: str
+    day_of_week: Optional[str] = ""
+    hours_worked: Optional[float] = 0.0
+    activities: str
+    learnings: Optional[str] = ""
+
+class WeekGroupInputModel(BaseModel):
+    week_number: int
+    date_range: str
+    daily_entries: List[DailyReportEntryModel]
+
+class SummarizeWeeklyReportsRequest(BaseModel):
+    student_name: Optional[str] = "Student Intern"
+    company_name: Optional[str] = "Host Training Establishment"
+    position: Optional[str] = "OJT Trainee"
+    weeks: List[WeekGroupInputModel]
+
+@app.post("/api/summarize-weekly-reports")
+@limiter.limit(RATE_LIMIT_ANALYSIS)
+async def summarize_weekly_reports(request: Request, body: SummarizeWeeklyReportsRequest):
+    """
+    Summarize student daily reports into weekly reflective narrative summaries
+    for Appendix 12: Daily Reflective Journal of the OJT Narrative Report.
+    """
+    try:
+        from services.weekly_summarizer import weekly_summarizer
+
+        logger.info(f"📝 [Weekly Summarize] Request for {body.student_name}: {len(body.weeks)} weeks")
+        
+        # Convert Pydantic models to dicts
+        weeks_data = [w.model_dump() for w in body.weeks]
+        
+        summaries = await weekly_summarizer.summarize_weeks(
+            weeks=weeks_data,
+            student_name=body.student_name or "Student Intern",
+            company_name=body.company_name or "Host Company",
+            position=body.position or "OJT Trainee"
+        )
+        
+        return {
+            "success": True,
+            "summaries": summaries,
+            "total_weeks": len(summaries),
+            "model_used": weekly_summarizer.model_name if weekly_summarizer.is_available() else "rule-based fallback"
+        }
+    except Exception as e:
+        logger.error(f"❌ [Weekly Summarize] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Weekly report summarization failed: {str(e)}")
+
 
 
 # =============================================================================
