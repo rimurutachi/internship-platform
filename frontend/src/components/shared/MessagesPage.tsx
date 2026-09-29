@@ -48,10 +48,10 @@ function formatDateSeparator(date: Date) {
 
 function getRoleBadgeStyle(role: string) {
   switch (role) {
-    case 'advisor': return 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300';
-    case 'supervisor': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300';
-    case 'student': return 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300';
-    default: return 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300';
+    case 'advisor': return 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300 font-semibold';
+    case 'supervisor': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold';
+    case 'student': return 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-semibold';
+    default: return 'bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-300 font-semibold';
   }
 }
 
@@ -230,7 +230,7 @@ export default function MessagesPage({ currentUser }: MessagesPageProps) {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className={`font-medium text-sm truncate ${isActive ? 'text-violet-700 dark:text-violet-400' : 'text-slate-800 dark:text-zinc-200'}`}>
+                  <h3 className={`font-semibold text-sm truncate ${isActive ? 'text-violet-700 dark:text-violet-400' : 'text-slate-900 dark:text-zinc-100'}`}>
                     {contact.first_name} {contact.last_name}
                   </h3>
                 </div>

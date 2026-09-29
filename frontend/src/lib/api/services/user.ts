@@ -6,6 +6,7 @@
  */
 
 import { get, put } from '../client';
+import { createSupabaseClient } from '@/lib/supabase';
 import type { User } from '@/types';
 
 export interface UpdateProfileRequest {
@@ -61,3 +62,31 @@ export const updateUserProfile = async (updates: UpdateProfileRequest): Promise<
   }
   return userData;
 };
+
+/**
+ * Upload profile avatar
+ */
+export const uploadAvatar = async (file: File): Promise<{ avatar_url: string }> => {
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  const supabase = createSupabaseClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const response = await fetch(`${apiUrl}/auth/profile/upload-avatar`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session?.access_token || ''}`,
+    },
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || data.error || 'Failed to upload avatar');
+  }
+
+  return data.data || data;
+};
+

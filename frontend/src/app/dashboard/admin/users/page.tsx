@@ -389,11 +389,11 @@ export default function UsersPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400";
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 font-medium";
       case "archived":
-        return "bg-gray-500/10 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400";
+        return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 font-medium";
       default:
-        return "bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400";
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 font-medium";
     }
   };
 
