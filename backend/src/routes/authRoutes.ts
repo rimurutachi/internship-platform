@@ -1,4 +1,5 @@
 import express, { Response, Router, Request } from "express";
+import multer from "multer";
 import {
   authenticateToken,
   requireRole,
@@ -24,6 +25,11 @@ import {
   ProfileUpdateRequest,
   RoleChangeRequest,
 } from "../types/auth";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
 
 const router: Router = express.Router();
 
@@ -119,6 +125,34 @@ router.put(
       return sendSuccessResponse(res, result.message, result.data);
     }
   )
+);
+
+/**
+ * @route   POST /auth/profile/upload-avatar
+ * @desc    Upload user avatar
+ * @access  Private
+ */
+router.post(
+  "/auth/profile/upload-avatar",
+  authenticateToken,
+  upload.single("avatar"),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    if (!req.user?.id) {
+      return sendAuthError(res, "User not authenticated");
+    }
+
+    const file = (req as any).file;
+    if (!file) {
+      return sendErrorResponse(res, "Missing file", "No avatar image file was provided", 400);
+    }
+
+    const result = await AuthService.uploadAvatar(req.user.id, file);
+    if ("error" in result) {
+      return sendErrorResponse(res, result.error, result.message, 400);
+    }
+
+    return sendSuccessResponse(res, result.message, result.data);
+  })
 );
 
 /**

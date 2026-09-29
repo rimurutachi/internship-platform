@@ -1,13 +1,13 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps, react/no-unescaped-entities */
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
@@ -18,6 +18,7 @@ import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 import { useUser } from '@/hooks/use-user';
 import { studentAPI } from '@/lib/api/student';
 import { advisorAPI } from '@/lib/api/advisor';
+import { uploadAvatar } from '@/lib/api/services/user';
 import { createSupabaseClient } from '@/lib/supabase';
 
 interface SettingsPageProps {
@@ -61,7 +62,7 @@ interface ProfileData {
 }
 
 export function SettingsPage({ userType }: SettingsPageProps) {
-  const { user: currentUser } = useUser();
+  const { user: currentUser, refetch: refetchUser } = useUser();
   
   // Profile state
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -69,6 +70,11 @@ export function SettingsPage({ userType }: SettingsPageProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  
+  // Avatar upload state
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form data
   const [firstName, setFirstName] = useState('');
@@ -163,7 +169,7 @@ export function SettingsPage({ userType }: SettingsPageProps) {
     setPosition(userData.profile_data?.position || '');
     setCompany(userData.profile_data?.company || '');
     setPhone((userData as any).phone || userData.profile_data?.phone || '');
-    setAvatarUrl(userData.avatar_url || null);
+    setAvatarUrl(userData.avatar_url || userData.profile_data?.avatar_url || (userData as any).profile_data?.avatarUrl || null);
     
     // Load notification preferences
     const notifPrefs = userData.profile_data?.notification_preferences || {};
@@ -177,6 +183,55 @@ export function SettingsPage({ userType }: SettingsPageProps) {
     setNotifyInternship(notifTypes.internship ?? true);
     setNotifyStudents(notifTypes.students ?? true);
     setNotifySystem(notifTypes.system ?? false);
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setAvatarError('Please upload a valid image file (JPG, PNG, GIF, or WebP).');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError('File size exceeds 2MB limit. Please choose a smaller image.');
+      return;
+    }
+
+    try {
+      setUploadingAvatar(true);
+      setAvatarError(null);
+
+      const result = await uploadAvatar(file);
+      const newUrl = result.avatar_url;
+
+      setAvatarUrl(newUrl);
+      setProfile((prev) => prev ? {
+        ...prev,
+        avatar_url: newUrl,
+        profile_data: {
+          ...prev.profile_data,
+          avatar_url: newUrl,
+        },
+      } : null);
+
+      if (refetchUser) {
+        await refetchUser();
+      }
+
+      setSuccess('Profile photo updated successfully!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      console.error('Failed to upload avatar:', err);
+      setAvatarError(err.message || 'Failed to upload photo. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -406,16 +461,42 @@ export function SettingsPage({ userType }: SettingsPageProps) {
                       {/* Profile Picture Section */}
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 pb-6 border-b">
                         <Avatar className="w-20 h-20 lg:w-24 lg:h-24 ring-4 ring-background shadow-lg">
+                          <AvatarImage 
+                            src={avatarUrl || profile?.profile_data?.avatar_url || currentUser?.profile_data?.avatar_url} 
+                            alt={getInitials()} 
+                            className="object-cover" 
+                          />
                           <AvatarFallback className="bg-primary text-primary-foreground text-xl lg:text-2xl font-semibold">
                             {getInitials()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="space-y-2">
-                          <Button variant="outline" size="sm" className="gap-2">
-                            <Upload className="w-4 h-4" />
-                            Change Photo
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            className="hidden"
+                            onChange={handleAvatarChange}
+                          />
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-2"
+                            disabled={uploadingAvatar}
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            {uploadingAvatar ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            ) : (
+                              <Upload className="w-4 h-4" />
+                            )}
+                            {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
                           </Button>
                           <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 2MB</p>
+                          {avatarError && (
+                            <p className="text-xs text-destructive font-medium">{avatarError}</p>
+                          )}
                         </div>
                       </div>
 

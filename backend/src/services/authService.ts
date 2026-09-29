@@ -568,4 +568,96 @@ export class AuthService {
 
     return userProfile;
   }
+
+  /* Upload and save user avatar */
+  static async uploadAvatar(
+    userId: string,
+    file: { originalname?: string; mimetype: string; buffer: Buffer }
+  ): Promise<SuccessResponse | ErrorResponse> {
+    try {
+      const allowedMimeTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        return {
+          error: "Invalid file type",
+          message: "Please upload a valid JPG, PNG, GIF, or WebP image",
+        };
+      }
+
+      const ext = file.originalname?.split(".").pop() || "jpg";
+      const path = `${userId}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("avatars")
+        .upload(path, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Failed to upload avatar to Supabase Storage:", uploadError);
+        return {
+          error: "Upload failed",
+          message: uploadError.message || "Failed to upload avatar",
+        };
+      }
+
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from("avatars")
+        .getPublicUrl(path);
+
+      const avatarUrl = publicUrlData?.publicUrl;
+      if (!avatarUrl) {
+        return {
+          error: "URL resolution failed",
+          message: "Could not retrieve public URL for uploaded avatar",
+        };
+      }
+
+      // Fetch current profile_data to merge
+      const { data: currentUser } = await supabaseAdmin
+        .from("users")
+        .select("profile_data")
+        .eq("id", userId)
+        .single();
+
+      const profile_data = {
+        ...(currentUser?.profile_data || {}),
+        avatar_url: avatarUrl,
+      };
+
+      const { error: updateError } = await supabaseAdmin
+        .from("users")
+        .update({
+          profile_data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (updateError) {
+        console.error("Failed to update user profile_data with avatar_url:", updateError);
+        return {
+          error: "Database error",
+          message: "Failed to save avatar URL to user profile",
+        };
+      }
+
+      return {
+        success: true,
+        message: "Avatar uploaded successfully",
+        data: { avatar_url: avatarUrl },
+      };
+    } catch (err: any) {
+      console.error("Unexpected error in AuthService.uploadAvatar:", err);
+      return {
+        error: "Server error",
+        message: err.message || "An unexpected error occurred while uploading avatar",
+      };
+    }
+  }
 }

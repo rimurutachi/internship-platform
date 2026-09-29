@@ -173,16 +173,16 @@ export default function EvaluationsReports() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-[#4CAF50]/10 text-[#4CAF50] border-[#4CAF50]/20';
-      case 'processed': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'approved': return 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800';
+      case 'processed': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800';
       case 'pending':
       case 'pending_review':
       case 'submitted':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+        return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
       case 'rejected':
       case 'revision_requested':
-        return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700';
     }
   };
 
@@ -274,7 +274,7 @@ export default function EvaluationsReports() {
                               <Badge className={`${getStatusColor(evaluation.status)} text-base px-3 py-1`}>
                                 {evaluation.status.replace('_', ' ')}
                               </Badge>
-                              <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-base px-3 py-1">
+                              <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800 text-base px-3 py-1 font-semibold">
                                 Final Evaluation
                               </Badge>
                             </div>
@@ -358,7 +358,7 @@ export default function EvaluationsReports() {
                   <CardContent className="p-6">
                     <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
-                        <div className="text-3xl font-bold text-[#4CAF50]">
+                        <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
                           {selectedEvaluation.total_score ?? 'N/A'}/{getMaxScore(selectedEvaluation) || '—'}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">Total Score</div>
@@ -370,7 +370,7 @@ export default function EvaluationsReports() {
                         <div className="text-sm text-gray-600 mt-1">Percentage</div>
                       </div>
                       <div>
-                        <div className="text-3xl font-bold text-[#4CAF50]">
+                        <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-400">
                           {selectedEvaluation.final_grade?.toFixed(2) ?? 'N/A'}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">Final Grade</div>
@@ -390,7 +390,7 @@ export default function EvaluationsReports() {
                           <div>
                             <p className="text-sm font-semibold text-gray-900">{score.criterion_code}. {score.criterion_name}</p>
                           </div>
-                          <p className="text-lg font-bold text-[#4CAF50]">{score.score}/10</p>
+                          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{score.score}/10</p>
                         </div>
                       ))
                     ) : (

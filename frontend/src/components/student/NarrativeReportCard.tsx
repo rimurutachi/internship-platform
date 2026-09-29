@@ -100,7 +100,7 @@ export const NarrativeReportCard = ({ internshipId }: NarrativeReportCardProps) 
               AI Narrative Report Assistant
             </CardTitle>
             {isEligible ? (
-              <Badge className="bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 text-xs font-semibold">
+              <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 text-xs font-semibold">
                 ✨ Unlocked ({progress}%)
               </Badge>
             ) : (

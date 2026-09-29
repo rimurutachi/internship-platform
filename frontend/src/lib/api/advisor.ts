@@ -133,10 +133,10 @@ export const advisorAPI = {
     const supabase = createSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
     
-    const response = await fetch(`${API_BASE_URL}/admin/settings/profile/upload-avatar`, {
+    const response = await fetch(`${API_BASE_URL}/auth/profile/upload-avatar`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session?.access_token}`,
+        'Authorization': `Bearer ${session?.access_token || ''}`,
       },
       body: formData,
     });
@@ -146,6 +146,7 @@ export const advisorAPI = {
       throw new Error(error.message || 'Failed to upload avatar');
     }
 
-    return response.json();
+    const data = await response.json();
+    return data.data || data;
   },
 };
