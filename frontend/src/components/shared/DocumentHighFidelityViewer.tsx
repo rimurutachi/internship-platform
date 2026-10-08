@@ -120,9 +120,16 @@ export function DocumentHighFidelityViewer({
       const { renderAsync } = await import("docx-preview");
 
       // Step 5: Render the .docx into the container
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ""; // Clear previous render
-        await renderAsync(arrayBuffer, containerRef.current, undefined, {
+      let container = containerRef.current;
+      if (!container) {
+        // Wait briefly for DOM attachment if React is completing a render cycle
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        container = containerRef.current;
+      }
+
+      if (container) {
+        container.innerHTML = ""; // Clear previous render
+        await renderAsync(arrayBuffer, container, undefined, {
           className: "docx-preview-wrapper",
           inWrapper: true,
           ignoreWidth: false,
@@ -152,6 +159,9 @@ export function DocumentHighFidelityViewer({
             setIsAutoFit(true);
           }
         }, 60);
+      } else {
+        console.error("❌ [HighFidelityViewer] Container DOM element not available for rendering");
+        throw new Error("Unable to initialize preview container. Please try reloading.");
       }
     } catch (err: any) {
       console.log("ℹ️ [HighFidelityViewer] No binary file or load error:", err?.message);
@@ -322,10 +332,10 @@ export function DocumentHighFidelityViewer({
       {/* ── Document Preview Area ──────────────────────────────────────── */}
       <div 
         ref={viewerWrapperRef}
-        className="flex-1 overflow-auto bg-muted/30 dark:bg-muted/10 p-2 sm:p-6"
+        className="relative flex-1 overflow-auto bg-muted/30 dark:bg-muted/10 p-2 sm:p-6"
       >
         {loading && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 animate-in fade-in">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs gap-3 animate-in fade-in">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">
               Rendering high-fidelity preview...
@@ -452,7 +462,7 @@ export function DocumentHighFidelityViewer({
         )}
 
         {/* DOCX preview container */}
-        {!isNonDocx && !htmlContent && !loading && !error && (
+        {!isNonDocx && !htmlContent && !error && (
           <div className="flex justify-center min-w-full py-2 sm:py-4">
             <div
               style={{
