@@ -42,157 +42,116 @@ exports.getQuickActionItems = getQuickActionItems;
 exports.getCompanyCapacityBreakdown = getCompanyCapacityBreakdown;
 const supabase_js_1 = require("@supabase/supabase-js");
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const overviewCache = new Map();
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds cache
 /**
  * Calculate real-time OJT-centric dashboard metrics
+ * Optimized for high performance: runs queries concurrently via Promise.allSettled
  * NO SYSTEM METRICS - Only OJT/Internship data
  */
 async function calculateDashboardMetrics(universityId) {
     try {
-        // Students enrolled (active students in this university)
-        const { count: studentsEnrolled, error: studentsEnrolledError } = await supabase
-            .from('users')
-            .select('id', { count: 'exact', head: true })
-            .eq('role', 'student')
-            .eq('university_id', universityId)
-            .eq('status', 'active')
-            .or('is_archived.is.null,is_archived.eq.false');
-        if (studentsEnrolledError) {
-            console.error('[adminDashboard] studentsEnrolled query error', studentsEnrolledError);
-        }
-        console.log('[adminDashboard] studentsEnrolled count', studentsEnrolled || 0);
-        // Students pending deployment (no active internship)
-        const { data: studentsWithInternships, error: internshipsForStudentsError } = await supabase
-            .from('internships')
-            .select('student_id')
-            .in('status', ['active', 'ongoing']);
-        if (internshipsForStudentsError) {
-            console.error('[adminDashboard] studentsWithInternships query error', internshipsForStudentsError);
-        }
-        console.log('[adminDashboard] studentsWithInternships rows', studentsWithInternships?.length || 0);
-        const studentIdsWithInternships = new Set(studentsWithInternships?.map(i => i.student_id) || []);
-        const { data: allActiveStudents, error: allActiveStudentsError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('role', 'student')
-            .eq('university_id', universityId)
-            .eq('status', 'active')
-            .or('is_archived.is.null,is_archived.eq.false');
-        if (allActiveStudentsError) {
-            console.error('[adminDashboard] allActiveStudents query error', allActiveStudentsError);
-        }
-        console.log('[adminDashboard] allActiveStudents rows', allActiveStudents?.length || 0);
-        const studentsPendingDeployment = (allActiveStudents || [])
-            .filter(s => !studentIdsWithInternships.has(s.id)).length;
-        console.log('[adminDashboard] studentsPendingDeployment derived', studentsPendingDeployment);
-        // Active internships
-        const { count: activeInternships, error: activeInternshipsError } = await supabase
-            .from('internships')
-            .select('id', { count: 'exact', head: true })
-            .in('status', ['active', 'ongoing']);
-        if (activeInternshipsError) {
-            console.error('[adminDashboard] activeInternships query error', activeInternshipsError);
-        }
-        console.log('[adminDashboard] activeInternships count', activeInternships || 0);
-        // Completed internships
-        const { count: completedInternships, error: completedInternshipsError } = await supabase
-            .from('internships')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'completed');
-        if (completedInternshipsError) {
-            console.error('[adminDashboard] completedInternships query error', completedInternshipsError);
-        }
-        console.log('[adminDashboard] completedInternships count', completedInternships || 0);
-        // Total companies
-        const { count: totalCompanies, error: totalCompaniesError } = await supabase
-            .from('companies')
-            .select('id', { count: 'exact', head: true });
-        if (totalCompaniesError) {
-            console.error('[adminDashboard] totalCompanies query error', totalCompaniesError);
-        }
-        console.log('[adminDashboard] totalCompanies count', totalCompanies || 0);
-        // Companies with available capacity
-        const { data: companies, error: companiesError } = await supabase
-            .from('companies')
-            .select('id, capacity_limit, current_students');
-        if (companiesError) {
-            console.error('[adminDashboard] companies query error', companiesError);
-        }
-        console.log('[adminDashboard] companies rows', companies?.length || 0);
-        let companiesWithCapacity = 0;
-        if (companies) {
-            for (const company of companies) {
-                // Check if company has available capacity
-                // capacity_limit is the max, current_students is how many are currently assigned
-                if (company.capacity_limit && company.current_students !== null &&
-                    company.current_students < company.capacity_limit) {
-                    companiesWithCapacity++;
-                }
-            }
-        }
-        // Daily reports tracking (no approval flow)
-        const { data: supervisorInternships, error: supervisorInternshipsError } = await supabase
-            .from('internships')
-            .select('id')
-            .in('status', ['active', 'ongoing']);
-        if (supervisorInternshipsError) {
-            console.error('[adminDashboard] supervisorInternships query error', supervisorInternshipsError);
-        }
-        console.log('[adminDashboard] supervisorInternships rows', supervisorInternships?.length || 0);
-        // Daily reports count (for overall progress tracking)
-        const internshipIds = supervisorInternships?.map(i => i.id) || [];
-        const { count: totalDailyReports, error: dailyReportsError } = await supabase
-            .from('student_daily_reports')
-            .select('id', { count: 'exact', head: true })
-            .in('internship_id', internshipIds);
-        if (dailyReportsError) {
-            console.error('[adminDashboard] totalDailyReports query error', dailyReportsError);
-        }
-        console.log('[adminDashboard] totalDailyReports count', totalDailyReports || 0);
-        // Pending supervisor evaluations (drafts not submitted)
-        const { count: pendingSupervisorEvaluations, error: pendingSupervisorEvaluationsError } = await supabase
-            .from('evaluations')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'draft');
-        if (pendingSupervisorEvaluationsError) {
-            console.error('[adminDashboard] pendingSupervisorEvaluations query error', pendingSupervisorEvaluationsError);
-        }
-        console.log('[adminDashboard] pendingSupervisorEvaluations count', pendingSupervisorEvaluations || 0);
-        // Pending advisor evaluations (submitted but not approved)
-        const { count: pendingAdvisorEvaluations, error: pendingAdvisorEvaluationsError } = await supabase
-            .from('evaluations')
-            .select('id', { count: 'exact', head: true })
-            .in('status', ['submitted', 'revision_requested']);
-        if (pendingAdvisorEvaluationsError) {
-            console.error('[adminDashboard] pendingAdvisorEvaluations query error', pendingAdvisorEvaluationsError);
-        }
-        console.log('[adminDashboard] pendingAdvisorEvaluations count', pendingAdvisorEvaluations || 0);
-        // Completed evaluations this month
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
-        const { count: completedEvaluationsThisMonth, error: completedEvaluationsError } = await supabase
-            .from('evaluations')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'approved')
-            .gte('approved_at', startOfMonth.toISOString());
-        if (completedEvaluationsError) {
-            console.error('[adminDashboard] completedEvaluationsThisMonth query error', completedEvaluationsError);
+        // Run all database queries in parallel for maximum speed
+        const [studentsEnrolledRes, studentsWithInternshipsRes, allActiveStudentsRes, activeInternshipsRes, completedInternshipsRes, totalCompaniesRes, companiesRes, totalWeeklyDTRRes, pendingSupervisorEvalsRes, pendingAdvisorEvalsRes, completedEvalsThisMonthRes] = await Promise.allSettled([
+            // 1. Students enrolled (active students in this university)
+            supabase
+                .from('users')
+                .select('id', { count: 'exact', head: true })
+                .eq('role', 'student')
+                .eq('university_id', universityId)
+                .eq('status', 'active')
+                .or('is_archived.is.null,is_archived.eq.false'),
+            // 2. Students with active/ongoing internships
+            supabase
+                .from('internships')
+                .select('student_id')
+                .in('status', ['active', 'ongoing']),
+            // 3. All active student IDs for deployment calculation
+            supabase
+                .from('users')
+                .select('id')
+                .eq('role', 'student')
+                .eq('university_id', universityId)
+                .eq('status', 'active')
+                .or('is_archived.is.null,is_archived.eq.false'),
+            // 4. Active internships count
+            supabase
+                .from('internships')
+                .select('id', { count: 'exact', head: true })
+                .in('status', ['active', 'ongoing']),
+            // 5. Completed internships count
+            supabase
+                .from('internships')
+                .select('id', { count: 'exact', head: true })
+                .eq('status', 'completed'),
+            // 6. Total companies
+            supabase
+                .from('companies')
+                .select('id', { count: 'exact', head: true }),
+            // 7. Companies capacity info
+            supabase
+                .from('companies')
+                .select('id, capacity_limit, current_students'),
+            // 8. Weekly DTR total submissions count
+            supabase
+                .from('weekly_dtr_submissions')
+                .select('id', { count: 'exact', head: true }),
+            // 9. Pending supervisor evaluations (drafts)
+            supabase
+                .from('evaluations')
+                .select('id', { count: 'exact', head: true })
+                .eq('status', 'draft'),
+            // 10. Pending advisor evaluations (submitted or revision requested)
+            supabase
+                .from('evaluations')
+                .select('id', { count: 'exact', head: true })
+                .in('status', ['submitted', 'revision_requested']),
+            // 11. Completed evaluations this month
+            supabase
+                .from('evaluations')
+                .select('id', { count: 'exact', head: true })
+                .eq('status', 'approved')
+                .gte('approved_at', startOfMonth.toISOString())
+        ]);
+        // Safe extraction with default fallbacks
+        const studentsEnrolled = studentsEnrolledRes.status === 'fulfilled' ? studentsEnrolledRes.value.count || 0 : 0;
+        const studentsWithInternships = studentsWithInternshipsRes.status === 'fulfilled' ? studentsWithInternshipsRes.value.data || [] : [];
+        const allActiveStudents = allActiveStudentsRes.status === 'fulfilled' ? allActiveStudentsRes.value.data || [] : [];
+        const activeInternships = activeInternshipsRes.status === 'fulfilled' ? activeInternshipsRes.value.count || 0 : 0;
+        const completedInternships = completedInternshipsRes.status === 'fulfilled' ? completedInternshipsRes.value.count || 0 : 0;
+        const totalCompanies = totalCompaniesRes.status === 'fulfilled' ? totalCompaniesRes.value.count || 0 : 0;
+        const companies = companiesRes.status === 'fulfilled' ? companiesRes.value.data || [] : [];
+        const totalWeeklyDTR = totalWeeklyDTRRes.status === 'fulfilled' ? totalWeeklyDTRRes.value.count || 0 : 0;
+        const pendingSupervisorEvaluations = pendingSupervisorEvalsRes.status === 'fulfilled' ? pendingSupervisorEvalsRes.value.count || 0 : 0;
+        const pendingAdvisorEvaluations = pendingAdvisorEvalsRes.status === 'fulfilled' ? pendingAdvisorEvalsRes.value.count || 0 : 0;
+        const completedEvaluationsThisMonth = completedEvalsThisMonthRes.status === 'fulfilled' ? completedEvalsThisMonthRes.value.count || 0 : 0;
+        // Calculate students pending deployment
+        const studentIdsWithInternships = new Set(studentsWithInternships.map((i) => i.student_id));
+        const studentsPendingDeployment = allActiveStudents.filter((s) => !studentIdsWithInternships.has(s.id)).length;
+        // Calculate companies with available capacity
+        let companiesWithCapacity = 0;
+        for (const company of companies) {
+            if (company.capacity_limit && company.current_students !== null &&
+                company.current_students < company.capacity_limit) {
+                companiesWithCapacity++;
+            }
         }
-        console.log('[adminDashboard] completedEvaluationsThisMonth count', completedEvaluationsThisMonth || 0);
         const result = {
-            students_enrolled: studentsEnrolled || 0,
+            students_enrolled: studentsEnrolled,
             students_pending_deployment: studentsPendingDeployment,
-            active_internships: activeInternships || 0,
-            completed_internships: completedInternships || 0,
-            total_companies: totalCompanies || 0,
+            active_internships: activeInternships,
+            completed_internships: completedInternships,
+            total_companies: totalCompanies,
             companies_with_capacity: companiesWithCapacity,
-            total_daily_reports: totalDailyReports || 0,
-            pending_supervisor_evaluations: pendingSupervisorEvaluations || 0,
-            pending_advisor_evaluations: pendingAdvisorEvaluations || 0,
-            completed_evaluations_this_month: completedEvaluationsThisMonth || 0,
+            total_weekly_dtr: totalWeeklyDTR,
+            pending_supervisor_evaluations: pendingSupervisorEvaluations,
+            pending_advisor_evaluations: pendingAdvisorEvaluations,
+            completed_evaluations_this_month: completedEvaluationsThisMonth,
             timestamp: new Date().toISOString(),
         };
-        console.log('[adminDashboard] metrics result', result);
         return result;
     }
     catch (error) {
@@ -216,8 +175,8 @@ async function storeMetricsSnapshot(universityId) {
             active_internships: metrics.active_internships,
             completed_internships: metrics.completed_internships,
             total_companies: metrics.total_companies,
-            companies_with_capacity: metrics.companies_with_capacity,
-            total_daily_reports: metrics.total_daily_reports,
+            companies_with_available_capacity: metrics.companies_with_capacity, // Fixed column name mismatch
+            total_weekly_reports_submitted: metrics.total_weekly_dtr,
             pending_supervisor_evaluations: metrics.pending_supervisor_evaluations,
             pending_advisor_evaluations: metrics.pending_advisor_evaluations,
             completed_evaluations_this_month: metrics.completed_evaluations_this_month,
@@ -325,38 +284,83 @@ async function getAIInsights(universityId) {
 }
 /**
  * Get dashboard overview for admin
- * Combines metrics and insights
+ * Combines metrics and insights with caching and timeout protection
  */
-async function getAdminDashboardOverview(universityId) {
+async function getAdminDashboardOverview(universityId, forceRefresh = false) {
     try {
-        // Get real-time metrics
-        const metrics = await calculateDashboardMetrics(universityId);
-        // Get AI insights
-        const { data: insights } = await getAIInsights(universityId);
-        // Get recent activity counts
+        // 1. Check cache first unless forceRefresh is requested
+        if (!forceRefresh) {
+            const cached = overviewCache.get(universityId);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+                console.log('[adminDashboard] Returning cached overview for:', universityId);
+                return {
+                    success: true,
+                    data: cached.data,
+                };
+            }
+        }
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - 7);
-        const { count: recentDailyReports } = await supabase
-            .from('student_daily_reports')
-            .select('id', { count: 'exact', head: true })
-            .gte('created_at', startOfWeek.toISOString());
-        const { count: recentEvaluations } = await supabase
-            .from('evaluations')
-            .select('id', { count: 'exact', head: true })
-            .gte('submitted_at', startOfWeek.toISOString());
+        // 2. Fetch metrics, AI insights (with timeout safeguard), and recent activity in parallel
+        const [metricsResult, insightsResult, recentDTRResult, recentEvalsResult] = await Promise.allSettled([
+            calculateDashboardMetrics(universityId),
+            // Safeguard AI insights with 2500ms timeout so AI never delays dashboard
+            Promise.race([
+                getAIInsights(universityId),
+                new Promise((resolve) => setTimeout(() => resolve({
+                    success: true,
+                    data: [{ type: 'info', message: 'AI insights will be refreshed in the background.' }]
+                }), 2500))
+            ]),
+            supabase
+                .from('weekly_dtr_submissions')
+                .select('id', { count: 'exact', head: true })
+                .gte('submitted_at', startOfWeek.toISOString()),
+            supabase
+                .from('evaluations')
+                .select('id', { count: 'exact', head: true })
+                .gte('submitted_at', startOfWeek.toISOString()),
+        ]);
+        const metrics = metricsResult.status === 'fulfilled'
+            ? metricsResult.value
+            : {
+                students_enrolled: 0,
+                students_pending_deployment: 0,
+                active_internships: 0,
+                completed_internships: 0,
+                total_companies: 0,
+                companies_with_capacity: 0,
+                total_weekly_dtr: 0,
+                pending_supervisor_evaluations: 0,
+                pending_advisor_evaluations: 0,
+                completed_evaluations_this_month: 0,
+                timestamp: new Date().toISOString(),
+            };
+        const insights = insightsResult.status === 'fulfilled' && insightsResult.value?.data
+            ? insightsResult.value.data
+            : [{ type: 'info', message: 'Platform data is active and healthy.' }];
+        const recentWeeklyDTR = recentDTRResult.status === 'fulfilled' ? recentDTRResult.value.count || 0 : 0;
+        const recentEvaluations = recentEvalsResult.status === 'fulfilled' ? recentEvalsResult.value.count || 0 : 0;
+        const overviewData = {
+            metrics,
+            insights,
+            recent_activity: {
+                weekly_dtr_this_week: recentWeeklyDTR,
+                evaluations_this_week: recentEvaluations,
+            },
+        };
+        // 3. Cache the successful result
+        overviewCache.set(universityId, {
+            data: overviewData,
+            timestamp: Date.now(),
+        });
         return {
             success: true,
-            data: {
-                metrics,
-                insights: insights || [],
-                recent_activity: {
-                    daily_reports_this_week: recentDailyReports || 0,
-                    evaluations_this_week: recentEvaluations || 0,
-                },
-            },
+            data: overviewData,
         };
     }
     catch (error) {
+        console.error('[adminDashboard] Overview error:', error);
         return {
             success: false,
             error: error.message,

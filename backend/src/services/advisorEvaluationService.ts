@@ -32,7 +32,8 @@ export async function getPendingEvaluations(advisorId: string) {
         *,
         criterion_scores:evaluation_criterion_scores(*),
         student:users!student_id(id, first_name, last_name, email),
-        supervisor:users!supervisor_id(id, first_name, last_name),
+        supervisor:users!supervisor_id(id, first_name, last_name, email),
+        rubric:evaluation_rubrics!rubric_id(*),
         internship:internships(
           id,
           position,
@@ -93,7 +94,8 @@ export async function getEvaluationsByStatus(
         *,
         criterion_scores:evaluation_criterion_scores(*),
         student:users!student_id(id, first_name, last_name, email),
-        supervisor:users!supervisor_id(id, first_name, last_name),
+        supervisor:users!supervisor_id(id, first_name, last_name, email),
+        rubric:evaluation_rubrics!rubric_id(*),
         internship:internships(
           id,
           position,

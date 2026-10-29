@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
  */
 export declare const getAllDocuments: (req: Request, res: Response) => Promise<void>;
 /**
- * Get single document with full details (versions, comments, workflow, collaborators)
+ * Get single document with full details (versions, comments, workflow, collaborators, student & reviewer context)
  */
 export declare const getDocument: (req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>;
 /**

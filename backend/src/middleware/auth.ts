@@ -30,6 +30,8 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     role: string;
+    university_id?: string;
+    company_id?: string;
   };
 }
 
@@ -124,7 +126,7 @@ export const authenticateToken = async (
       const supabase = getSupabaseClient();
       const { data: userProfile, error: profileError } = await supabase
         .from("users")
-        .select("role, status")
+        .select("role, status, university_id, company_id")
         .eq("id", user.id)
         .single();
 
@@ -154,13 +156,15 @@ export const authenticateToken = async (
         id: user.id,
         email: user.email || "",
         role: userProfile.role,
+        university_id: userProfile.university_id || undefined,
+        company_id: userProfile.company_id || undefined,
       };
     } else {
-      // Even if role exists in JWT, check status from database
+      // Even if role exists in JWT, check status and IDs from database
       const supabase = getSupabaseClient();
       const { data: userProfile } = await supabase
         .from("users")
-        .select("status")
+        .select("status, university_id, company_id")
         .eq("id", user.id)
         .single();
 
@@ -180,11 +184,13 @@ export const authenticateToken = async (
         }
       }
 
-      // Attach user info with role from JWT.
+      // Attach user info with role from JWT and university_id / company_id
       req.user = {
         id: user.id,
         email: user.email || "",
         role: role,
+        university_id: userProfile?.university_id || undefined,
+        company_id: userProfile?.company_id || undefined,
       };
     }
 

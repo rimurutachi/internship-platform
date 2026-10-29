@@ -19,6 +19,10 @@ export interface Internship {
   status: 'pending' | 'active' | 'completed' | 'cancelled';
   is_archived?: boolean;
   archived_at?: string;
+  metadata?: {
+    schedule?: InternshipScheduleMetadata;
+    [key: string]: any;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +53,29 @@ export interface InternshipWithRelations extends Internship {
   };
 }
 
+export type WorkScheduleType = 'mon-fri' | 'mon-sat';
+export type ShiftTimeType = (typeof SHIFT_OPTIONS)[number]['value'];
+
+export interface InternshipScheduleMetadata {
+  work_days: WorkScheduleType;
+  work_days_label: string;
+  shift_time: string;
+  hours_per_day: number;
+  hours_per_week: number;
+  total_working_days: number;
+  projected_weeks: number;
+  projected_end_date: string;
+  // camelCase aliases for template convenience
+  hoursPerDay: number;
+  daysPerWeek: number;
+  hoursPerWeek: number;
+  totalWorkingDays: number;
+  projectedWeeks: number;
+  projectedEndDate: string;
+  workDaysLabel: string;
+  shiftTime: string;
+}
+
 export interface InternshipCreateInput {
   student_id: string;
   company_id: string;
@@ -59,6 +86,12 @@ export interface InternshipCreateInput {
   start_date: string;
   end_date: string;
   status?: string;
+  required_hours?: number;
+  program_code?: string;
+  metadata?: {
+    schedule?: InternshipScheduleMetadata;
+    [key: string]: any;
+  };
 }
 
 export interface InternshipUpdateInput {
@@ -69,6 +102,88 @@ export interface InternshipUpdateInput {
   start_date?: string;
   end_date?: string;
   status?: string;
+  required_hours?: number;
+  program_code?: string;
+  metadata?: {
+    schedule?: InternshipScheduleMetadata;
+    [key: string]: any;
+  };
+}
+
+export const WORK_SCHEDULE_OPTIONS = [
+  { value: 'mon-fri', label: 'Monday - Friday (5 Days / Week)', daysPerWeek: 5 },
+  { value: 'mon-sat', label: 'Monday - Saturday (6 Days / Week)', daysPerWeek: 6 },
+] as const;
+
+export const SHIFT_OPTIONS = [
+  { value: '8:00 AM - 5:00 PM', label: '8:00 AM - 5:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '7:00 AM - 4:00 PM', label: '7:00 AM - 4:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '6:00 AM - 3:00 PM', label: '6:00 AM - 3:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '9:00 AM - 6:00 PM', label: '9:00 AM - 6:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+] as const;
+
+/**
+ * Calculates working days, projected weeks, and accurate projected end date
+ */
+export function calculateScheduleProjections(
+  startDate: string,
+  requiredHours: number,
+  workDays: WorkScheduleType = 'mon-fri',
+  shiftTime: string = '8:00 AM - 5:00 PM'
+): InternshipScheduleMetadata | null {
+  if (!startDate || !requiredHours || requiredHours <= 0) return null;
+
+  const hoursPerDay = 8;
+  const daysPerWeek = workDays === 'mon-sat' ? 6 : 5;
+  const hoursPerWeek = hoursPerDay * daysPerWeek;
+  const totalWorkingDays = Math.ceil(requiredHours / hoursPerDay);
+  const projectedWeeks = Number((requiredHours / hoursPerWeek).toFixed(1));
+
+  // Calendar walk skipping non-workdays
+  const [year, month, day] = startDate.split('-').map(Number);
+  const current = new Date(year, month - 1, day);
+  let daysCounted = 0;
+
+  while (daysCounted < totalWorkingDays) {
+    const dayOfWeek = current.getDay(); // 0 = Sun, 6 = Sat
+    const isSunday = dayOfWeek === 0;
+    const isSaturday = dayOfWeek === 6;
+
+    const isWorkDay = workDays === 'mon-sat' ? !isSunday : (!isSunday && !isSaturday);
+
+    if (isWorkDay) {
+      daysCounted++;
+      if (daysCounted === totalWorkingDays) break;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  // Format as YYYY-MM-DD
+  const yyyy = current.getFullYear();
+  const mm = String(current.getMonth() + 1).padStart(2, '0');
+  const dd = String(current.getDate()).padStart(2, '0');
+  const projectedEndDate = `${yyyy}-${mm}-${dd}`;
+
+  const workDaysLabel = workDays === 'mon-sat' ? 'Monday - Saturday (6 Days / Week)' : 'Monday - Friday (5 Days / Week)';
+
+  return {
+    work_days: workDays,
+    work_days_label: workDaysLabel,
+    shift_time: shiftTime,
+    hours_per_day: hoursPerDay,
+    hours_per_week: hoursPerWeek,
+    total_working_days: totalWorkingDays,
+    projected_weeks: projectedWeeks,
+    projected_end_date: projectedEndDate,
+    hoursPerDay,
+    daysPerWeek,
+    hoursPerWeek,
+    totalWorkingDays,
+    projectedWeeks,
+    projectedEndDate,
+    workDaysLabel,
+    shiftTime,
+  };
 }
 
 export interface InternshipFilters {

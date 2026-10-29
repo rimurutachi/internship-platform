@@ -6,15 +6,31 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { QualityMetrics } from '@/types/api';
-import { FileText, Clock, CheckCircle, TrendingUp } from 'lucide-react';
+import { QualityMetrics, EvaluationWithRelations } from '@/types/api';
+import { FileText, Clock, CheckCircle, Award } from 'lucide-react';
+import { convertScoreToGrade } from './gradeUtils';
 
 interface EvaluationStatsCardsProps {
   metrics: QualityMetrics | null;
+  evaluations?: EvaluationWithRelations[];
   loading?: boolean;
 }
 
-export function EvaluationStatsCards({ metrics, loading }: EvaluationStatsCardsProps) {
+export function EvaluationStatsCards({ metrics, evaluations, loading }: EvaluationStatsCardsProps) {
+  const averageGrade = React.useMemo(() => {
+    if (!evaluations || evaluations.length === 0) return 'N/A';
+    const graded = evaluations.filter((e) => {
+      const g = e.total_score ? convertScoreToGrade(e.total_score) : e.final_grade;
+      return typeof g === 'number' && g > 0;
+    });
+    if (graded.length === 0) return 'N/A';
+    const sum = graded.reduce((acc, curr) => {
+      const g = curr.total_score ? convertScoreToGrade(curr.total_score) : (curr.final_grade || 0);
+      return acc + g;
+    }, 0);
+    return (sum / graded.length).toFixed(2);
+  }, [evaluations]);
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -36,7 +52,7 @@ export function EvaluationStatsCards({ metrics, loading }: EvaluationStatsCardsP
     return null;
   }
 
-  // Backend returns proper evaluation count metrics
+  // Standardized evaluation metrics
   const stats = [
     {
       title: 'Total Evaluations',
@@ -45,22 +61,22 @@ export function EvaluationStatsCards({ metrics, loading }: EvaluationStatsCardsP
       color: 'text-blue-600',
     },
     {
-      title: 'On Draft',
-      value: metrics.on_draft || 0,
-      icon: Clock,
-      color: 'text-yellow-600',
-    },
-    {
       title: 'Submitted',
       value: metrics.submitted || 0,
       icon: CheckCircle,
-      color: 'text-blue-500',
+      color: 'text-emerald-600',
     },
     {
-      title: 'Approved',
-      value: metrics.approved || 0,
-      icon: TrendingUp,
-      color: 'text-green-600',
+      title: 'On Draft',
+      value: metrics.on_draft || 0,
+      icon: Clock,
+      color: 'text-amber-600',
+    },
+    {
+      title: 'Average Final Grade',
+      value: averageGrade,
+      icon: Award,
+      color: 'text-primary',
     },
   ];
 

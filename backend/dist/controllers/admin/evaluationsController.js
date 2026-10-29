@@ -15,8 +15,8 @@ class EvaluationsController {
             console.log('[AdminEvaluations] getEvaluations request', { filters: req.query, user: req.user?.id });
             try {
                 const { page = '1', limit = '20', status, supervisor_id, company_id, date_range, search, } = req.query;
-                const pageNum = parseInt(page, 10);
-                const limitNum = parseInt(limit, 10);
+                const pageNum = Number(page);
+                const limitNum = Number(limit);
                 let query = supabase
                     .from('evaluations')
                     .select(`
@@ -31,7 +31,12 @@ class EvaluationsController {
         `, { count: 'exact' });
                 // Apply filters
                 if (status) {
-                    query = query.eq('status', status);
+                    if (status === 'submitted') {
+                        query = query.in('status', ['submitted', 'approved']);
+                    }
+                    else {
+                        query = query.eq('status', status);
+                    }
                 }
                 if (supervisor_id) {
                     query = query.eq('supervisor_id', supervisor_id);

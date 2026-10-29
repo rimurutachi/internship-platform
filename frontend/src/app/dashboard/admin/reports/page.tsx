@@ -658,7 +658,7 @@ export default function ReportsPage() {
     );
   }
 
-  const ReportsContent = () => (
+  return (
     <div className="space-y-6">
       {/* Print-only Header */}
       <div className="hidden print:flex flex-col items-center justify-center text-center pb-6 border-b border-black mb-6 w-full">
@@ -1435,6 +1435,4 @@ export default function ReportsPage() {
       </div>
     </div>
   );
-
-  return <ReportsContent />;
 }

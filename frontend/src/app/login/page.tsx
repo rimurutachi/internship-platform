@@ -22,9 +22,15 @@ export default function LoginPage() {
           .from('users')
           .select('role')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
         
-        const userRole = profile?.role || 'student';
+        if (!profile) {
+          // If session exists in browser but user profile doesn't exist in DB, clear stale session
+          await supabase.auth.signOut();
+          return;
+        }
+
+        const userRole = profile.role || 'student';
         router.replace(`/dashboard/${userRole}`);
       }
     };

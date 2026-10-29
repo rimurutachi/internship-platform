@@ -1,8 +1,13 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 
-import { useState, useEffect } from 'react';
-import { adminCompaniesAPI, CompanyUpdateInput, CompanyWithSupervisors } from '@/lib/api/admin-companies';
+import { useState, useEffect, useRef } from 'react';
+import {
+  adminCompaniesAPI,
+  CompanyUpdateInput,
+  CompanyWithSupervisors,
+  PHILIPPINE_INDUSTRIES,
+} from '@/lib/api/admin-companies';
 import {
   Dialog,
   DialogContent,
@@ -15,11 +20,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UserPlus, X, Users } from 'lucide-react';
+import {
+  Loader2,
+  UserPlus,
+  Users,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Globe,
+  Building,
+} from 'lucide-react';
 
 interface Supervisor {
   id: string;
@@ -45,7 +64,7 @@ export function EditCompanyModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [supervisorLoading, setSupervisorLoading] = useState(false);
-  
+
   // Supervisors state
   const [assignedSupervisors, setAssignedSupervisors] = useState<Supervisor[]>([]);
   const [availableSupervisors, setAvailableSupervisors] = useState<Supervisor[]>([]);
@@ -62,6 +81,39 @@ export function EditCompanyModal({
     contact_info: company.contact_info || {},
   });
 
+  // Industry selection states
+  const [selectedIndustryCategory, setSelectedIndustryCategory] = useState<string>('');
+  const [customIndustryText, setCustomIndustryText] = useState<string>('');
+
+  // Real-time company name validation state
+  const [nameValidation, setNameValidation] = useState<{
+    checking: boolean;
+    isExactMatch: boolean;
+    exactMatch: string | null;
+    similarCompanies: string[];
+    isAvailable: boolean | null;
+  }>({
+    checking: false,
+    isExactMatch: false,
+    exactMatch: null,
+    similarCompanies: [],
+    isAvailable: null,
+  });
+
+  // Real-time website verification state
+  const [websiteValidation, setWebsiteValidation] = useState<{
+    checking: boolean;
+    verified: boolean | null;
+    message: string;
+  }>({
+    checking: false,
+    verified: company.is_verified || null,
+    message: '',
+  });
+
+  const nameTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const websiteTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (open) {
       setFormData({
@@ -74,40 +126,188 @@ export function EditCompanyModal({
         is_moa_standardized: company.is_moa_standardized,
         contact_info: company.contact_info || {},
       });
-      // Reset supervisor selection
+
+      // Match existing industry
+      const matched = (PHILIPPINE_INDUSTRIES as readonly string[]).find(
+        (ind) => ind !== 'Others / Specific Industry' && ind.toLowerCase() === (company.industry || '').toLowerCase()
+      );
+
+      if (matched) {
+        setSelectedIndustryCategory(matched);
+        setCustomIndustryText('');
+      } else if (company.industry) {
+        setSelectedIndustryCategory('Others / Specific Industry');
+        setCustomIndustryText(company.industry);
+      } else {
+        setSelectedIndustryCategory('');
+        setCustomIndustryText('');
+      }
+
+      setWebsiteValidation({
+        checking: false,
+        verified: company.is_verified || null,
+        message: company.is_verified ? 'Company website is verified.' : '',
+      });
+
       setSelectedSupervisorId('');
-      // Fetch supervisors when modal opens
       fetchSupervisors();
     }
   }, [open, company]);
 
+  // Debounced Name Check (excluding current company id)
+  useEffect(() => {
+    if (!open) return;
+
+    const trimmed = (formData.name || '').trim();
+    if (!trimmed || trimmed.toLowerCase() === company.name.toLowerCase()) {
+      setNameValidation({
+        checking: false,
+        isExactMatch: false,
+        exactMatch: null,
+        similarCompanies: [],
+        isAvailable: true,
+      });
+      return;
+    }
+
+    if (nameTimerRef.current) clearTimeout(nameTimerRef.current);
+
+    setNameValidation((prev) => ({ ...prev, checking: true }));
+
+    nameTimerRef.current = setTimeout(async () => {
+      try {
+        const response = await adminCompaniesAPI.checkCompanyName(trimmed, company.id);
+        if (response.success) {
+          setNameValidation({
+            checking: false,
+            isExactMatch: response.data.isExactMatch,
+            exactMatch: response.data.exactMatch,
+            similarCompanies: response.data.similarCompanies || [],
+            isAvailable: response.data.isAvailable,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to validate company name on edit:', err);
+        setNameValidation((prev) => ({ ...prev, checking: false }));
+      }
+    }, 350);
+
+    return () => {
+      if (nameTimerRef.current) clearTimeout(nameTimerRef.current);
+    };
+  }, [formData.name, open, company.id, company.name]);
+
+  // Debounced Website Real-time Check
+  useEffect(() => {
+    if (!open) return;
+
+    const rawUrl = formData.contact_info?.website?.trim() || '';
+    if (!rawUrl) {
+      setWebsiteValidation({
+        checking: false,
+        verified: null,
+        message: 'Website is optional. Company is Unverified.',
+      });
+      setFormData((prev) => ({ ...prev, is_verified: false }));
+      return;
+    }
+
+    // If website matches the original verified website and haven't modified it yet
+    if (
+      company.is_verified &&
+      company.contact_info?.website?.trim() === rawUrl &&
+      websiteValidation.verified === true
+    ) {
+      return;
+    }
+
+    if (websiteTimerRef.current) clearTimeout(websiteTimerRef.current);
+
+    setWebsiteValidation({
+      checking: true,
+      verified: null,
+      message: 'Checking website...',
+    });
+
+    websiteTimerRef.current = setTimeout(async () => {
+      try {
+        const response = await adminCompaniesAPI.verifyWebsite(rawUrl);
+        if (response.success && response.data.verified) {
+          setWebsiteValidation({
+            checking: false,
+            verified: true,
+            message: 'Website verified and active. Company will be marked as Verified.',
+          });
+          setFormData((prev) => ({
+            ...prev,
+            is_verified: true,
+            contact_info: {
+              ...prev.contact_info,
+              website: response.data.normalizedUrl || rawUrl,
+            },
+          }));
+        } else {
+          setWebsiteValidation({
+            checking: false,
+            verified: false,
+            message:
+              response.data.message ||
+              'Website could not be reached or is invalid. Company will remain Unverified.',
+          });
+          setFormData((prev) => ({ ...prev, is_verified: false }));
+        }
+      } catch (err: any) {
+        setWebsiteValidation({
+          checking: false,
+          verified: false,
+          message: 'Website verification failed.',
+        });
+        setFormData((prev) => ({ ...prev, is_verified: false }));
+      }
+    }, 600);
+
+    return () => {
+      if (websiteTimerRef.current) clearTimeout(websiteTimerRef.current);
+    };
+  }, [formData.contact_info?.website, open]);
+
+  const handleIndustrySelect = (category: string) => {
+    setSelectedIndustryCategory(category);
+    if (category === 'Others / Specific Industry') {
+      setFormData((prev) => ({
+        ...prev,
+        industry: customIndustryText || '',
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        industry: category,
+      }));
+    }
+  };
+
+  const handleCustomIndustryChange = (text: string) => {
+    setCustomIndustryText(text);
+    setFormData((prev) => ({
+      ...prev,
+      industry: text,
+    }));
+  };
+
   const fetchSupervisors = async () => {
     try {
       setSupervisorLoading(true);
-      
-      console.log('🔵 Fetching supervisors for company:', company.id, company.name);
-      
-      // Fetch assigned supervisors for this company
       const assignedResponse = await adminCompaniesAPI.getSupervisors(company.id);
-      console.log('📋 Assigned supervisors response:', assignedResponse);
-      
       if (assignedResponse.success) {
-        const assigned = assignedResponse.data.supervisors || [];
-        console.log(`✅ Found ${assigned.length} assigned supervisors:`, assigned);
-        setAssignedSupervisors(assigned);
+        setAssignedSupervisors(assignedResponse.data.supervisors || []);
       }
-      
-      // Fetch all unassigned supervisors
+
       const availableResponse = await adminCompaniesAPI.getAllSupervisors(true);
-      console.log('📋 Available supervisors response:', availableResponse);
-      
       if (availableResponse.success) {
-        const available = availableResponse.data.supervisors || [];
-        console.log(`✅ Found ${available.length} unassigned supervisors:`, available);
-        setAvailableSupervisors(available);
+        setAvailableSupervisors(availableResponse.data.supervisors || []);
       }
     } catch (error: any) {
-      console.error('❌ Failed to fetch supervisors:', error);
+      console.error('Failed to fetch supervisors:', error);
       toast({
         title: 'Error',
         description: 'Failed to load supervisors. Please try again.',
@@ -123,21 +323,20 @@ export function EditCompanyModal({
 
     try {
       setSupervisorLoading(true);
-      console.log('🔵 Assigning supervisor:', selectedSupervisorId, 'to company:', company.id);
-      
-      const response = await adminCompaniesAPI.assignSupervisor(company.id, selectedSupervisorId);
-      console.log('✅ Assign response:', response);
-      
+      const response = await adminCompaniesAPI.assignSupervisor(
+        company.id,
+        selectedSupervisorId
+      );
+
       if (response.success) {
         toast({
           title: 'Success',
           description: response.message,
         });
         setSelectedSupervisorId('');
-        await fetchSupervisors(); // Refresh lists
+        await fetchSupervisors();
       }
     } catch (error: any) {
-      console.error('❌ Assign supervisor error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to assign supervisor',
@@ -148,23 +347,25 @@ export function EditCompanyModal({
     }
   };
 
-  const handleRemoveSupervisor = async (supervisorId: string, supervisorName: string) => {
+  const handleRemoveSupervisor = async (
+    supervisorId: string,
+    supervisorName: string
+  ) => {
     try {
       setSupervisorLoading(true);
-      console.log('🔵 Removing supervisor:', supervisorId, supervisorName);
-      
-      const response = await adminCompaniesAPI.removeSupervisor(company.id, supervisorId);
-      console.log('✅ Remove response:', response);
-      
+      const response = await adminCompaniesAPI.removeSupervisor(
+        company.id,
+        supervisorId
+      );
+
       if (response.success) {
         toast({
           title: 'Success',
           description: response.message,
         });
-        await fetchSupervisors(); // Refresh lists
+        await fetchSupervisors();
       }
     } catch (error: any) {
-      console.error('❌ Remove supervisor error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to remove supervisor',
@@ -178,10 +379,31 @@ export function EditCompanyModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name) {
+    if (!formData.name?.trim()) {
       toast({
         title: 'Validation Error',
         description: 'Company name is required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (nameValidation.isExactMatch) {
+      toast({
+        title: 'Company Name Conflict',
+        description: `A company named "${nameValidation.exactMatch}" is already registered. Please choose a unique name.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (
+      selectedIndustryCategory === 'Others / Specific Industry' &&
+      !customIndustryText.trim()
+    ) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please specify the custom industry name',
         variant: 'destructive',
       });
       return;
@@ -211,55 +433,124 @@ export function EditCompanyModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Company</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Building className="h-5 w-5 text-primary" />
+            Edit Company
+          </DialogTitle>
           <DialogDescription>
-            Update company information
+            Update company details, industry classification, website, and supervisors.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Company Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Company Name *</Label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-name" className="font-semibold">
+                Company Name <span className="text-destructive">*</span>
+              </Label>
+              {nameValidation.checking && (
+                <span className="flex items-center text-xs text-muted-foreground gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Checking availability...
+                </span>
+              )}
+            </div>
             <Input
-              id="name"
-              value={formData.name}
+              id="edit-name"
+              value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g., Tech Corp"
               disabled={loading}
               required
+              className={
+                nameValidation.isExactMatch
+                  ? 'border-destructive focus-visible:ring-destructive'
+                  : ''
+              }
             />
+
+            {nameValidation.isExactMatch && (
+              <div className="flex items-start gap-1.5 p-2 rounded-md bg-destructive/10 text-destructive text-xs">
+                <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Company name conflict!</span>
+                  <p className="mt-0.5">
+                    Another company named <strong>&quot;{nameValidation.exactMatch}&quot;</strong> is already registered.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!nameValidation.isExactMatch && nameValidation.similarCompanies.length > 0 && (
+              <div className="flex items-start gap-1.5 p-2 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Similar existing companies:</span>
+                  <p className="mt-0.5">{nameValidation.similarCompanies.join(', ')}</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Industry */}
-          <div className="space-y-2">
-            <Label htmlFor="industry">Industry</Label>
-            <Input
-              id="industry"
-              value={formData.industry || ''}
-              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-              placeholder="e.g., Technology, Finance"
+          {/* Industry Selection */}
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-industry-select" className="font-semibold">
+              Industry Category
+            </Label>
+            <Select
+              value={selectedIndustryCategory}
+              onValueChange={handleIndustrySelect}
               disabled={loading}
-            />
+            >
+              <SelectTrigger id="edit-industry-select">
+                <SelectValue placeholder="Select Philippine industry..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {PHILIPPINE_INDUSTRIES.map((ind) => (
+                  <SelectItem key={ind} value={ind}>
+                    {ind}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Custom Industry Input if 'Others' is selected */}
+          {selectedIndustryCategory === 'Others / Specific Industry' && (
+            <div className="space-y-1.5 pl-3 border-l-2 border-primary/50 bg-muted/20 p-2.5 rounded-r-md">
+              <Label htmlFor="edit-custom-industry" className="text-xs font-semibold">
+                Specify Custom Industry <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="edit-custom-industry"
+                value={customIndustryText}
+                onChange={(e) => handleCustomIndustryChange(e.target.value)}
+                placeholder="e.g., Agriculture & Agribusiness"
+                disabled={loading}
+                required
+              />
+            </div>
+          )}
 
           {/* Company Code */}
-          <div className="space-y-2">
-            <Label htmlFor="code">Company Code</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-code">Company Code</Label>
             <Input
-              id="code"
+              id="edit-code"
               value={formData.code || ''}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
               placeholder="e.g., TECH001"
               disabled={loading}
+              className="font-mono"
             />
           </div>
 
           {/* Address */}
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-address">Address</Label>
             <Input
-              id="address"
+              id="edit-address"
               value={formData.address || ''}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="e.g., 123 Business St., Manila"
@@ -268,67 +559,130 @@ export function EditCompanyModal({
           </div>
 
           {/* Capacity Limit */}
-          <div className="space-y-2">
-            <Label htmlFor="capacity">Student Capacity Limit</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-capacity">Student Capacity Limit</Label>
             <Input
-              id="capacity"
+              id="edit-capacity"
               type="number"
               min="1"
               value={formData.capacity_limit}
-              onChange={(e) => setFormData({ ...formData, capacity_limit: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  capacity_limit: parseInt(e.target.value) || 10,
+                })
+              }
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Current students: {company.current_students || 0}
+              Current enrolled students: {company.current_students || 0}
             </p>
           </div>
 
           {/* Contact Information */}
-          <div className="space-y-3">
-            <Label className="text-base">Contact Information</Label>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.contact_info?.email || ''}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  contact_info: { ...formData.contact_info, email: e.target.value }
-                })}
-                placeholder="contact@company.com"
-                disabled={loading}
-              />
+          <div className="space-y-3 pt-2 border-t">
+            <Label className="text-sm font-semibold">Contact Information</Label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-email" className="text-xs">
+                  Email
+                </Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.contact_info?.email || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      contact_info: {
+                        ...formData.contact_info,
+                        email: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="contact@company.com"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-phone" className="text-xs">
+                  Phone
+                </Label>
+                <Input
+                  id="edit-phone"
+                  value={formData.contact_info?.phone || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      contact_info: {
+                        ...formData.contact_info,
+                        phone: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="+63 123 456 7890"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm">Phone</Label>
+            {/* Website with Auto-Verification */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-website" className="text-xs flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  Official Company Website
+                </Label>
+                {websiteValidation.checking && (
+                  <span className="flex items-center text-[11px] text-muted-foreground gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Auto-verifying website...
+                  </span>
+                )}
+              </div>
               <Input
-                id="phone"
-                value={formData.contact_info?.phone || ''}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  contact_info: { ...formData.contact_info, phone: e.target.value }
-                })}
-                placeholder="+63 123 456 7890"
-                disabled={loading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="website" className="text-sm">Website</Label>
-              <Input
-                id="website"
-                type="url"
+                id="edit-website"
+                type="text"
                 value={formData.contact_info?.website || ''}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  contact_info: { ...formData.contact_info, website: e.target.value }
-                })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    contact_info: {
+                      ...formData.contact_info,
+                      website: e.target.value,
+                    },
+                  })
+                }
                 placeholder="https://company.com"
                 disabled={loading}
+                className={
+                  websiteValidation.verified === true
+                    ? 'border-green-500 focus-visible:ring-green-500'
+                    : websiteValidation.verified === false
+                    ? 'border-destructive focus-visible:ring-destructive'
+                    : ''
+                }
               />
+
+              {websiteValidation.verified === true && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-500 bg-green-500/10 p-2 rounded-md">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Checked &amp; Verified:</strong> Live website reached. Company is tagged as <strong>Verified</strong>.
+                  </span>
+                </div>
+              )}
+
+              {websiteValidation.verified === false && (
+                <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 p-2 rounded-md">
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Not Verified:</strong> {websiteValidation.message} Company will be saved as <strong>Unverified</strong>.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -339,12 +693,15 @@ export function EditCompanyModal({
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-muted-foreground" />
               <Label className="text-base font-semibold">Assigned Supervisors</Label>
-              {supervisorLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              {supervisorLoading && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </div>
-            
-            {/* List of assigned supervisors */}
+
             {assignedSupervisors.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No supervisors assigned to this company yet.</p>
+              <p className="text-sm text-muted-foreground italic">
+                No supervisors assigned to this company yet.
+              </p>
             ) : (
               <div className="space-y-2">
                 {assignedSupervisors.map((supervisor) => (
@@ -360,20 +717,22 @@ export function EditCompanyModal({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveSupervisor(supervisor.id, supervisor.name)}
+                      onClick={() =>
+                        handleRemoveSupervisor(supervisor.id, supervisor.name)
+                      }
                       disabled={supervisorLoading}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      <X className="h-4 w-4" />
+                      Remove
                     </Button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Add supervisor section */}
-            <div className="space-y-2">
-              <Label className="text-sm">Add Supervisor</Label>
+            {/* Assign Supervisor Dropdown */}
+            <div className="space-y-2 pt-2">
+              <Label className="text-sm font-medium">Assign New Supervisor</Label>
               <div className="flex gap-2">
                 <Select
                   value={selectedSupervisorId}
@@ -381,19 +740,18 @@ export function EditCompanyModal({
                   disabled={supervisorLoading || availableSupervisors.length === 0}
                 >
                   <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={
-                      availableSupervisors.length === 0 
-                        ? "No available supervisors" 
-                        : "Select a supervisor to add"
-                    } />
+                    <SelectValue
+                      placeholder={
+                        availableSupervisors.length === 0
+                          ? 'No available supervisors'
+                          : 'Select a supervisor to assign...'
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {availableSupervisors.map((supervisor) => (
                       <SelectItem key={supervisor.id} value={supervisor.id}>
-                        <div className="flex flex-col">
-                          <span>{supervisor.name}</span>
-                          <span className="text-xs text-muted-foreground">{supervisor.email}</span>
-                        </div>
+                        {supervisor.name} ({supervisor.email})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -411,48 +769,33 @@ export function EditCompanyModal({
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Only unassigned supervisors are shown. Supervisors can be reassigned from other companies via the Users page.
-              </p>
             </div>
           </div>
 
           <Separator />
 
-          {/* Checkboxes */}
+          {/* MOA Standardized Checkbox */}
           <div className="space-y-3">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 transition-colors">
               <Checkbox
-                id="verified"
-                checked={formData.is_verified}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, is_verified: checked as boolean })
-                }
-                disabled={loading}
-              />
-              <Label
-                htmlFor="verified"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                Verified Company
-              </Label>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="moa"
+                id="edit-moa"
                 checked={formData.is_moa_standardized}
                 onCheckedChange={(checked) =>
-                  setFormData({ ...formData, is_moa_standardized: checked as boolean })
+                  setFormData({
+                    ...formData,
+                    is_moa_standardized: checked as boolean,
+                  })
                 }
                 disabled={loading}
               />
-              <Label
-                htmlFor="moa"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                Memorandum of Agreement (MOA) Standardized
-              </Label>
+              <div className="grid gap-0.5 leading-none">
+                <Label htmlFor="edit-moa" className="text-sm font-medium cursor-pointer">
+                  Memorandum of Agreement (MOA) Standardized
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Active institutional MOA partnership with CvSU Bacoor.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -460,7 +803,10 @@ export function EditCompanyModal({
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={loading || nameValidation.isExactMatch}
+            >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Company
             </Button>

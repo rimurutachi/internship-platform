@@ -21,8 +21,8 @@ class InternshipsController {
         console.log('[AdminInternships] getInternships request', { filters: req.query, user: req.user?.id });
         try {
             const { page = 1, limit = 20, status, university_id, company_id, search, } = req.query;
-            const pageNum = parseInt(page);
-            const limitNum = parseInt(limit);
+            const pageNum = Number(page);
+            const limitNum = Number(limit);
             let query = supabase
                 .from('internships')
                 .select(`
@@ -176,7 +176,7 @@ class InternshipsController {
     async createInternship(req, res) {
         console.log('[AdminInternships] createInternship request', { studentId: req.body.student_id, companyId: req.body.company_id, user: req.user?.id });
         try {
-            const { student_id, company_id, position, department, advisor_id, supervisor_id, start_date, end_date, status = 'pending', required_hours, program_code, } = req.body;
+            const { student_id, company_id, position, department, advisor_id, supervisor_id, start_date, end_date, status = 'pending', required_hours, program_code, metadata, } = req.body;
             // Validate required fields
             if (!student_id ||
                 !company_id ||
@@ -206,7 +206,19 @@ class InternshipsController {
                     errors: validation.errors,
                 });
             }
-            // Create internship — include required_hours and program_code so custom hours are preserved
+            // Auto-resolve program_code from student's profile if not explicitly provided
+            let resolvedProgramCode = program_code;
+            if (!resolvedProgramCode) {
+                const { data: studentData } = await supabase
+                    .from('users')
+                    .select('profile_data')
+                    .eq('id', student_id)
+                    .single();
+                if (studentData?.profile_data?.program) {
+                    resolvedProgramCode = studentData.profile_data.program;
+                }
+            }
+            // Create internship — include required_hours, program_code, and metadata
             const { data: internship, error } = await supabase
                 .from('internships')
                 .insert({
@@ -220,7 +232,8 @@ class InternshipsController {
                 end_date,
                 status,
                 ...(required_hours ? { required_hours: Number(required_hours) } : {}),
-                ...(program_code ? { program_code } : {}),
+                ...(resolvedProgramCode ? { program_code: resolvedProgramCode } : {}),
+                ...(metadata ? { metadata } : {}),
             })
                 .select()
                 .single();
@@ -258,7 +271,7 @@ class InternshipsController {
         console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: req.user?.id });
         try {
             const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
-            const { position, department, advisor_id, supervisor_id, start_date, end_date, status, required_hours, program_code } = req.body;
+            const { position, department, advisor_id, supervisor_id, start_date, end_date, status, required_hours, program_code, metadata } = req.body;
             // Get current internship
             const { data: currentInternship, error: fetchError } = await supabase
                 .from('internships')
@@ -288,9 +301,11 @@ class InternshipsController {
             if (status !== undefined)
                 updateData.status = status;
             if (required_hours !== undefined)
-                updateData.required_hours = Number(required_hours); // ← was missing!
+                updateData.required_hours = Number(required_hours);
             if (program_code !== undefined)
-                updateData.program_code = program_code; // ← was missing!
+                updateData.program_code = program_code;
+            if (metadata !== undefined)
+                updateData.metadata = metadata;
             // Validate new date range if provided
             const finalStartDate = start_date || currentInternship.start_date;
             const finalEndDate = end_date || currentInternship.end_date;

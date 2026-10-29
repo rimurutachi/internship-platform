@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -199,7 +200,7 @@ export async function createCompany(req: Request, res: Response) {
     } = req.body;
 
     // Validate required fields
-    if (!name) {
+    if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
@@ -207,11 +208,28 @@ export async function createCompany(req: Request, res: Response) {
       });
     }
 
+    const trimmedName = name.trim();
+
+    // Check duplicate company name (exact match, case-insensitive)
+    const { data: existingCompany } = await supabase
+      .from('companies')
+      .select('id, name')
+      .ilike('name', trimmedName)
+      .maybeSingle();
+
+    if (existingCompany) {
+      return res.status(400).json({
+        success: false,
+        error: 'Duplicate company name',
+        message: `A company named "${existingCompany.name}" is already registered.`,
+      });
+    }
+
     // Create company
     const { data: company, error } = await supabase
       .from('companies')
       .insert({
-        name,
+        name: trimmedName,
         industry: industry || null,
         address: address || null,
         contact_info: contact_info || null,
@@ -261,7 +279,34 @@ export async function updateCompany(req: Request, res: Response) {
 
     const updates: any = {};
 
-    if (name !== undefined) updates.name = name;
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Validation error',
+          message: 'Company name cannot be empty',
+        });
+      }
+
+      // Check duplicate company name excluding current company
+      const { data: existingCompany } = await supabase
+        .from('companies')
+        .select('id, name')
+        .ilike('name', trimmedName)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (existingCompany) {
+        return res.status(400).json({
+          success: false,
+          error: 'Duplicate company name',
+          message: `A company named "${existingCompany.name}" is already registered.`,
+        });
+      }
+
+      updates.name = trimmedName;
+    }
     if (industry !== undefined) updates.industry = industry;
     if (address !== undefined) updates.address = address;
     if (contact_info !== undefined) updates.contact_info = contact_info;
@@ -845,3 +890,295 @@ export async function getAllSupervisors(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * Check company name availability and prefix similarities
+ * GET /admin/companies/check-name?name=...&excludeId=...
+ */
+export async function checkCompanyName(req: Request, res: Response) {
+  try {
+    const { name, excludeId } = req.query;
+    const searchName = ((name as string) || '').trim();
+
+    if (!searchName) {
+      return res.json({
+        success: true,
+        data: {
+          isAvailable: true,
+          isExactMatch: false,
+          exactMatch: null,
+          similarCompanies: [],
+        },
+      });
+    }
+
+    // 1. Check exact match (case-insensitive)
+    let exactQuery = supabase
+      .from('companies')
+      .select('id, name')
+      .ilike('name', searchName);
+
+    if (excludeId) {
+      exactQuery = exactQuery.neq('id', excludeId as string);
+    }
+
+    const { data: exactMatches, error: exactError } = await exactQuery;
+    if (exactError) throw exactError;
+
+    const exactMatch = exactMatches && exactMatches.length > 0 ? exactMatches[0] : null;
+
+    // 2. Check similar prefix/word match
+    let similarQuery = supabase
+      .from('companies')
+      .select('id, name')
+      .ilike('name', `${searchName}%`)
+      .limit(6);
+
+    if (excludeId) {
+      similarQuery = similarQuery.neq('id', excludeId as string);
+    }
+
+    const { data: similarMatches, error: similarError } = await similarQuery;
+    if (similarError) throw similarError;
+
+    const filteredSimilar = (similarMatches || [])
+      .filter((c) => c.name.trim().toLowerCase() !== searchName.toLowerCase())
+      .map((c) => c.name);
+
+    res.json({
+      success: true,
+      data: {
+        isAvailable: !exactMatch,
+        isExactMatch: !!exactMatch,
+        exactMatch: exactMatch?.name || null,
+        similarCompanies: filteredSimilar,
+      },
+    });
+  } catch (error: any) {
+    console.error('Check company name error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check company name',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get next incremental company code for a given prefix
+ * GET /admin/companies/next-code?prefix=IT
+ */
+export async function getNextCompanyCode(req: Request, res: Response) {
+  try {
+    const prefixParam = ((req.query.prefix as string) || 'OTH').toUpperCase().trim();
+    // Clean prefix: alphanumeric only, max 6 chars
+    const prefix = prefixParam.replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'OTH';
+
+    const { data: companies, error } = await supabase
+      .from('companies')
+      .select('code');
+
+    if (error) throw error;
+
+    let maxNum = 0;
+    const regex = new RegExp(`^${prefix}-(\\d+)$`, 'i');
+
+    (companies || []).forEach((c) => {
+      if (!c.code) return;
+      const match = c.code.trim().match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    });
+
+    const nextNum = maxNum + 1;
+    const nextCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+
+    res.json({
+      success: true,
+      data: {
+        prefix,
+        nextCode,
+        sequence: nextNum,
+      },
+    });
+  } catch (error: any) {
+    console.error('Get next company code error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate company code',
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Real-time website verification
+ * POST /admin/companies/verify-website
+ * Body: { url: string }
+ */
+export async function verifyCompanyWebsite(req: Request, res: Response) {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.json({
+        success: true,
+        data: {
+          verified: false,
+          message: 'No website URL provided',
+          normalizedUrl: '',
+        },
+      });
+    }
+
+    let normalizedUrl = url.trim();
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+
+    // Validate URL syntax
+    let parsed: URL;
+    try {
+      parsed = new URL(normalizedUrl);
+      if (!parsed.hostname || !parsed.hostname.includes('.')) {
+        return res.json({
+          success: true,
+          data: {
+            verified: false,
+            message: 'Invalid domain name format',
+            normalizedUrl,
+          },
+        });
+      }
+    } catch {
+      return res.json({
+        success: true,
+        data: {
+          verified: false,
+          message: 'Invalid URL format',
+          normalizedUrl,
+        },
+      });
+    }
+
+    // Candidates in priority order (user preferred first, then alternate www/non-www)
+    const baseHost = parsed.hostname.replace(/^www\./i, '');
+    const userPreferred = normalizedUrl;
+    const alternateUrl = parsed.hostname.toLowerCase().startsWith('www.')
+      ? `${parsed.protocol}//${baseHost}${parsed.pathname !== '/' ? parsed.pathname : ''}`
+      : `${parsed.protocol}//www.${baseHost}${parsed.pathname !== '/' ? parsed.pathname : ''}`;
+
+    const candidates: string[] = [userPreferred];
+    if (alternateUrl !== userPreferred) {
+      candidates.push(alternateUrl);
+    }
+
+    const commonHeaders = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Accept: '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+
+    // Valid statuses: 2xx, 3xx, or 401, 403 (Cloudflare/Akamai/WAF bot protection), 405, 429
+    const isVerifiedStatus = (status: number) =>
+      (status >= 200 && status < 400) || [401, 403, 405, 429].includes(status);
+
+    for (const testUrl of candidates) {
+      // 1. Try HEAD request first (Enterprise CDNs like Akamai/Cloudflare respond in <100ms)
+      try {
+        const headResponse = await axios.head(testUrl, {
+          timeout: 4000,
+          maxRedirects: 5,
+          headers: commonHeaders,
+          validateStatus: (status) => isVerifiedStatus(status) || status === 405,
+        });
+
+        if (isVerifiedStatus(headResponse.status)) {
+          return res.json({
+            success: true,
+            data: {
+              verified: true,
+              statusCode: headResponse.status,
+              normalizedUrl: testUrl,
+              message:
+                headResponse.status === 403 || headResponse.status === 401
+                  ? 'Website is verified and active (protected enterprise domain)'
+                  : 'Website is verified and active',
+            },
+          });
+        }
+      } catch (headErr: any) {
+        if (headErr.response && isVerifiedStatus(headErr.response.status)) {
+          return res.json({
+            success: true,
+            data: {
+              verified: true,
+              statusCode: headErr.response.status,
+              normalizedUrl: testUrl,
+              message: 'Website is verified and active (protected enterprise domain)',
+            },
+          });
+        }
+      }
+
+      // 2. Fallback to GET request if HEAD didn't yield conclusive status
+      try {
+        const getResponse = await axios.get(testUrl, {
+          timeout: 5000,
+          maxRedirects: 5,
+          headers: commonHeaders,
+          validateStatus: (status) => isVerifiedStatus(status),
+        });
+
+        if (isVerifiedStatus(getResponse.status)) {
+          return res.json({
+            success: true,
+            data: {
+              verified: true,
+              statusCode: getResponse.status,
+              normalizedUrl: testUrl,
+              message:
+                getResponse.status === 403 || getResponse.status === 401
+                  ? 'Website is verified and active (protected enterprise domain)'
+                  : 'Website is verified and active',
+            },
+          });
+        }
+      } catch (getErr: any) {
+        if (getErr.response && isVerifiedStatus(getErr.response.status)) {
+          return res.json({
+            success: true,
+            data: {
+              verified: true,
+              statusCode: getErr.response.status,
+              normalizedUrl: testUrl,
+              message: 'Website is verified and active (protected enterprise domain)',
+            },
+          });
+        }
+      }
+    }
+
+    // If all candidates failed
+    return res.json({
+      success: true,
+      data: {
+        verified: false,
+        normalizedUrl,
+        message: 'Website could not be reached or domain is inactive',
+      },
+    });
+  } catch (error: any) {
+    console.error('Verify company website error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify website',
+      message: error.message,
+    });
+  }
+}
+

@@ -1,3 +1,12 @@
+export interface DocumentSchema {
+    id: string;
+    name: string;
+    created_at: Date;
+    updated_at: Date;
+    created_by: string;
+    updated_by: string;
+    deleted_at?: Date | null;
+}
 export declare class DocumentModel {
     static findAll(filters?: any, pagination?: any, sort?: any): Promise<{
         documents: any[];

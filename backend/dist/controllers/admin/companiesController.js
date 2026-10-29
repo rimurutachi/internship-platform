@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCompanies = getCompanies;
 exports.getCompany = getCompany;
@@ -13,7 +16,11 @@ exports.updateCompanyStudentsCount = updateCompanyStudentsCount;
 exports.assignSupervisorToCompany = assignSupervisorToCompany;
 exports.removeSupervisorFromCompany = removeSupervisorFromCompany;
 exports.getAllSupervisors = getAllSupervisors;
+exports.checkCompanyName = checkCompanyName;
+exports.getNextCompanyCode = getNextCompanyCode;
+exports.verifyCompanyWebsite = verifyCompanyWebsite;
 const supabase_js_1 = require("@supabase/supabase-js");
+const axios_1 = __importDefault(require("axios"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Get all companies with pagination and filters
@@ -21,8 +28,8 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
  */
 async function getCompanies(req, res) {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 20;
         const search = req.query.search;
         const is_verified = req.query.is_verified;
         const offset = (page - 1) * limit;
@@ -175,18 +182,32 @@ async function createCompany(req, res) {
     try {
         const { name, industry, address, contact_info, code, capacity_limit, is_verified, is_moa_standardized, } = req.body;
         // Validate required fields
-        if (!name) {
+        if (!name || !name.trim()) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
                 message: 'Company name is required',
             });
         }
+        const trimmedName = name.trim();
+        // Check duplicate company name (exact match, case-insensitive)
+        const { data: existingCompany } = await supabase
+            .from('companies')
+            .select('id, name')
+            .ilike('name', trimmedName)
+            .maybeSingle();
+        if (existingCompany) {
+            return res.status(400).json({
+                success: false,
+                error: 'Duplicate company name',
+                message: `A company named "${existingCompany.name}" is already registered.`,
+            });
+        }
         // Create company
         const { data: company, error } = await supabase
             .from('companies')
             .insert({
-            name,
+            name: trimmedName,
             industry: industry || null,
             address: address || null,
             contact_info: contact_info || null,
@@ -224,8 +245,31 @@ async function updateCompany(req, res) {
         const { id } = req.params;
         const { name, industry, address, contact_info, code, capacity_limit, is_verified, is_moa_standardized, } = req.body;
         const updates = {};
-        if (name !== undefined)
-            updates.name = name;
+        if (name !== undefined) {
+            const trimmedName = name.trim();
+            if (!trimmedName) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Validation error',
+                    message: 'Company name cannot be empty',
+                });
+            }
+            // Check duplicate company name excluding current company
+            const { data: existingCompany } = await supabase
+                .from('companies')
+                .select('id, name')
+                .ilike('name', trimmedName)
+                .neq('id', id)
+                .maybeSingle();
+            if (existingCompany) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Duplicate company name',
+                    message: `A company named "${existingCompany.name}" is already registered.`,
+                });
+            }
+            updates.name = trimmedName;
+        }
         if (industry !== undefined)
             updates.industry = industry;
         if (address !== undefined)
@@ -753,6 +797,232 @@ async function getAllSupervisors(req, res) {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch supervisors',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Check company name availability and prefix similarities
+ * GET /admin/companies/check-name?name=...&excludeId=...
+ */
+async function checkCompanyName(req, res) {
+    try {
+        const { name, excludeId } = req.query;
+        const searchName = (name || '').trim();
+        if (!searchName) {
+            return res.json({
+                success: true,
+                data: {
+                    isAvailable: true,
+                    isExactMatch: false,
+                    exactMatch: null,
+                    similarCompanies: [],
+                },
+            });
+        }
+        // 1. Check exact match (case-insensitive)
+        let exactQuery = supabase
+            .from('companies')
+            .select('id, name')
+            .ilike('name', searchName);
+        if (excludeId) {
+            exactQuery = exactQuery.neq('id', excludeId);
+        }
+        const { data: exactMatches, error: exactError } = await exactQuery;
+        if (exactError)
+            throw exactError;
+        const exactMatch = exactMatches && exactMatches.length > 0 ? exactMatches[0] : null;
+        // 2. Check similar prefix/word match
+        let similarQuery = supabase
+            .from('companies')
+            .select('id, name')
+            .ilike('name', `${searchName}%`)
+            .limit(6);
+        if (excludeId) {
+            similarQuery = similarQuery.neq('id', excludeId);
+        }
+        const { data: similarMatches, error: similarError } = await similarQuery;
+        if (similarError)
+            throw similarError;
+        const filteredSimilar = (similarMatches || [])
+            .filter((c) => c.name.trim().toLowerCase() !== searchName.toLowerCase())
+            .map((c) => c.name);
+        res.json({
+            success: true,
+            data: {
+                isAvailable: !exactMatch,
+                isExactMatch: !!exactMatch,
+                exactMatch: exactMatch?.name || null,
+                similarCompanies: filteredSimilar,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Check company name error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to check company name',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Get next incremental company code for a given prefix
+ * GET /admin/companies/next-code?prefix=IT
+ */
+async function getNextCompanyCode(req, res) {
+    try {
+        const prefixParam = (req.query.prefix || 'OTH').toUpperCase().trim();
+        // Clean prefix: alphanumeric only, max 6 chars
+        const prefix = prefixParam.replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'OTH';
+        const { data: companies, error } = await supabase
+            .from('companies')
+            .select('code');
+        if (error)
+            throw error;
+        let maxNum = 0;
+        const regex = new RegExp(`^${prefix}-(\\d+)$`, 'i');
+        (companies || []).forEach((c) => {
+            if (!c.code)
+                return;
+            const match = c.code.trim().match(regex);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (!isNaN(num) && num > maxNum) {
+                    maxNum = num;
+                }
+            }
+        });
+        const nextNum = maxNum + 1;
+        const nextCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+        res.json({
+            success: true,
+            data: {
+                prefix,
+                nextCode,
+                sequence: nextNum,
+            },
+        });
+    }
+    catch (error) {
+        console.error('Get next company code error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate company code',
+            message: error.message,
+        });
+    }
+}
+/**
+ * Real-time website verification
+ * POST /admin/companies/verify-website
+ * Body: { url: string }
+ */
+async function verifyCompanyWebsite(req, res) {
+    try {
+        const { url } = req.body;
+        if (!url || typeof url !== 'string' || !url.trim()) {
+            return res.json({
+                success: true,
+                data: {
+                    verified: false,
+                    message: 'No website URL provided',
+                    normalizedUrl: '',
+                },
+            });
+        }
+        let normalizedUrl = url.trim();
+        if (!/^https?:\/\//i.test(normalizedUrl)) {
+            normalizedUrl = `https://${normalizedUrl}`;
+        }
+        // Validate URL syntax
+        try {
+            const parsed = new URL(normalizedUrl);
+            if (!parsed.hostname || !parsed.hostname.includes('.')) {
+                return res.json({
+                    success: true,
+                    data: {
+                        verified: false,
+                        message: 'Invalid domain name format',
+                        normalizedUrl,
+                    },
+                });
+            }
+        }
+        catch {
+            return res.json({
+                success: true,
+                data: {
+                    verified: false,
+                    message: 'Invalid URL format',
+                    normalizedUrl,
+                },
+            });
+        }
+        // Check connectivity via axios
+        try {
+            const response = await axios_1.default.get(normalizedUrl, {
+                timeout: 5000,
+                maxRedirects: 5,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                },
+                validateStatus: (status) => status < 400,
+            });
+            return res.json({
+                success: true,
+                data: {
+                    verified: true,
+                    statusCode: response.status,
+                    normalizedUrl,
+                    message: 'Website is verified and active',
+                },
+            });
+        }
+        catch (requestError) {
+            // If HTTPS failed (e.g. SSL cert issue), attempt HTTP fallback
+            if (normalizedUrl.startsWith('https://')) {
+                try {
+                    const httpUrl = normalizedUrl.replace(/^https:\/\//i, 'http://');
+                    const httpResponse = await axios_1.default.get(httpUrl, {
+                        timeout: 4000,
+                        maxRedirects: 5,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        },
+                        validateStatus: (status) => status < 400,
+                    });
+                    return res.json({
+                        success: true,
+                        data: {
+                            verified: true,
+                            statusCode: httpResponse.status,
+                            normalizedUrl: httpUrl,
+                            message: 'Website is verified and active',
+                        },
+                    });
+                }
+                catch {
+                    // Fall through to unverified
+                }
+            }
+            return res.json({
+                success: true,
+                data: {
+                    verified: false,
+                    normalizedUrl,
+                    message: 'Website could not be reached or is invalid',
+                    error: requestError.message,
+                },
+            });
+        }
+    }
+    catch (error) {
+        console.error('Verify company website error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to verify website',
             message: error.message,
         });
     }

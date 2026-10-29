@@ -95,8 +95,17 @@ app.use(
         return callback(null, true);
       }
       
-      if (allowedOrigins.includes(origin)) {
-        console.log('✅ CORS: Allowed origin:', origin);
+      // Check if origin is explicitly allowed
+      const isExplicitlyAllowed = allowedOrigins.includes(origin);
+
+      // In development, allow localhost or 127.0.0.1 on any port
+      const isDevLocalhost = process.env.NODE_ENV !== 'production' && (
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:') ||
+        origin.startsWith('https://localhost:')
+      );
+
+      if (isExplicitlyAllowed || isDevLocalhost) {
         callback(null, true);
       } else {
         console.warn('🚫 CORS: Blocked origin:', origin);

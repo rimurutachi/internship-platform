@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, BookOpen, Hash, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Mail, Award, Eye, Loader2, AlertCircle, Clock, Target, Calendar, TrendingUp, BookOpen, Hash, FileText, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import { AdvisorSidebar } from '@/components/advisor/AdvisorSidebar';
 import { AdvisorHeader } from '@/components/advisor/AdvisorHeader';
 import { MobileHeader } from '@/components/mobile/MobileHeader';
@@ -573,8 +573,12 @@ export default function MyStudents() {
               )}
 
               {/* Document Tracker */}
-              {documentTrackerData.length > 0 && (
-                <DocumentTracker documents={documentTrackerData} />
+              {documentTrackerData.length > 0 && selectedStudent && (
+                <DocumentTracker
+                  documents={documentTrackerData}
+                  studentId={selectedStudent.id}
+                  studentName={selectedStudent.name}
+                />
               )}
 
               {/* Weekly DTR Breakdown */}
@@ -601,11 +605,43 @@ export default function MyStudents() {
                       {dtrHistory.map((dtr: any) => (
                         <div
                           key={dtr.id}
-                          className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            if (selectedStudent?.id) params.set('studentId', selectedStudent.id);
+                            if (selectedStudent?.name) params.set('studentName', selectedStudent.name);
+                            const queryString = params.toString() ? `?${params.toString()}` : '';
+
+                            if (dtr.requirement_id) {
+                              router.push(`/dashboard/advisor/requirements/${dtr.requirement_id}${queryString}`);
+                            } else {
+                              router.push(`/dashboard/advisor/requirements?search=${encodeURIComponent(`Week ${dtr.week_number}`)}`);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              const params = new URLSearchParams();
+                              if (selectedStudent?.id) params.set('studentId', selectedStudent.id);
+                              if (selectedStudent?.name) params.set('studentName', selectedStudent.name);
+                              const queryString = params.toString() ? `?${params.toString()}` : '';
+
+                              if (dtr.requirement_id) {
+                                router.push(`/dashboard/advisor/requirements/${dtr.requirement_id}${queryString}`);
+                              } else {
+                                router.push(`/dashboard/advisor/requirements?search=${encodeURIComponent(`Week ${dtr.week_number}`)}`);
+                              }
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          title={`Click to view Week ${dtr.week_number} requirement submission`}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/60 hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer group"
                         >
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0 pr-3">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm">Week {dtr.week_number}</span>
+                              <span className="font-semibold text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                Week {dtr.week_number}
+                              </span>
                               <Badge
                                 variant="secondary"
                                 className={cn(
@@ -637,11 +673,14 @@ export default function MyStudents() {
                               })()}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-primary">
-                              {dtr.manual_hours_override ?? dtr.extracted_hours ?? 0}
-                            </p>
-                            <p className="text-xs text-muted-foreground">hours</p>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-primary">
+                                {dtr.manual_hours_override ?? dtr.extracted_hours ?? 0}
+                              </p>
+                              <p className="text-xs text-muted-foreground">hours</p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
                           </div>
                         </div>
                       ))}

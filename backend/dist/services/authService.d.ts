@@ -18,5 +18,10 @@ export declare class AuthService {
     static getAllUsers(): Promise<SuccessResponse | ErrorResponse>;
     static changeUserRole(userId: string, role: string): Promise<SuccessResponse | ErrorResponse>;
     private static buildUserProfile;
+    static uploadAvatar(userId: string, file: {
+        originalname?: string;
+        mimetype: string;
+        buffer: Buffer;
+    }): Promise<SuccessResponse | ErrorResponse>;
 }
 //# sourceMappingURL=authService.d.ts.map

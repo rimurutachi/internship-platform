@@ -476,11 +476,121 @@ export class DocumentSubmissionsService {
       );
     }
 
+    // 4.5. If document is approved, check if all 3 pre-internship documents are complete to activate pending internship
+    if (review.status === 'approved') {
+      await this.checkAndActivateInternship(submission.student_id, advisorId);
+    }
+
     // 5. Notify the student about the review result
     await this.notifyStudentAboutReview(submission.student_id, updated, requirement.title);
 
     console.log(`📝 Submission ${submissionId} reviewed: ${review.status}`);
     return updated;
+  }
+
+  /**
+   * Check if student's pending internship has all 3 required pre-internship documents approved:
+   * 1. Memorandum of Agreement (MOA)
+   * 2. Endorsement Letter
+   * 3. Approved Job Description
+   * If all 3 are approved, automatically activate the internship!
+   */
+  public async checkAndActivateInternship(studentId: string, reviewerId?: string): Promise<void> {
+    try {
+      // 1. Check if student has a pending internship
+      const { data: pendingInternship, error: internError } = await supabase
+        .from('internships')
+        .select('id, student_id, advisor_id, supervisor_id, status')
+        .eq('student_id', studentId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (internError || !pendingInternship) {
+        return; // No pending internship to activate
+      }
+
+      // 2. Fetch all approved submissions for this student with their requirement titles
+      const { data: approvedSubmissions, error: subError } = await supabase
+        .from('document_submissions')
+        .select(`
+          id,
+          status,
+          requirement:document_requirements(id, title)
+        `)
+        .eq('student_id', studentId)
+        .eq('status', 'approved');
+
+      if (subError || !approvedSubmissions || approvedSubmissions.length === 0) {
+        return;
+      }
+
+      const titles = approvedSubmissions
+        .map((s: any) => (s.requirement?.title || '').toLowerCase().trim());
+
+      const hasMOA = titles.some((t: string) => 
+        t.includes('memorandum of agreement') || t.includes('moa')
+      );
+      const hasEndorsement = titles.some((t: string) => 
+        t.includes('endorsement letter') || t.includes('endorsement')
+      );
+      const hasJobDescription = titles.some((t: string) => 
+        t.includes('job description')
+      );
+
+      console.log(`📄 [Pre-Internship Docs Check] Student ${studentId}: MOA=${hasMOA}, Endorsement=${hasEndorsement}, JobDescription=${hasJobDescription}`);
+
+      if (hasMOA && hasEndorsement && hasJobDescription) {
+        // All 3 required documents are approved! Transition to active
+        const { error: activateError } = await supabase
+          .from('internships')
+          .update({
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', pendingInternship.id);
+
+        if (activateError) {
+          console.error('❌ Failed to activate internship:', activateError.message);
+          return;
+        }
+
+        console.log(`🎉 [Internship Activation] Internship ${pendingInternship.id} for student ${studentId} is now ACTIVE!`);
+
+        // Log activity
+        await supabase.from('activity_log').insert({
+          user_id: reviewerId || pendingInternship.advisor_id || studentId,
+          action: 'internship_activated',
+          entity_type: 'internship',
+          entity_id: pendingInternship.id,
+          internship_id: pendingInternship.id,
+          description: 'Internship automatically activated upon approval of MOA, Endorsement Letter, and Approved Job Description.',
+        });
+
+        // Notify student
+        await notificationService.createNotification({
+          user_id: studentId,
+          type: 'internship_activated',
+          title: '🎉 Internship Officially Active!',
+          message: 'All your required pre-internship documents (MOA, Endorsement Letter, and Approved Job Description) have been approved. Your internship is now officially ACTIVE!',
+          action_url: '/dashboard/student',
+          reference_type: 'internship',
+        });
+
+        // Notify advisor if available
+        if (pendingInternship.advisor_id && pendingInternship.advisor_id !== reviewerId) {
+          await notificationService.createNotification({
+            user_id: pendingInternship.advisor_id,
+            type: 'internship_activated',
+            title: 'Student Internship Activated',
+            message: 'Student pre-internship requirements completed. Internship status updated to Active.',
+            action_url: `/dashboard/advisor/students`,
+            reference_type: 'internship',
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('⚠️ Error checking and activating internship:', err.message);
+    }
   }
 
   /**

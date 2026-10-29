@@ -87,8 +87,13 @@ app.use((0, cors_1.default)({
             console.log('✅ CORS: Request with no origin (curl/Postman/server)');
             return callback(null, true);
         }
-        if (allowedOrigins.includes(origin)) {
-            console.log('✅ CORS: Allowed origin:', origin);
+        // Check if origin is explicitly allowed
+        const isExplicitlyAllowed = allowedOrigins.includes(origin);
+        // In development, allow localhost or 127.0.0.1 on any port
+        const isDevLocalhost = process.env.NODE_ENV !== 'production' && (origin.startsWith('http://localhost:') ||
+            origin.startsWith('http://127.0.0.1:') ||
+            origin.startsWith('https://localhost:'));
+        if (isExplicitlyAllowed || isDevLocalhost) {
             callback(null, true);
         }
         else {
@@ -99,7 +104,7 @@ app.use((0, cors_1.default)({
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Count']
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count', 'Content-Disposition', 'Content-Length']
 }));
 app.use((0, morgan_1.default)("combined"));
 app.use(express_1.default.json({ limit: "10mb" }));
@@ -116,8 +121,8 @@ app.use(express_1.default.urlencoded({ extended: true }));
  */
 const rateLimitConfig = {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000)), // 15 minutes
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (process.env.NODE_ENV === 'production' ? '100' : '1000')),
-    authMaxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '5'), // Stricter for auth routes
+    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '2000'), // Default to 2000 for SPA apps
+    authMaxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '50'), // Increased auth limit default
     enabled: process.env.RATE_LIMIT_ENABLED !== 'false', // Feature flag for emergencies
 };
 // Log rate limit configuration on startup

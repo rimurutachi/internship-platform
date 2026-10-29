@@ -252,8 +252,8 @@ class StudentController {
     async getEvaluations(req, res, next) {
         try {
             const userId = req.user?.id;
-            const limit = parseInt(req.query.limit) || 10;
-            const offset = parseInt(req.query.offset) || 0;
+            const limit = Number(req.query.limit) || 10;
+            const offset = Number(req.query.offset) || 0;
             if (!userId) {
                 return res.status(401).json({ success: false, error: 'Unauthorized' });
             }
@@ -595,7 +595,7 @@ class StudentController {
             }
             const { data: conversations, error } = await query
                 .order('updated_at', { ascending: false })
-                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+                .range(Number(offset), Number(offset) + Number(limit) - 1);
             if (error) {
                 return res.status(500).json({ success: false, error: error.message });
             }
@@ -671,7 +671,7 @@ class StudentController {
         `, { count: 'exact' })
                 .eq('conversation_id', id)
                 .order('created_at', { ascending: false })
-                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+                .range(Number(offset), Number(offset) + Number(limit) - 1);
             if (error) {
                 return res.status(500).json({ success: false, error: error.message });
             }
@@ -689,8 +689,8 @@ class StudentController {
                     messages: formattedMessages,
                     pagination: {
                         total: count || 0,
-                        limit: parseInt(limit),
-                        offset: parseInt(offset),
+                        limit: Number(limit),
+                        offset: Number(offset),
                     },
                 },
             });
@@ -877,7 +877,7 @@ class StudentController {
             }
             const { data: notifications, error } = await query
                 .order('created_at', { ascending: false })
-                .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+                .range(Number(offset), Number(offset) + Number(limit) - 1);
             if (error) {
                 return res.status(500).json({ success: false, error: error.message });
             }

@@ -2,7 +2,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
 import { useState, useEffect } from 'react';
-import { adminInternshipsAPI } from '@/lib/api/admin-internships';
+import {
+  adminInternshipsAPI,
+  WORK_SCHEDULE_OPTIONS,
+  SHIFT_OPTIONS,
+  calculateScheduleProjections,
+  type WorkScheduleType,
+  type ShiftTimeType,
+} from '@/lib/api/admin-internships';
 import { hoursApi } from '@/lib/api/hours';
 import type {
   InternshipWithRelations,
@@ -29,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Clock, Calendar, TrendingUp } from 'lucide-react';
+import { Loader2, Clock, Calendar, TrendingUp, Sparkles } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface EditInternshipModalProps {
@@ -55,6 +62,10 @@ export function EditInternshipModal({
   const [hoursSummary, setHoursSummary] = useState<InternshipHoursSummary | null>(null);
   const [useCustomHours, setUseCustomHours] = useState(false);
 
+  // Schedule state
+  const [workSchedule, setWorkSchedule] = useState<WorkScheduleType>('mon-fri');
+  const [shiftTime, setShiftTime] = useState<ShiftTimeType>('8:00 AM - 5:00 PM');
+
   const [formData, setFormData] = useState<InternshipUpdateInput & { required_hours?: number; program_code?: string }>({
     position: internship.position,
     department: internship.department,
@@ -72,6 +83,7 @@ export function EditInternshipModal({
     if (open) {
       const existingRequiredHours = (internship as any).required_hours || 240;
       const existingProgramCode = (internship as any).program_code || '';
+      const existingSchedule = (internship as any).metadata?.schedule;
       
       setFormData({
         position: internship.position,
@@ -84,6 +96,18 @@ export function EditInternshipModal({
         required_hours: existingRequiredHours,
         program_code: existingProgramCode,
       });
+
+      if (existingSchedule?.work_days) {
+        setWorkSchedule(existingSchedule.work_days as WorkScheduleType);
+      } else {
+        setWorkSchedule('mon-fri');
+      }
+
+      if (existingSchedule?.shift_time) {
+        setShiftTime(existingSchedule.shift_time as ShiftTimeType);
+      } else {
+        setShiftTime('8:00 AM - 5:00 PM');
+      }
       
       // Check if using custom hours (no program code or program not in list)
       setUseCustomHours(!existingProgramCode);
@@ -116,32 +140,28 @@ export function EditInternshipModal({
     }
   };
 
-  // Calculate projected end date when start_date or required_hours changes
-  useEffect(() => {
-    if (formData.start_date && formData.required_hours && formData.required_hours > 0) {
-      const projectedEndDate = calculateProjectedEndDate(formData.start_date, formData.required_hours);
-      setFormData(prev => ({ ...prev, end_date: projectedEndDate }));
-    }
-  }, [formData.start_date, formData.required_hours]);
+  // Calculate schedule projections
+  const projections =
+    formData.start_date && formData.required_hours && formData.required_hours > 0
+      ? calculateScheduleProjections(
+          formData.start_date,
+          formData.required_hours,
+          workSchedule,
+          shiftTime
+        )
+      : null;
 
-  const calculateProjectedEndDate = (startDate: string, requiredHours: number): string => {
-    const HOURS_PER_DAY = 8;
-    const requiredDays = Math.ceil(requiredHours / HOURS_PER_DAY);
-    
-    const start = new Date(startDate);
-    let businessDaysAdded = 0;
-    const current = new Date(start);
-    
-    while (businessDaysAdded < requiredDays) {
-      current.setDate(current.getDate() + 1);
-      const dayOfWeek = current.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        businessDaysAdded++;
-      }
+  // Sync projected end date with formData
+  useEffect(() => {
+    if (projections?.projectedEndDate) {
+      setFormData((prev) => {
+        if (prev.end_date !== projections.projectedEndDate) {
+          return { ...prev, end_date: projections.projectedEndDate };
+        }
+        return prev;
+      });
     }
-    
-    return current.toISOString().split('T')[0];
-  };
+  }, [projections?.projectedEndDate]);
 
   const handleProgramChange = (programCode: string) => {
     if (programCode === 'custom') {
@@ -211,7 +231,25 @@ export function EditInternshipModal({
 
     try {
       setLoading(true);
-      await adminInternshipsAPI.updateInternship(internship.id, formData);
+      const payload: any = {
+        ...formData,
+        metadata: {
+          ...((internship as any).metadata || {}),
+          schedule: projections
+            ? {
+                work_days: workSchedule,
+                shift_time: shiftTime,
+                hours_per_day: projections.hoursPerDay,
+                hours_per_week: projections.hoursPerWeek,
+                total_working_days: projections.totalWorkingDays,
+                projected_weeks: projections.projectedWeeks,
+                projected_end_date: projections.projectedEndDate,
+              }
+            : (internship as any).metadata?.schedule,
+        },
+      };
+
+      await adminInternshipsAPI.updateInternship(internship.id, payload);
       toast({
         title: 'Success',
         description: 'Internship updated successfully',
@@ -347,7 +385,50 @@ export function EditInternshipModal({
             </Select>
           </div>
 
-          {/* Date Range */}
+          {/* Work Days Schedule and Shift */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="work_schedule">Work Days Schedule *</Label>
+              <Select
+                value={workSchedule}
+                onValueChange={(val: any) => setWorkSchedule(val)}
+                disabled={loading}
+              >
+                <SelectTrigger id="work_schedule">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORK_SCHEDULE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="shift_time">Daily Working Shift *</Label>
+              <Select
+                value={shiftTime}
+                onValueChange={(val: any) => setShiftTime(val)}
+                disabled={loading}
+              >
+                <SelectTrigger id="shift_time">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHIFT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Date Range and Program Selection */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start_date">Start Date *</Label>
@@ -406,6 +487,64 @@ export function EditInternshipModal({
             </div>
           )}
 
+          {/* Dynamic Schedule & Projected Timeline Summary Card */}
+          {projections && (
+            <div className="rounded-lg border bg-card p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Schedule &amp; Timeline Projections
+                </div>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-medium">
+                  {projections.hoursPerWeek} hrs/week
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-2.5 rounded-md bg-muted/40">
+                  <span className="text-muted-foreground block mb-0.5">Shift Hours</span>
+                  <span className="font-semibold text-foreground">{shiftTime}</span>
+                </div>
+
+                <div className="p-2.5 rounded-md bg-muted/40">
+                  <span className="text-muted-foreground block mb-0.5">Weekly Days</span>
+                  <span className="font-semibold text-foreground">
+                    {workSchedule === 'mon-sat' ? 'Mon - Sat (6 days)' : 'Mon - Fri (5 days)'}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-md bg-muted/40">
+                  <span className="text-muted-foreground block mb-0.5">Required Hours</span>
+                  <span className="font-semibold text-primary">{formData.required_hours} hrs</span>
+                </div>
+
+                <div className="p-2.5 rounded-md bg-muted/40">
+                  <span className="text-muted-foreground block mb-0.5">Total Working Days</span>
+                  <span className="font-semibold text-foreground">{projections.totalWorkingDays} days</span>
+                </div>
+
+                <div className="p-2.5 rounded-md bg-muted/40">
+                  <span className="text-muted-foreground block mb-0.5">Estimated Duration</span>
+                  <span className="font-semibold text-foreground">~{projections.projectedWeeks} weeks</span>
+                </div>
+
+                <div className="p-2.5 rounded-md bg-primary/10 border border-primary/20">
+                  <span className="text-muted-foreground block mb-0.5 flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-primary" />
+                    Projected End
+                  </span>
+                  <span className="font-bold text-primary">
+                    {new Date(projections.projectedEndDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Current Progress Card */}
           {hoursSummary && (
             <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
@@ -434,7 +573,9 @@ export function EditInternshipModal({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Weeks:</span>
-                  <span className="ml-2 font-medium">{hoursSummary.weeks_completed}</span>
+                  <span className="ml-2 font-medium">
+                    {(hoursSummary as any).weeks_completed ?? (hoursSummary as any).weeks_reported ?? 0}
+                  </span>
                 </div>
               </div>
               {hoursSummary.projected_end_date && (

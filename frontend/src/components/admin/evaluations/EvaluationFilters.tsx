@@ -69,10 +69,8 @@ export function EvaluationFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="submitted">Submitted</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
           </SelectContent>
         </Select>
 

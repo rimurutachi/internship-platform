@@ -69,4 +69,20 @@ export declare function removeSupervisorFromCompany(req: Request, res: Response)
  * Query params: unassigned (boolean) - if true, only return supervisors without a company
  */
 export declare function getAllSupervisors(req: Request, res: Response): Promise<void>;
+/**
+ * Check company name availability and prefix similarities
+ * GET /admin/companies/check-name?name=...&excludeId=...
+ */
+export declare function checkCompanyName(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
+/**
+ * Get next incremental company code for a given prefix
+ * GET /admin/companies/next-code?prefix=IT
+ */
+export declare function getNextCompanyCode(req: Request, res: Response): Promise<void>;
+/**
+ * Real-time website verification
+ * POST /admin/companies/verify-website
+ * Body: { url: string }
+ */
+export declare function verifyCompanyWebsite(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
 //# sourceMappingURL=companiesController.d.ts.map

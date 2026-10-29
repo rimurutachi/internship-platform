@@ -19,15 +19,48 @@ const getAllDocuments = async (req, res) => {
             .from('documents')
             .select(`
         *,
-        owner:users!documents_owner_id_fkey(id, first_name, last_name, email),
+        owner:users!documents_owner_id_fkey(id, first_name, last_name, email, role),
         versions:document_file_versions(count),
         comments:document_comments(count)
       `, { count: 'exact' });
-        // Apply filters
-        if (type)
-            query = query.eq('type', type);
-        if (status)
-            query = query.eq('status', status);
+        // Apply semantic category or file type filters
+        if (type && type !== 'all') {
+            const typeStr = String(type).toLowerCase();
+            if (typeStr === 'moa') {
+                query = query.ilike('title', '%moa%');
+            }
+            else if (typeStr === 'waiver') {
+                query = query.or('title.ilike.%waiver%,title.ilike.%liability%');
+            }
+            else if (typeStr === 'endorsement') {
+                query = query.ilike('title', '%endorsement%');
+            }
+            else if (typeStr === 'placement') {
+                query = query.or('title.ilike.%placement%,title.ilike.%ojt%');
+            }
+            else if (typeStr === 'evaluation') {
+                query = query.ilike('title', '%eval%');
+            }
+            else if (typeStr === 'template') {
+                query = query.eq('is_template', true);
+            }
+            else if (['pdf', 'docx', 'xlsx', 'image', 'zip'].includes(typeStr)) {
+                query = query.eq('type', typeStr);
+            }
+            else {
+                query = query.or(`title.ilike.%${typeStr}%,type.eq.${typeStr}`);
+            }
+        }
+        // Apply status filter with pre_approved mapped into approved
+        if (status && status !== 'all') {
+            const statusStr = String(status).toLowerCase();
+            if (statusStr === 'approved') {
+                query = query.in('status', ['approved', 'pre_approved']);
+            }
+            else {
+                query = query.eq('status', statusStr);
+            }
+        }
         if (owner_id)
             query = query.eq('owner_id', owner_id);
         if (search) {
@@ -41,6 +74,32 @@ const getAllDocuments = async (req, res) => {
         const { data, error, count } = await query;
         if (error)
             throw error;
+        // Batch enrich with student internship & company info
+        if (data && data.length > 0) {
+            const ownerIds = Array.from(new Set(data.map((d) => d.owner_id).filter(Boolean)));
+            if (ownerIds.length > 0) {
+                const { data: internships } = await supabaseAdmin
+                    .from('internships')
+                    .select('student_id, position, program_code, company:companies(name)')
+                    .in('student_id', ownerIds);
+                const internshipMap = new Map();
+                (internships || []).forEach((item) => {
+                    if (!internshipMap.has(item.student_id)) {
+                        internshipMap.set(item.student_id, item);
+                    }
+                });
+                data.forEach((doc) => {
+                    const intern = internshipMap.get(doc.owner_id);
+                    if (intern) {
+                        doc.internship_details = {
+                            company_name: intern.company?.name || 'N/A',
+                            position: intern.position || 'Intern',
+                            program_code: intern.program_code || 'BSIT'
+                        };
+                    }
+                });
+            }
+        }
         const paginatedResult = {
             documents: data,
             total: count || 0,
@@ -57,7 +116,7 @@ const getAllDocuments = async (req, res) => {
 };
 exports.getAllDocuments = getAllDocuments;
 /**
- * Get single document with full details (versions, comments, workflow, collaborators)
+ * Get single document with full details (versions, comments, workflow, collaborators, student & reviewer context)
  */
 const getDocument = async (req, res) => {
     try {
@@ -66,7 +125,7 @@ const getDocument = async (req, res) => {
             .from('documents')
             .select(`
         *,
-        owner:users!documents_owner_id_fkey(id, first_name, last_name, email),
+        owner:users!documents_owner_id_fkey(id, first_name, last_name, email, role),
         versions:document_file_versions(*, uploaded_by:users(id, first_name, last_name, email)),
         comments:document_comments(*, user:users!document_comments_user_id_fkey(id, first_name, last_name, email), resolved_by_user:users!document_comments_resolved_by_fkey(id, first_name, last_name, email), replies:document_comments(*, user:users!document_comments_user_id_fkey(id, first_name, last_name, email))),
         workflow:document_workflows(*, approvals:document_approvals(*, approver:users(id, first_name, last_name, email)))
@@ -84,7 +143,88 @@ const getDocument = async (req, res) => {
                 return compareSemanticVersions(b.version, a.version);
             });
         }
-        res.json(document);
+        let internshipDetails = null;
+        let reviewerDetails = null;
+        // 1. Fetch Student's Internship Details
+        if (document.owner_id) {
+            const { data: internshipData } = await supabaseAdmin
+                .from('internships')
+                .select(`
+          id,
+          position,
+          department,
+          program_code,
+          status,
+          company:companies(id, name),
+          advisor:users!internships_advisor_id_fkey(id, first_name, last_name, email)
+        `)
+                .eq('student_id', document.owner_id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (internshipData) {
+                internshipDetails = {
+                    id: internshipData.id,
+                    position: internshipData.position || 'Intern',
+                    department: internshipData.department || 'N/A',
+                    program_code: internshipData.program_code || (document.owner?.role === 'student' ? 'BSIT' : undefined),
+                    status: internshipData.status,
+                    company_name: internshipData.company?.name || 'N/A',
+                    advisor_name: internshipData.advisor ? `${internshipData.advisor.first_name} ${internshipData.advisor.last_name}`.trim() : undefined,
+                    advisor_email: internshipData.advisor?.email
+                };
+            }
+        }
+        // 2. Fetch Reviewer Details
+        const reviewerId = document.metadata?.pre_approved_by || document.metadata?.reviewed_by;
+        if (reviewerId) {
+            const { data: reviewerUser } = await supabaseAdmin
+                .from('users')
+                .select('id, first_name, last_name, email, role')
+                .eq('id', reviewerId)
+                .maybeSingle();
+            if (reviewerUser) {
+                reviewerDetails = {
+                    id: reviewerUser.id,
+                    name: `${reviewerUser.first_name} ${reviewerUser.last_name}`.trim(),
+                    email: reviewerUser.email,
+                    role: reviewerUser.role,
+                    reviewed_at: document.metadata?.pre_approved_at || document.metadata?.reviewed_at || document.updated_at,
+                    remarks: document.metadata?.remarks || (document.status === 'pre_approved' ? 'Pre-approved for company internship deployment' : document.status === 'approved' ? 'Verified & Approved' : undefined)
+                };
+            }
+        }
+        else if (internshipDetails?.advisor_name && (document.status === 'pre_approved' || document.status === 'approved')) {
+            reviewerDetails = {
+                name: internshipDetails.advisor_name,
+                email: internshipDetails.advisor_email,
+                role: 'advisor',
+                reviewed_at: document.updated_at,
+                remarks: 'Pre-approved for company internship deployment'
+            };
+        }
+        // 3. Generate Signed Preview URL
+        let previewUrl = document.metadata?.secure_pdf_url || null;
+        if (!previewUrl && document.file_url) {
+            try {
+                const { data: signedData } = await supabaseAdmin.storage
+                    .from('documents')
+                    .createSignedUrl(document.file_url, 3600);
+                if (signedData?.signedUrl) {
+                    previewUrl = signedData.signedUrl;
+                }
+            }
+            catch (err) {
+                // Ignore storage signed url errors
+            }
+        }
+        const enrichedDocument = {
+            ...document,
+            preview_url: previewUrl,
+            internship_details: internshipDetails,
+            reviewer_details: reviewerDetails
+        };
+        res.json(enrichedDocument);
     }
     catch (error) {
         console.error('Get document error:', error);
@@ -381,6 +521,8 @@ const getDocumentStats = async (req, res) => {
             acc[doc.status] = (acc[doc.status] || 0) + 1;
             return acc;
         }, {});
+        // Consolidate approved and pre_approved for high-level compliance monitoring
+        byStatus['approved'] = (byStatus['approved'] || 0) + (byStatus['pre_approved'] || 0);
         // Get counts by type
         const { data: typeData, error: typeError } = await supabaseAdmin
             .from('documents')

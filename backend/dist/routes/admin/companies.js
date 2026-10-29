@@ -19,6 +19,24 @@ router.get('/', companiesController_1.getCompanies);
  */
 router.get('/stats', companiesController_1.getCompanyStats);
 /**
+ * GET /api/admin/companies/check-name
+ * Check company name availability & similar existing companies
+ * Query params: name, excludeId
+ */
+router.get('/check-name', companiesController_1.checkCompanyName);
+/**
+ * GET /api/admin/companies/next-code
+ * Get next incremental code for prefix
+ * Query params: prefix
+ */
+router.get('/next-code', companiesController_1.getNextCompanyCode);
+/**
+ * POST /api/admin/companies/verify-website
+ * Check if company website is reachable & active
+ * Body: { url: string }
+ */
+router.post('/verify-website', companiesController_1.verifyCompanyWebsite);
+/**
  * GET /api/admin/companies/all-supervisors
  * Get all supervisors (optionally filter by unassigned)
  * Query params: unassigned (boolean) - if true, only return supervisors without a company

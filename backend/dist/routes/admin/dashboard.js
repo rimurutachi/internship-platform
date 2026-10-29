@@ -36,7 +36,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const adminDashboardService = __importStar(require("../../services/adminDashboardService"));
+const supabase_js_1 = require("@supabase/supabase-js");
 const router = (0, express_1.Router)();
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+/**
+ * Helper to ensure a valid university_id is always resolved
+ */
+async function resolveUniversityId(req) {
+    const queryUniv = req.query.university_id;
+    if (queryUniv && queryUniv !== 'null' && queryUniv !== 'undefined') {
+        return queryUniv;
+    }
+    const userUniv = req.user?.university_id;
+    if (userUniv)
+        return userUniv;
+    try {
+        const { data: firstUniv } = await supabase
+            .from('universities')
+            .select('id')
+            .limit(1)
+            .single();
+        return firstUniv?.id || '';
+    }
+    catch {
+        return '';
+    }
+}
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
 router.use((0, auth_1.requireRole)(['admin']));
@@ -47,16 +72,16 @@ router.use((0, auth_1.requireRole)(['admin']));
 router.get('/metrics', async (req, res) => {
     console.log('[admin/dashboard] GET /metrics', req.query);
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const metrics = await adminDashboardService.calculateDashboardMetrics(university_id);
-        console.log('[admin/dashboard] /metrics success', { university_id: university_id, metrics });
+        const metrics = await adminDashboardService.calculateDashboardMetrics(universityId);
+        console.log('[admin/dashboard] /metrics success', { university_id: universityId, metrics });
         return res.status(200).json({
             success: true,
             data: metrics,
@@ -78,19 +103,20 @@ router.get('/metrics', async (req, res) => {
 router.get('/overview', async (req, res) => {
     console.log('[admin/dashboard] GET /overview', req.query);
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        const forceRefresh = req.query.refresh === 'true';
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await adminDashboardService.getAdminDashboardOverview(university_id);
+        const result = await adminDashboardService.getAdminDashboardOverview(universityId, forceRefresh);
         if (!result.success) {
             return res.status(400).json(result);
         }
-        console.log('[admin/dashboard] /overview success', { university_id: university_id });
+        console.log('[admin/dashboard] /overview success', { university_id: universityId });
         return res.status(200).json(result);
     }
     catch (error) {
@@ -200,20 +226,21 @@ router.get('/historical', async (req, res) => {
 router.get('/ojt-overview', async (req, res) => {
     console.log('[admin/dashboard] GET /ojt-overview', req.query);
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        const forceRefresh = req.query.refresh === 'true';
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
         // Use the full overview shape expected by the frontend
-        const overview = await adminDashboardService.getAdminDashboardOverview(university_id);
+        const overview = await adminDashboardService.getAdminDashboardOverview(universityId, forceRefresh);
         if (!overview.success) {
             return res.status(400).json(overview);
         }
-        console.log('[admin/dashboard] /ojt-overview success', { university_id: university_id });
+        console.log('[admin/dashboard] /ojt-overview success', { university_id: universityId });
         return res.status(200).json({ success: true, data: overview.data });
     }
     catch (error) {

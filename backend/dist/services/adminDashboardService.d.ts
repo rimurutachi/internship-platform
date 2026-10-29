@@ -5,7 +5,7 @@ export interface OJTDashboardMetrics {
     completed_internships: number;
     total_companies: number;
     companies_with_capacity: number;
-    total_daily_reports: number;
+    total_weekly_dtr: number;
     pending_supervisor_evaluations: number;
     pending_advisor_evaluations: number;
     completed_evaluations_this_month: number;
@@ -13,6 +13,7 @@ export interface OJTDashboardMetrics {
 }
 /**
  * Calculate real-time OJT-centric dashboard metrics
+ * Optimized for high performance: runs queries concurrently via Promise.allSettled
  * NO SYSTEM METRICS - Only OJT/Internship data
  */
 export declare function calculateDashboardMetrics(universityId: string): Promise<OJTDashboardMetrics>;
@@ -59,26 +60,11 @@ export declare function getAIInsights(universityId: string): Promise<{
 }>;
 /**
  * Get dashboard overview for admin
- * Combines metrics and insights
+ * Combines metrics and insights with caching and timeout protection
  */
-export declare function getAdminDashboardOverview(universityId: string): Promise<{
+export declare function getAdminDashboardOverview(universityId: string, forceRefresh?: boolean): Promise<{
     success: boolean;
-    data: {
-        metrics: OJTDashboardMetrics;
-        insights: {
-            type: "sentiment_trend" | "skill_analysis" | "performance" | "comparison";
-            message: string;
-            title: string;
-            category: string;
-        }[] | {
-            type: string;
-            message: string;
-        }[];
-        recent_activity: {
-            daily_reports_this_week: number;
-            evaluations_this_week: number;
-        };
-    };
+    data: any;
     error?: undefined;
 } | {
     success: boolean;

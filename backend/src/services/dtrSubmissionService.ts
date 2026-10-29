@@ -618,20 +618,72 @@ export class DTRSubmissionService {
       return sum + Number(hours);
     }, 0);
 
+    // Fetch current internship status and required hours
+    const { data: internship } = await supabase
+      .from('internships')
+      .select('id, required_hours, status, student_id, advisor_id, supervisor_id')
+      .eq('id', internshipId)
+      .maybeSingle();
+
+    const requiredHours = internship?.required_hours || 240;
+    const isNowCompleted = internship && internship.status === 'active' && totalHours >= requiredHours;
+
+    const updatePayload: any = {
+      total_hours_worked: totalHours,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isNowCompleted) {
+      updatePayload.status = 'completed';
+    }
+
     // Update internship total_hours_worked
     const { error } = await supabase
       .from('internships')
-      .update({
-        total_hours_worked: totalHours,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', internshipId);
 
     if (error) {
       console.error('❌ [DTR] Failed to update total hours:', error.message);
     }
 
-    console.log(`✅ [DTR] Total hours for internship ${internshipId}: ${totalHours}`);
+    if (isNowCompleted && internship) {
+      console.log(`🎓 [Internship Lifecycle] Internship ${internshipId} completed! Required: ${requiredHours}, Rendered: ${totalHours}`);
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        user_id: internship.student_id,
+        action: 'internship_completed',
+        entity_type: 'internship',
+        entity_id: internshipId,
+        internship_id: internshipId,
+        description: `Internship successfully completed! Rendered ${totalHours}/${requiredHours} required hours.`,
+      });
+
+      // Notify student
+      await notificationService.createNotification({
+        user_id: internship.student_id,
+        type: 'internship_completed',
+        title: '🎓 Internship Completed!',
+        message: `Congratulations! You have completed all your required ${requiredHours} internship hours (${totalHours} hours rendered).`,
+        action_url: '/dashboard/student',
+        reference_type: 'internship',
+      });
+
+      // Notify advisor
+      if (internship.advisor_id) {
+        await notificationService.createNotification({
+          user_id: internship.advisor_id,
+          type: 'internship_completed',
+          title: 'Student Completed Internship Hours',
+          message: `A student has fulfilled their required ${requiredHours} internship hours.`,
+          action_url: '/dashboard/advisor/students',
+          reference_type: 'internship',
+        });
+      }
+    }
+
+    console.log(`✅ [DTR] Total hours for internship ${internshipId}: ${totalHours} (Status: ${isNowCompleted ? 'COMPLETED' : internship?.status || 'active'})`);
     return { total: totalHours };
   }
 

@@ -143,6 +143,7 @@ export const adminRubricsAPI = {
     description?: string;
     criteria: RubricCriterion[];
     grading_scale: GradingScale[];
+    is_active?: boolean;
   }) => {
     return fetchAPI<{ success: boolean; data: EvaluationRubric; message: string }>(
       '/admin/rubrics',

@@ -24,7 +24,7 @@ export function DocumentStatsCards({ stats }: DocumentStatsCardsProps) {
     },
     {
       title: 'Approved',
-      value: stats.by_status.approved || 0,
+      value: (stats.by_status.approved || 0) + ((stats.by_status as any).pre_approved || 0),
       icon: CheckCircle,
       color: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-50 dark:bg-green-500/10',

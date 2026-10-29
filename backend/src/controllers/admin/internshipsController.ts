@@ -215,6 +215,7 @@ export class InternshipsController {
         status = 'pending',
         required_hours,
         program_code,
+        metadata,
       } = req.body;
 
 
@@ -271,7 +272,7 @@ export class InternshipsController {
         }
       }
 
-      // Create internship — include required_hours and program_code so custom hours are preserved
+      // Create internship — include required_hours, program_code, and metadata
       const { data: internship, error } = await supabase
         .from('internships')
         .insert({
@@ -286,6 +287,7 @@ export class InternshipsController {
           status,
           ...(required_hours ? { required_hours: Number(required_hours) } : {}),
           ...(resolvedProgramCode ? { program_code: resolvedProgramCode } : {}),
+          ...(metadata ? { metadata } : {}),
         })
         .select()
         .single();
@@ -332,7 +334,7 @@ export class InternshipsController {
     console.log('[AdminInternships] updateInternship request', { internshipId: req.params.id, updates: Object.keys(req.body), user: (req as any).user?.id });
     try {
       const id = ensureString(req.params.id, 'id');
-      const { position, department, advisor_id, supervisor_id, start_date, end_date, status, required_hours, program_code } =
+      const { position, department, advisor_id, supervisor_id, start_date, end_date, status, required_hours, program_code, metadata } =
         req.body;
 
       // Get current internship
@@ -358,8 +360,9 @@ export class InternshipsController {
       if (start_date !== undefined) updateData.start_date = start_date;
       if (end_date !== undefined) updateData.end_date = end_date;
       if (status !== undefined) updateData.status = status;
-      if (required_hours !== undefined) updateData.required_hours = Number(required_hours);   // ← was missing!
-      if (program_code !== undefined) updateData.program_code = program_code;                 // ← was missing!
+      if (required_hours !== undefined) updateData.required_hours = Number(required_hours);
+      if (program_code !== undefined) updateData.program_code = program_code;
+      if (metadata !== undefined) updateData.metadata = metadata;
 
 
       // Validate new date range if provided
