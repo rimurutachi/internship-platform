@@ -88,8 +88,8 @@ async function getEvaluations(req, res) {
             supervisor_id: supervisor_id,
             status: status,
             evaluation_type: evaluation_type,
-            limit: limit ? parseInt(limit) : undefined,
-            offset: offset ? parseInt(offset) : undefined,
+            limit: limit ? Number(limit) : undefined,
+            offset: offset ? Number(offset) : undefined,
         });
         res.json({ success: true, data: evaluations });
     }

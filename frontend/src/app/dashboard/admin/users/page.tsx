@@ -19,6 +19,7 @@ import {
   Calendar,
   Mail,
   Pencil,
+  AlertCircle,
 } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -64,6 +65,29 @@ import {
 } from "@/lib/api/services/admin";
 import { adminCompaniesAPI, Company } from "@/lib/api/admin-companies";
 import { createSupabaseClient } from "@/lib/supabase";
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+const getEmailValidationError = (email: string): string => {
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return "Email is required";
+  }
+  if (!trimmed.includes("@")) {
+    return "Email must contain an '@' symbol";
+  }
+  const parts = trimmed.split("@");
+  if (!parts[0]) {
+    return "Please enter the username part before '@'";
+  }
+  if (!parts[1] || !parts[1].includes(".")) {
+    return "Please enter a complete domain (e.g., example.com)";
+  }
+  if (!EMAIL_REGEX.test(trimmed)) {
+    return "Please enter a valid and complete email address (e.g., user@example.com)";
+  }
+  return "";
+};
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -124,6 +148,8 @@ export default function UsersPage() {
     role: "student",
     password: "",
   });
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch users
@@ -248,15 +274,33 @@ export default function UsersPage() {
 
   // Create user handler
   const handleCreateUser = async () => {
+    // Check required fields
     if (
-      !createForm.email ||
-      !createForm.firstName ||
-      !createForm.lastName ||
-      !createForm.password
+      !createForm.email.trim() ||
+      !createForm.firstName.trim() ||
+      !createForm.lastName.trim() ||
+      !createForm.password.trim()
     ) {
+      if (!createForm.email.trim()) {
+        setEmailTouched(true);
+        setEmailError("Email is required");
+      }
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailErr = getEmailValidationError(createForm.email);
+    if (emailErr) {
+      setEmailTouched(true);
+      setEmailError(emailErr);
+      toast({
+        title: "Invalid Email",
+        description: emailErr,
         variant: "destructive",
       });
       return;
@@ -287,7 +331,10 @@ export default function UsersPage() {
 
     try {
       setSubmitting(true);
-      await adminAPI.createUser(createForm);
+      await adminAPI.createUser({
+        ...createForm,
+        email: createForm.email.trim(),
+      });
       toast({
         title: "Success",
         description:
@@ -296,6 +343,8 @@ export default function UsersPage() {
             : "User created successfully",
       });
       setCreateDialogOpen(false);
+      setEmailTouched(false);
+      setEmailError("");
       setCreateForm({
         email: "",
         firstName: "",
@@ -510,6 +559,8 @@ export default function UsersPage() {
                     open={createDialogOpen}
                     onOpenChange={(open) => {
                       setCreateDialogOpen(open);
+                      setEmailTouched(false);
+                      setEmailError("");
                       if (open) {
                         fetchCompanies(); // Fetch companies when dialog opens
                         fetchUniversities(); // Fetch universities for students/advisors
@@ -559,19 +610,44 @@ export default function UsersPage() {
                           />
                         </div>
                         <div>
-                          <Label>Email</Label>
+                          <Label htmlFor="create-user-email">
+                            Email <span className="text-destructive">*</span>
+                          </Label>
                           <Input
+                            id="create-user-email"
                             type="email"
                             placeholder="john@example.com"
-                            className="mt-2"
+                            className={`mt-2 ${
+                              emailError
+                                ? "border-destructive focus-visible:ring-destructive"
+                                : ""
+                            }`}
                             value={createForm.email}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const val = e.target.value;
                               setCreateForm({
                                 ...createForm,
-                                email: e.target.value,
-                              })
-                            }
+                                email: val,
+                              });
+                              if (emailTouched) {
+                                setEmailError(getEmailValidationError(val));
+                              }
+                            }}
+                            onBlur={() => {
+                              if (createForm.email.trim()) {
+                                setEmailTouched(true);
+                                setEmailError(
+                                  getEmailValidationError(createForm.email)
+                                );
+                              }
+                            }}
                           />
+                          {emailError && (
+                            <p className="text-xs text-destructive flex items-center gap-1.5 mt-1.5 font-medium">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>{emailError}</span>
+                            </p>
+                          )}
                         </div>
                         <div>
                           <Label>Password</Label>

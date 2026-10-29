@@ -284,7 +284,7 @@ export default function AdminEvaluationsPage() {
               </div>
 
               {/* Stats Cards */}
-              {metrics && <EvaluationStatsCards metrics={metrics} loading={loading} />}
+              {metrics && <EvaluationStatsCards metrics={metrics} evaluations={evaluations} loading={loading} />}
 
               {/* Filters */}
               <EvaluationFiltersComponent

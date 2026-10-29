@@ -49,7 +49,27 @@ export interface Document {
     first_name: string;
     last_name: string;
     email: string;
+    role?: string;
   };
+  internship_details?: {
+    id?: string;
+    position?: string;
+    department?: string;
+    program_code?: string;
+    status?: string;
+    company_name?: string;
+    advisor_name?: string;
+    advisor_email?: string;
+  };
+  reviewer_details?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    reviewed_at?: string;
+    remarks?: string;
+  };
+  preview_url?: string | null;
 }
 
 export interface DocumentVersion {
@@ -213,7 +233,27 @@ export interface DocumentResponse {
     first_name: string;
     last_name: string;
     email: string;
+    role?: string;
   };
+  internship_details?: {
+    id?: string;
+    position?: string;
+    department?: string;
+    program_code?: string;
+    status?: string;
+    company_name?: string;
+    advisor_name?: string;
+    advisor_email?: string;
+  };
+  reviewer_details?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    reviewed_at?: string;
+    remarks?: string;
+  };
+  preview_url?: string | null;
   versions?: DocumentVersion[];
   comments?: DocumentComment[];
   workflow?: DocumentWorkflow[];

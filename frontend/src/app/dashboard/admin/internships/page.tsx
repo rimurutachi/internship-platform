@@ -123,8 +123,35 @@ export default function AdminInternshipsPage() {
 
   // Handle search
   const handleSearch = () => {
-    setFilters({ ...filters, search: searchTerm, page: 1 });
+    setFilters((prev) => {
+      const updated = { ...prev, page: 1 };
+      if (searchTerm.trim()) {
+        updated.search = searchTerm.trim();
+      } else {
+        delete updated.search;
+      }
+      return updated;
+    });
   };
+
+  // Debounce search input so typing doesn't spam requests and automatically filters
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((prev) => {
+        const trimmed = searchTerm.trim();
+        if ((prev.search || '') === trimmed) return prev;
+        const updated = { ...prev, page: 1 };
+        if (trimmed) {
+          updated.search = trimmed;
+        } else {
+          delete updated.search;
+        }
+        return updated;
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Handle filter change
   const handleFilterChange = (key: keyof InternshipFilters, value: string) => {
@@ -220,7 +247,7 @@ export default function AdminInternshipsPage() {
 
   const initials = getInitials();
 
-  const InternshipsContent = () => (
+  return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -602,13 +629,7 @@ export default function AdminInternshipsPage() {
         </CardContent>
       </Card>
 
-    </div>
-  );
-
-  return (
-    <>
-      <InternshipsContent />
-      {/* Modals - Rendered at the root level so they don't unmount when InternshipsContent re-renders */}
+      {/* Modals */}
       <CreateInternshipModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -653,6 +674,6 @@ export default function AdminInternshipsPage() {
           />
         </>
       )}
-    </>
+    </div>
   );
 }

@@ -120,12 +120,45 @@ export default function AdminCompaniesPage() {
 
   // Handle search
   const handleSearch = () => {
-    setFilters({ ...filters, search: searchTerm, page: 1 });
+    setFilters((prev) => {
+      const updated = { ...prev, page: 1 };
+      if (searchTerm.trim()) {
+        updated.search = searchTerm.trim();
+      } else {
+        delete updated.search;
+      }
+      return updated;
+    });
   };
 
+  // Debounce search input so typing doesn't spam requests and automatically filters
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((prev) => {
+        const trimmed = searchTerm.trim();
+        if ((prev.search || '') === trimmed) return prev;
+        const updated = { ...prev, page: 1 };
+        if (trimmed) {
+          updated.search = trimmed;
+        } else {
+          delete updated.search;
+        }
+        return updated;
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Handle filter change
-  const handleFilterChange = (key: keyof CompanyFilters, value: string | boolean) => {
-    setFilters({ ...filters, [key]: value, page: 1 });
+  const handleFilterChange = (key: keyof CompanyFilters, value: any) => {
+    const updated = { ...filters, page: 1 };
+    if (value === 'all' || value === undefined) {
+      delete (updated as any)[key];
+    } else {
+      (updated as any)[key] = value;
+    }
+    setFilters(updated);
   };
 
   // Handle view company
@@ -170,7 +203,7 @@ export default function AdminCompaniesPage() {
 
   const initials = getInitials();
 
-  const CompaniesContent = () => (
+  return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -281,16 +314,16 @@ export default function AdminCompaniesPage() {
             <div className="w-full md:w-48">
               <label className="text-xs sm:text-sm font-medium mb-2 block">Status</label>
               <Select
-                value={filters.is_verified === undefined ? 'all' : filters.is_verified.toString()}
+                value={filters.is_verified === undefined ? 'all' : filters.is_verified ? 'true' : 'false'}
                 onValueChange={(value) =>
-                  handleFilterChange('is_verified', value === 'all' ? true : value === 'true')
+                  handleFilterChange('is_verified', value === 'all' ? 'all' : value === 'true')
                 }
               >
                 <SelectTrigger className="text-sm">
                   <SelectValue placeholder="All Companies" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Companies</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="true">Verified Only</SelectItem>
                   <SelectItem value="false">Unverified</SelectItem>
                 </SelectContent>
@@ -381,12 +414,16 @@ export default function AdminCompaniesPage() {
                                 Archived
                               </Badge>
                             )}
-                            {company.is_verified && (
+                            {company.is_verified ? (
                               <Badge variant="default" className="text-xs">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 Verified
                               </Badge>
-                            )}
+                            ) : !company.is_archived ? (
+                              <Badge variant="outline" className="text-xs text-muted-foreground border-dashed">
+                                Unverified
+                              </Badge>
+                            ) : null}
                             {company.is_moa_standardized && (
                               <Badge variant="secondary" className="text-xs">
                                 <FileCheck className="h-3 w-3 mr-1" />
@@ -456,11 +493,15 @@ export default function AdminCompaniesPage() {
                                 Archived
                               </Badge>
                             )}
-                            {company.is_verified && (
+                            {company.is_verified ? (
                               <Badge variant="default" className="text-xs">
                                 Verified
                               </Badge>
-                            )}
+                            ) : !company.is_archived ? (
+                              <Badge variant="outline" className="text-xs text-muted-foreground border-dashed">
+                                Unverified
+                              </Badge>
+                            ) : null}
                             {company.is_moa_standardized && (
                               <Badge variant="secondary" className="text-xs">
                                 MOA
@@ -617,6 +658,4 @@ export default function AdminCompaniesPage() {
       )}
     </div>
   );
-
-  return <CompaniesContent />;
 }

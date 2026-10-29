@@ -22,8 +22,8 @@ const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, proce
 async function getAllUsers(req, res) {
     try {
         const { role, status, search, page = '1', limit = '10', program, year_level, section } = req.query;
-        const pageNum = parseInt(page, 10);
-        const limitNum = parseInt(limit, 10);
+        const pageNum = Number(page);
+        const limitNum = Number(limit);
         const offset = (pageNum - 1) * limitNum;
         // Build query
         let query = supabase

@@ -10,6 +10,7 @@ const dailyReports_1 = __importDefault(require("./dailyReports"));
 const documentRequirements_1 = __importDefault(require("./documentRequirements"));
 const tasks_1 = __importDefault(require("./tasks"));
 const dtr_1 = __importDefault(require("./dtr"));
+const narrativeReport_1 = __importDefault(require("./narrativeReport"));
 const router = (0, express_1.Router)();
 // Apply authentication middleware to all routes
 router.use(auth_1.authenticateToken);
@@ -56,6 +57,8 @@ router.use('/', tasks_1.default);
 router.use('/', dailyReports_1.default);
 // Weekly DTR submission routes
 router.use('/', dtr_1.default);
+// Narrative Report routes
+router.use('/', narrativeReport_1.default);
 // Dashboard route
 router.get('/dashboard', studentController_1.default.getDashboardOverview);
 exports.default = router;

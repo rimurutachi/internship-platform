@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { Users, Building2, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, Briefcase, Sparkles, ArrowUpRight, Activity, GraduationCap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Users, Building2, CheckCircle2, Clock, TrendingUp, RefreshCw, Loader2, Briefcase, Sparkles, ArrowUpRight, Activity, GraduationCap, AlertCircle } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
-import { createSupabaseClient } from "@/lib/supabase";
+import { apiClient, ApiResponse } from "@/lib/api/client";
+import { useUserContext } from "@/components/providers/UserProvider";
 
 // OJT Dashboard Metrics Type
 interface OJTDashboardMetrics {
@@ -25,8 +26,6 @@ interface OJTDashboardMetrics {
   completed_evaluations_this_month: number;
   timestamp: string;
 }
-
-
 
 // AI Insights Type
 interface AIInsight {
@@ -65,10 +64,13 @@ interface DashboardOverview {
  * - CBSU-branded design
  */
 export function AdminAnalyticsOJT() {
+  const { user } = useUserContext();
+
   // Loading and data states
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   // Data states
   const [metrics, setMetrics] = useState<OJTDashboardMetrics | null>(null);
@@ -80,90 +82,36 @@ export function AdminAnalyticsOJT() {
   });
 
   // Fetch dashboard data from backend
-  const fetchDashboardData = async (silent: boolean = false) => {
+  const fetchDashboardData = useCallback(async (silent: boolean = false, forceRefresh: boolean = false) => {
     try {
       if (!silent) {
         setRefreshing(true);
       }
+      setFetchError(null);
 
-      // Get authenticated user
-      const { data: { user: authUser } } = await createSupabaseClient().auth.getUser();
-      
-      if (!authUser) {
-        throw new Error('User not authenticated. Please log in again.');
+      const params: Record<string, string> = {};
+      if (user?.university_id) {
+        params.university_id = user.university_id;
+      }
+      if (forceRefresh) {
+        params.refresh = 'true';
       }
 
-      // Fetch user details to get university_id
-      const { data: userData, error: userError } = await createSupabaseClient()
-        .from('users')
-        .select('university_id, role')
-        .eq('id', authUser.id)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-        throw new Error('Failed to fetch user information. Please try logging in again.');
-      }
-
-      let universityId: string;
-
-      if (!userData?.university_id) {
-        console.warn('Admin user has no university_id, attempting to fetch first university');
-        
-        // For system-wide admins, get the first university
-        const { data: universities, error: univError } = await createSupabaseClient()
-          .from('universities')
-          .select('id')
-          .limit(1)
-          .single();
-
-        if (univError || !universities?.id) {
-          throw new Error('No university found in the system. Please contact administrator.');
-        }
-        
-        universityId = universities.id;
-      } else {
-        universityId = userData.university_id;
-      }
-
-      // Fetch OJT dashboard overview from backend
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      
-      // Get access token from Supabase session for authentication
-      const { data: { session } } = await createSupabaseClient().auth.getSession();
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
-        throw new Error('No access token found. Please log in again.');
-      }
-
-      const response = await fetch(
-        `${apiUrl}/admin/dashboard/ojt-overview?university_id=${universityId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          credentials: 'include',
-        }
+      // Fetch OJT dashboard overview from backend using configured apiClient
+      const response = await apiClient.get<ApiResponse<DashboardOverview>>(
+        '/admin/dashboard/ojt-overview',
+        { params }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to fetch dashboard data: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to load dashboard data');
+      const overview = response.data?.data;
+      if (!overview) {
+        throw new Error(response.data?.message || 'Failed to load dashboard data');
       }
 
       // Set the data from backend
-      setMetrics(result.data.metrics);
-      setInsights(result.data.insights || []);
-      setRecentActivity(result.data.recent_activity || {
+      setMetrics(overview.metrics);
+      setInsights(overview.insights || []);
+      setRecentActivity(overview.recent_activity || {
         weekly_dtr_this_week: 0,
         evaluations_this_week: 0,
       });
@@ -175,33 +123,36 @@ export function AdminAnalyticsOJT() {
       if (!silent) {
         toast.success("Dashboard data refreshed!");
       }
-      
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      toast.error(error.message || "Failed to load dashboard data");
+      const errMsg = error.message || "Failed to load dashboard data";
+      if (!silent) {
+        toast.error(errMsg);
+      }
+      setFetchError(errMsg);
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.university_id]);
 
   // Manual refresh
   const handleRefresh = () => {
-    fetchDashboardData(false);
+    fetchDashboardData(false, true);
   };
 
   // Initial load
   useEffect(() => {
-    fetchDashboardData(true);
-  }, []);
+    fetchDashboardData(true, false);
+  }, [fetchDashboardData]);
 
-  // Auto-refresh every 2 minutes
+  // Auto-refresh every 2 minutes (silent, uses cache if fresh)
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchDashboardData(true);
+      fetchDashboardData(true, false);
     }, 120000); // 2 minutes
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
@@ -210,6 +161,22 @@ export function AdminAnalyticsOJT() {
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Loading dashboard...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (fetchError && !metrics) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 border rounded-2xl bg-muted/20 text-center gap-4">
+        <AlertCircle className="w-10 h-10 text-amber-500" />
+        <div className="space-y-1">
+          <h3 className="font-semibold text-lg">Unable to load dashboard data</h3>
+          <p className="text-sm text-muted-foreground max-w-md">{fetchError}</p>
+        </div>
+        <Button onClick={handleRefresh} variant="outline" className="gap-2">
+          <RefreshCw className="w-4 h-4" />
+          Try Again
+        </Button>
       </div>
     );
   }

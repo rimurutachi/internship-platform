@@ -49,7 +49,11 @@ export class EvaluationsController {
 
       // Apply filters
       if (status) {
-        query = query.eq('status', status);
+        if (status === 'submitted') {
+          query = query.in('status', ['submitted', 'approved']);
+        } else {
+          query = query.eq('status', status);
+        }
       }
       if (supervisor_id) {
         query = query.eq('supervisor_id', supervisor_id);

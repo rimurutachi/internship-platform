@@ -313,11 +313,11 @@ export function ViewInternshipModal({
 
             <Separator />
 
-            {/* Dates Section */}
+            {/* Dates & Schedule Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Timeline</h3>
+                <h3 className="text-lg font-semibold">Timeline &amp; Schedule</h3>
               </div>
               <div className="ml-7 grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -327,12 +327,44 @@ export function ViewInternshipModal({
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Projected End Date</p>
                   <p className="font-medium">
-                    {hoursSummary?.projected_end_date 
-                      ? formatDate(hoursSummary.projected_end_date)
-                      : 'TBD (based on hours progress)'
+                    {internship.metadata?.schedule?.projected_end_date
+                      ? formatDate(internship.metadata.schedule.projected_end_date)
+                      : hoursSummary?.projected_end_date 
+                        ? formatDate(hoursSummary.projected_end_date)
+                        : formatDate(internship.end_date)
                     }
                   </p>
                 </div>
+                {internship.metadata?.schedule && (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Work Schedule</p>
+                      <p className="font-medium">
+                        {internship.metadata.schedule.work_days === 'mon-sat'
+                          ? 'Monday - Saturday (6 days/week)'
+                          : 'Monday - Friday (5 days/week)'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Daily Shift</p>
+                      <p className="font-medium">
+                        {internship.metadata.schedule.shift_time || '8:00 AM - 5:00 PM'} (8 hrs/day)
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Total Working Days</p>
+                      <p className="font-medium">
+                        {internship.metadata.schedule.total_working_days} working days
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Projected Duration</p>
+                      <p className="font-medium">
+                        ~{internship.metadata.schedule.projected_weeks} weeks ({internship.metadata.schedule.hours_per_week} hrs/week)
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

@@ -347,4 +347,114 @@ export const adminCompaniesAPI = {
     if (unassignedOnly) params.append('unassigned', 'true');
     return fetchAPI(`/admin/companies/all-supervisors?${params.toString()}`);
   },
+
+  /**
+   * Check if company name is available and find similar companies
+   */
+  checkCompanyName: async (
+    name: string,
+    excludeId?: string
+  ): Promise<{
+    success: boolean;
+    data: {
+      isAvailable: boolean;
+      isExactMatch: boolean;
+      exactMatch: string | null;
+      similarCompanies: string[];
+    };
+  }> => {
+    const params = new URLSearchParams();
+    params.append('name', name);
+    if (excludeId) params.append('excludeId', excludeId);
+    return fetchAPI(`/admin/companies/check-name?${params.toString()}`);
+  },
+
+  /**
+   * Get next incremental code for an industry prefix
+   */
+  getNextCompanyCode: async (
+    prefix: string
+  ): Promise<{
+    success: boolean;
+    data: {
+      prefix: string;
+      nextCode: string;
+      sequence: number;
+    };
+  }> => {
+    const params = new URLSearchParams();
+    params.append('prefix', prefix);
+    return fetchAPI(`/admin/companies/next-code?${params.toString()}`);
+  },
+
+  /**
+   * Verify website connectivity & active state
+   */
+  verifyWebsite: async (
+    url: string
+  ): Promise<{
+    success: boolean;
+    data: {
+      verified: boolean;
+      statusCode?: number;
+      normalizedUrl: string;
+      message: string;
+      error?: string;
+    };
+  }> => {
+    return fetchAPI('/admin/companies/verify-website', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
+  },
 };
+
+export const PHILIPPINE_INDUSTRIES = [
+  'Information Technology & Software Development',
+  'BPO, Shared Services & Customer Support',
+  'Telecommunications & Network Infrastructure',
+  'Banking, Finance & FinTech',
+  'Human Resources, Staffing & Recruitment',
+  'Marketing, Advertising & Public Relations',
+  'Hospitality, Tourism & Food Service',
+  'Events Management, Leisure & Entertainment',
+  'Education, Academe & E-Learning',
+  'Healthcare, Mental Health & Clinical Services',
+  'Law Enforcement, Public Safety & Security Services',
+  'Government, Public Administration & LGUs',
+  'Retail, Wholesale & E-Commerce',
+  'Manufacturing, Logistics & Supply Chain',
+  'Media, Publishing & Creative Content',
+  'Legal, Corporate Compliance & Risk Management',
+  'Non-Profit, NGO & Community Development',
+  'Others / Specific Industry',
+] as const;
+
+export const INDUSTRY_PREFIX_MAP: Record<string, string> = {
+  'Information Technology & Software Development': 'IT',
+  'BPO, Shared Services & Customer Support': 'BPO',
+  'Telecommunications & Network Infrastructure': 'TEL',
+  'Banking, Finance & FinTech': 'FIN',
+  'Human Resources, Staffing & Recruitment': 'HR',
+  'Marketing, Advertising & Public Relations': 'MKT',
+  'Hospitality, Tourism & Food Service': 'HSP',
+  'Events Management, Leisure & Entertainment': 'EVT',
+  'Education, Academe & E-Learning': 'EDU',
+  'Healthcare, Mental Health & Clinical Services': 'HLT',
+  'Law Enforcement, Public Safety & Security Services': 'SEC',
+  'Government, Public Administration & LGUs': 'GOV',
+  'Retail, Wholesale & E-Commerce': 'RET',
+  'Manufacturing, Logistics & Supply Chain': 'MFG',
+  'Media, Publishing & Creative Content': 'MED',
+  'Legal, Corporate Compliance & Risk Management': 'LGL',
+  'Non-Profit, NGO & Community Development': 'NGO',
+  'Others / Specific Industry': 'OTH',
+};
+
+export function getPrefixForIndustry(industry: string): string {
+  if (INDUSTRY_PREFIX_MAP[industry]) {
+    return INDUSTRY_PREFIX_MAP[industry];
+  }
+  return 'OTH';
+}
+

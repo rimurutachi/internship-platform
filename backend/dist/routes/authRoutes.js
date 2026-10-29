@@ -4,10 +4,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const multer_1 = __importDefault(require("multer"));
 const auth_1 = require("../middleware/auth");
 const validation_1 = require("../middleware/validation");
 const authService_1 = require("../services/authService");
 const responseUtils_1 = require("../utils/responseUtils");
+const upload = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
 const router = express_1.default.Router();
 /**
  * @route   POST /auth/login
@@ -59,6 +64,25 @@ router.put("/auth/profile", auth_1.authenticateToken, validation_1.sanitizeInput
         return (0, responseUtils_1.sendAuthError)(res, "User not authenticated");
     }
     const result = await authService_1.AuthService.updateUserProfile(req.user.id, req.body);
+    if ("error" in result) {
+        return (0, responseUtils_1.sendErrorResponse)(res, result.error, result.message, 400);
+    }
+    return (0, responseUtils_1.sendSuccessResponse)(res, result.message, result.data);
+}));
+/**
+ * @route   POST /auth/profile/upload-avatar
+ * @desc    Upload user avatar
+ * @access  Private
+ */
+router.post("/auth/profile/upload-avatar", auth_1.authenticateToken, upload.single("avatar"), (0, responseUtils_1.asyncHandler)(async (req, res) => {
+    if (!req.user?.id) {
+        return (0, responseUtils_1.sendAuthError)(res, "User not authenticated");
+    }
+    const file = req.file;
+    if (!file) {
+        return (0, responseUtils_1.sendErrorResponse)(res, "Missing file", "No avatar image file was provided", 400);
+    }
+    const result = await authService_1.AuthService.uploadAvatar(req.user.id, file);
     if ("error" in result) {
         return (0, responseUtils_1.sendErrorResponse)(res, result.error, result.message, 400);
     }

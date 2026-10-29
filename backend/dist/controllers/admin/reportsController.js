@@ -8,7 +8,12 @@ const typeGuards_1 = require("../../utils/typeGuards");
 class ReportsController {
     static async getOverview(req, res) {
         try {
-            const data = await reportsService_1.default.getOverview();
+            const dateRange = {};
+            if (req.query.start)
+                dateRange.start = req.query.start;
+            if (req.query.end)
+                dateRange.end = req.query.end;
+            const data = await reportsService_1.default.getOverview(Object.keys(dateRange).length > 0 ? dateRange : undefined);
             res.json(data);
         }
         catch (err) {
@@ -17,8 +22,8 @@ class ReportsController {
     }
     static async getMonthlyStats(req, res) {
         try {
-            const months = parseInt(req.query.months) || 12;
-            const year = req.query.year ? parseInt(req.query.year) : undefined;
+            const months = Number(req.query.months) || 12;
+            const year = req.query.year ? Number(req.query.year) : undefined;
             const data = await reportsService_1.default.generateMonthlyStats(months, year);
             res.json({ data });
         }
@@ -29,7 +34,7 @@ class ReportsController {
     static async getUserGrowth(req, res) {
         try {
             const groupBy = req.query.groupBy || 'month';
-            const periods = parseInt(req.query.periods) || 12;
+            const periods = Number(req.query.periods) || 12;
             const data = await reportsService_1.default.generateUserGrowth(groupBy, periods);
             res.json({ data });
         }
@@ -40,7 +45,12 @@ class ReportsController {
     static async getInternshipStatus(req, res) {
         try {
             const groupBy = req.query.groupBy || 'status';
-            const data = await reportsService_1.default.generateInternshipStatus(groupBy);
+            const dateRange = {};
+            if (req.query.start)
+                dateRange.start = req.query.start;
+            if (req.query.end)
+                dateRange.end = req.query.end;
+            const data = await reportsService_1.default.generateInternshipStatus(groupBy, Object.keys(dateRange).length > 0 ? dateRange : undefined);
             res.json(data);
         }
         catch (err) {
@@ -81,8 +91,8 @@ class ReportsController {
     static async getActivityTimeline(req, res) {
         try {
             const timeframe = req.query.timeframe || '24h';
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 20;
+            const page = Number(req.query.page) || 1;
+            const limit = Number(req.query.limit) || 20;
             const data = await reportsService_1.default.generateActivityTimeline(timeframe, page, limit);
             res.json(data);
         }
@@ -93,7 +103,7 @@ class ReportsController {
     static async getMetricTrend(req, res) {
         try {
             const metric = (0, typeGuards_1.ensureString)(req.params.metric, 'metric');
-            const days = parseInt(req.query.days) || 30;
+            const days = Number(req.query.days) || 30;
             const data = await reportsService_1.default.generateMetricTrend(metric, days);
             res.json({ metric, trend: data });
         }
@@ -104,13 +114,18 @@ class ReportsController {
     static async exportReport(req, res) {
         try {
             const { format, metrics, dateRange, groupBy } = req.body;
-            if (!['csv', 'json', 'pdf'].includes(format)) {
+            if (!['csv', 'json', 'pdf', 'xlsx'].includes(format)) {
                 return res.status(400).json({ error: 'Invalid export format.' });
             }
             const file = await reportsService_1.default.exportReport(format, metrics, dateRange, groupBy);
-            res.setHeader('Content-Disposition', `attachment; filename=intern-galing-report-${new Date().toISOString().slice(0, 10)}.${format}`);
+            const fileExt = format === 'xlsx' ? 'xlsx' : format;
+            res.setHeader('Content-Disposition', `attachment; filename=intern-galing-report-${new Date().toISOString().slice(0, 10)}.${fileExt}`);
             if (format === 'pdf') {
                 res.setHeader('Content-Type', 'application/pdf');
+                res.send(file);
+            }
+            else if (format === 'xlsx') {
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
                 res.send(file);
             }
             else if (format === 'csv') {

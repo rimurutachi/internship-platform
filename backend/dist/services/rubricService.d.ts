@@ -23,6 +23,7 @@ export interface RubricData {
     criteria: RubricCriterion[];
     grading_scale: GradingScale[];
     description?: string;
+    is_active?: boolean;
 }
 /**
  * Get active rubric for a university

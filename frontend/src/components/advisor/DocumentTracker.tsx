@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ChevronDown,
   ChevronUp,
@@ -11,6 +12,7 @@ import {
   XCircle,
   FileX,
   AlertTriangle,
+  ChevronRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -19,9 +21,12 @@ import type { DocumentTrackerItem } from '@/lib/api/advisor-students';
 
 interface DocumentTrackerProps {
   documents: DocumentTrackerItem[];
+  studentId?: string;
+  studentName?: string;
 }
 
-export function DocumentTracker({ documents }: DocumentTrackerProps) {
+export function DocumentTracker({ documents, studentId, studentName }: DocumentTrackerProps) {
+  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (documents.length === 0) return null;
@@ -121,6 +126,15 @@ export function DocumentTracker({ documents }: DocumentTrackerProps) {
     return aOrder - bOrder;
   });
 
+  const handleNavigateToRequirement = (requirementId: string) => {
+    if (!requirementId) return;
+    const params = new URLSearchParams();
+    if (studentId) params.set('studentId', studentId);
+    if (studentName) params.set('studentName', studentName);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    router.push(`/dashboard/advisor/requirements/${requirementId}${queryString}`);
+  };
+
   return (
     <div className="border rounded-lg overflow-hidden">
       {/* Collapsible Header */}
@@ -209,8 +223,18 @@ export function DocumentTracker({ documents }: DocumentTrackerProps) {
               return (
                 <div
                   key={doc.requirement_id}
+                  onClick={() => handleNavigateToRequirement(doc.requirement_id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleNavigateToRequirement(doc.requirement_id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  title="Click to view requirement submissions"
                   className={cn(
-                    'flex items-center justify-between p-3 rounded-lg border transition-colors',
+                    'flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer hover:border-indigo-400 hover:shadow-sm group',
                     config.bgColor
                   )}
                 >
@@ -218,7 +242,7 @@ export function DocumentTracker({ documents }: DocumentTrackerProps) {
                     <StatusIcon className={cn('h-4 w-4 flex-shrink-0', config.color)} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-foreground truncate">
+                        <span className="font-medium text-sm text-foreground truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {doc.title}
                         </span>
                         {doc.is_mandatory && (
@@ -254,9 +278,12 @@ export function DocumentTracker({ documents }: DocumentTrackerProps) {
                       )}
                     </div>
                   </div>
-                  <Badge variant="secondary" className={cn('text-xs flex-shrink-0 ml-2', config.badgeClass)}>
-                    {config.label}
-                  </Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <Badge variant="secondary" className={cn('text-xs', config.badgeClass)}>
+                      {config.label}
+                    </Badge>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+                  </div>
                 </div>
               );
             })}

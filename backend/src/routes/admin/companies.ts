@@ -14,6 +14,9 @@ import {
   assignSupervisorToCompany,
   removeSupervisorFromCompany,
   getAllSupervisors,
+  checkCompanyName,
+  getNextCompanyCode,
+  verifyCompanyWebsite,
 } from '../../controllers/admin/companiesController';
 
 const router = Router();
@@ -34,6 +37,27 @@ router.get('/', getCompanies);
  * Get company statistics
  */
 router.get('/stats', getCompanyStats);
+
+/**
+ * GET /api/admin/companies/check-name
+ * Check company name availability & similar existing companies
+ * Query params: name, excludeId
+ */
+router.get('/check-name', checkCompanyName);
+
+/**
+ * GET /api/admin/companies/next-code
+ * Get next incremental code for prefix
+ * Query params: prefix
+ */
+router.get('/next-code', getNextCompanyCode);
+
+/**
+ * POST /api/admin/companies/verify-website
+ * Check if company website is reachable & active
+ * Body: { url: string }
+ */
+router.post('/verify-website', verifyCompanyWebsite);
 
 /**
  * GET /api/admin/companies/all-supervisors

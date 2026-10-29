@@ -127,21 +127,23 @@ async function createRubric(rubricData, createdBy) {
         if (!grading_scale || grading_scale.length === 0) {
             throw new Error('Grading scale is required');
         }
-        // Check if rubric already exists for this year
-        const { data: existing } = await supabase
+        // Determine the next version number for this university
+        const { data: latestRubrics } = await supabase
             .from('evaluation_rubrics')
-            .select('id')
+            .select('version')
             .eq('university_id', university_id)
-            .eq('academic_year', academic_year)
-            .single();
-        if (existing) {
-            throw new Error(`Rubric for academic year ${academic_year} already exists`);
+            .order('version', { ascending: false })
+            .limit(1);
+        const nextVersion = (latestRubrics && latestRubrics.length > 0 && latestRubrics[0]?.version ? latestRubrics[0].version : 0) + 1;
+        // Check if is_active is specified (default to true)
+        const isActive = rubricData.is_active !== undefined ? rubricData.is_active : true;
+        // If active, deactivate all other rubrics for this university
+        if (isActive) {
+            await supabase
+                .from('evaluation_rubrics')
+                .update({ is_active: false })
+                .eq('university_id', university_id);
         }
-        // Deactivate all other rubrics for this university
-        await supabase
-            .from('evaluation_rubrics')
-            .update({ is_active: false })
-            .eq('university_id', university_id);
         // Create new rubric
         const { data: newRubric, error: createError } = await supabase
             .from('evaluation_rubrics')
@@ -152,9 +154,9 @@ async function createRubric(rubricData, createdBy) {
             criteria,
             grading_scale,
             description: description || null,
-            is_active: true,
+            is_active: isActive,
             created_by: createdBy,
-            version: 1,
+            version: nextVersion,
         })
             .select()
             .single();

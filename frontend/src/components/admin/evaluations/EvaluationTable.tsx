@@ -38,22 +38,30 @@ export function EvaluationTable({
   onReprocess,
 }: EvaluationTableProps) {
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      draft: 'outline',
-      submitted: 'default',
-      processed: 'secondary',
-      approved: 'default',
-    };
-    
-    const colors: Record<string, string> = {
-      draft: 'bg-gray-500',
-      submitted: 'bg-blue-500',
-      processed: 'bg-yellow-500',
-      approved: 'bg-green-500',
-    };
+    if (status === 'approved' || status === 'submitted') {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 font-medium">
+          SUBMITTED
+        </Badge>
+      );
+    }
+    if (status === 'processed') {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 font-medium">
+          PROCESSED
+        </Badge>
+      );
+    }
+    if (status === 'draft') {
+      return (
+        <Badge variant="outline" className="text-muted-foreground font-medium">
+          DRAFT
+        </Badge>
+      );
+    }
 
     return (
-      <Badge variant={variants[status] || 'default'} className={colors[status]}>
+      <Badge variant="outline">
         {status?.toUpperCase() || 'UNKNOWN'}
       </Badge>
     );
@@ -164,8 +172,8 @@ export function EvaluationTable({
                     <Eye className="h-4 w-4" />
                   </Button>
                   
-                  {/* Archive button for approved evaluations */}
-                  {evaluation.status === 'approved' && (
+                  {/* Archive button for submitted/approved evaluations */}
+                  {(evaluation.status === 'approved' || evaluation.status === 'submitted') && (
                     <Button
                       variant="ghost"
                       size="sm"

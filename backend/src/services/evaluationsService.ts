@@ -117,8 +117,9 @@ export class EvaluationsService {
 
       const total = evaluations.length;
       const onDraft = statusCounts['draft'] || 0;
-      const submitted = statusCounts['submitted'] || 0;
       const approved = statusCounts['approved'] || 0;
+      // In new standardized workflow, all completed supervisor evaluations are 'submitted'
+      const submitted = (statusCounts['submitted'] || 0) + approved;
 
       console.log('✅ [EvaluationsService] Metrics calculated:', {
         total,

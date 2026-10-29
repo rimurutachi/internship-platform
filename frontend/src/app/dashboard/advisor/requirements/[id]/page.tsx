@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   FileText,
@@ -56,6 +56,11 @@ import {
 export default function RequirementDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetStudentId = searchParams.get('studentId');
+  const targetStudentName = searchParams.get('studentName');
+  const [filterByTargetStudent, setFilterByTargetStudent] = useState<boolean>(true);
+
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const requirementId = params.id as string;
@@ -495,32 +500,115 @@ export default function RequirementDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {submissions.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No submissions yet</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {submissions.map((submission) => (
-                    <div
-                      key={submission.id}
-                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4 text-gray-400" />
-                              <span className="font-medium">
-                                {submission.student?.first_name} {submission.student?.last_name}
-                              </span>
-                            </div>
-                            {getStatusBadge(submission.status)}
-                            {submission.version > 1 && (
-                              <Badge variant="outline">v{submission.version}</Badge>
-                            )}
+              {/* Target Student Filter / Notice Banner */}
+              {targetStudentId && (
+                (() => {
+                  const targetSub = submissions.find(
+                    (s) => s.student_id === targetStudentId || (s as any).student?.id === targetStudentId
+                  );
+                  if (targetSub) {
+                    return filterByTargetStudent ? (
+                      <div className="mb-6 p-4 rounded-lg bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                          <div>
+                            <p className="font-semibold text-sm text-indigo-950 dark:text-indigo-200">
+                              Viewing submission for {targetStudentName || `${targetSub.student?.first_name} ${targetSub.student?.last_name}`}
+                            </p>
+                            <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                              Filtered automatically from student details
+                            </p>
                           </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFilterByTargetStudent(false)}
+                          className="bg-white hover:bg-indigo-50 border-indigo-200 text-indigo-700 text-xs flex-shrink-0"
+                        >
+                          Show All Submissions ({submissions.length})
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mb-6 p-3 rounded-lg bg-muted/50 border flex items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground">
+                          Showing all submissions. Target student submission is highlighted below.
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilterByTargetStudent(true)}
+                          className="text-xs text-indigo-600 hover:text-indigo-700 h-7 px-2"
+                        >
+                          Filter only {targetStudentName || 'Selected Student'}
+                        </Button>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40 flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold text-sm text-amber-950 dark:text-amber-200">
+                            {targetStudentName || 'Student'} has not submitted a file for this requirement yet.
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-400">
+                            Showing other student submissions below.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()
+              )}
+
+              {(() => {
+                const displayedSubmissions = (targetStudentId && filterByTargetStudent)
+                  ? (submissions.filter((s) => s.student_id === targetStudentId || (s as any).student?.id === targetStudentId))
+                  : submissions;
+
+                if (displayedSubmissions.length === 0) {
+                  return (
+                    <div className="text-center py-8">
+                      <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No submissions yet</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {displayedSubmissions.map((submission) => {
+                      const isTarget = targetStudentId && (submission.student_id === targetStudentId || (submission as any).student?.id === targetStudentId);
+                      return (
+                        <div
+                          key={submission.id}
+                          className={cn(
+                            "border rounded-lg p-4 transition-colors",
+                            isTarget
+                              ? "border-2 border-indigo-500 bg-indigo-50/20 shadow-sm"
+                              : "hover:bg-gray-50"
+                          )}
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-gray-400" />
+                                  <span className="font-medium">
+                                    {submission.student?.first_name} {submission.student?.last_name}
+                                  </span>
+                                </div>
+                                {isTarget && (
+                                  <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-xs">
+                                    Selected Student
+                                  </Badge>
+                                )}
+                                {getStatusBadge(submission.status)}
+                                {submission.version > 1 && (
+                                  <Badge variant="outline">v{submission.version}</Badge>
+                                )}
+                              </div>
                           
                           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                             <FileText className="h-4 w-4" />
@@ -594,10 +682,12 @@ export default function RequirementDetailPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          </CardContent>
           </Card>
     </div>
 

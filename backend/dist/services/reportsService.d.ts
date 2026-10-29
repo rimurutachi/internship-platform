@@ -5,6 +5,10 @@ declare class ReportsService {
     }): Promise<{
         total_users: number;
         active_internships: number;
+        total_internships: number;
+        pending_internships: number;
+        completed_internships: number;
+        cancelled_internships: number;
         total_evaluations: number;
         completion_rate: number;
     }>;
@@ -88,6 +92,7 @@ declare class ReportsService {
     static exportReport(format: string, metrics: string[], dateRange: any, groupBy?: string): Promise<string | Buffer<ArrayBufferLike>>;
     private static convertToCSV;
     private static convertToPDF;
+    private static convertToXLSX;
 }
 export default ReportsService;
 //# sourceMappingURL=reportsService.d.ts.map
