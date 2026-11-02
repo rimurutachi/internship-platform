@@ -116,10 +116,14 @@ export const WORK_SCHEDULE_OPTIONS = [
 ] as const;
 
 export const SHIFT_OPTIONS = [
-  { value: '8:00 AM - 5:00 PM', label: '8:00 AM - 5:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
-  { value: '7:00 AM - 4:00 PM', label: '7:00 AM - 4:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
   { value: '6:00 AM - 3:00 PM', label: '6:00 AM - 3:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '6:30 AM - 3:30 PM', label: '6:30 AM - 3:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '7:00 AM - 4:00 PM', label: '7:00 AM - 4:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '7:30 AM - 4:30 PM', label: '7:30 AM - 4:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '8:00 AM - 5:00 PM', label: '8:00 AM - 5:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '8:30 AM - 5:30 PM', label: '8:30 AM - 5:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
   { value: '9:00 AM - 6:00 PM', label: '9:00 AM - 6:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  { value: '9:30 AM - 6:30 PM', label: '9:30 AM - 6:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
 ] as const;
 
 /**
