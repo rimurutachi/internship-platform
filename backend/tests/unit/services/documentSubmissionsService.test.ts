@@ -2,8 +2,9 @@ import { DocumentSubmissionsService } from '../../../src/services/documentSubmis
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 
-// Get the mocked supabase client
-const supabase = createClient('mock', 'mock');
+const mockCreateClient = createClient as jest.Mock;
+// Capture all supabase instances created on file load before clearAllMocks wipes results
+const capturedClients = mockCreateClient.mock.results.map((r) => r.value).filter(Boolean);
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -32,56 +33,67 @@ describe('DocumentSubmissionsService - AI Signature Scan', () => {
   const mockStudentId = 'student-123';
 
   // Helper to setup supabase mocks for submitDocument
-  const setupSupabaseMocks = () => {
-    const reqSelect = jest.fn().mockReturnValue({
-      eq: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: { id: mockReqId, target_audience: 'all_students', metadata: {}, status: 'active', title: 'Test Req', created_by: 'adv-123' },
-            error: null
-          })
-        })
-      })
+  const setupSupabaseMocks = (requirementOverrides: Partial<any> = {}) => {
+    const requirementData = {
+      id: mockReqId,
+      target_audience: 'all_students',
+      metadata: {},
+      status: 'active',
+      title: 'Memorandum of Agreement (MOA)',
+      created_by: 'adv-123',
+      ...requirementOverrides,
+    };
+
+    const reqChain: any = {};
+    reqChain.eq = jest.fn().mockReturnValue(reqChain);
+    reqChain.single = jest.fn().mockResolvedValue({
+      data: requirementData,
+      error: null,
     });
 
-    const versionSelect = jest.fn().mockReturnValue({
-      eq: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          order: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue({ data: [{ version: 1 }], error: null })
-          })
-        })
-      })
+    const versionChain: any = {};
+    versionChain.eq = jest.fn().mockReturnValue(versionChain);
+    versionChain.order = jest.fn().mockReturnValue(versionChain);
+    versionChain.limit = jest.fn().mockResolvedValue({
+      data: [{ version: 1 }],
+      error: null,
     });
 
     const insertMock = jest.fn().mockReturnValue({
       select: jest.fn().mockReturnValue({
         single: jest.fn().mockResolvedValue({
           data: { id: 'sub-123', status: 'pending' },
-          error: null
-        })
-      })
+          error: null,
+        }),
+      }),
     });
 
     const genericQuery = (table: string) => {
-      if (table === 'document_requirements') return { select: reqSelect };
+      if (table === 'document_requirements') {
+        return { select: jest.fn().mockReturnValue(reqChain) };
+      }
       if (table === 'document_submissions') {
-        return { select: versionSelect, insert: insertMock };
+        return {
+          select: jest.fn().mockReturnValue(versionChain),
+          insert: insertMock,
+        };
       }
       return { select: jest.fn().mockReturnThis() };
     };
-    supabase.from = jest.fn().mockImplementation(genericQuery);
 
-    supabase.storage = {
-      from: jest.fn().mockReturnValue({
-        createSignedUrl: jest.fn().mockResolvedValue({
-          data: { signedUrl: 'http://test-signed-url.com' },
-          error: null
-        })
-      })
-    } as any;
+    capturedClients.forEach((client) => {
+      client.from = jest.fn().mockImplementation(genericQuery);
+      client.storage = {
+        from: jest.fn().mockReturnValue({
+          createSignedUrl: jest.fn().mockResolvedValue({
+            data: { signedUrl: 'http://test-signed-url.com' },
+            error: null,
+          }),
+        }),
+      };
+    });
 
-    // We also need to mock `isStudentTargeted` because it's a private method used in submitDocument
+    // Mock private methods used in submitDocument
     jest.spyOn(service as any, 'isStudentTargeted').mockReturnValue(true);
     jest.spyOn(service as any, 'notifyAdvisorAboutSubmission').mockResolvedValue(undefined);
 
@@ -89,10 +101,10 @@ describe('DocumentSubmissionsService - AI Signature Scan', () => {
   };
 
   it('should call runAiSignatureScan and succeed when AI detects a signature on PDF', async () => {
-    const insertMock = setupSupabaseMocks();
+    const insertMock = setupSupabaseMocks({ title: 'Memorandum of Agreement (MOA)' });
 
     mockedAxios.post.mockResolvedValueOnce({
-      data: { has_signature: true, confidence_score: 0.95 }
+      data: { has_signature: true, confidence_score: 0.95 },
     });
 
     await service.submitDocument(mockStudentId, {
@@ -100,7 +112,7 @@ describe('DocumentSubmissionsService - AI Signature Scan', () => {
       file_url: 'test/path.pdf',
       file_name: 'test.pdf',
       file_size: 1000,
-      mime_type: 'application/pdf'
+      mime_type: 'application/pdf',
     });
 
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
@@ -112,38 +124,40 @@ describe('DocumentSubmissionsService - AI Signature Scan', () => {
     // Verify metadata was updated with the ai result
     const insertArgs = insertMock.mock.calls[0][0];
     expect(insertArgs.metadata).toEqual({
-      ai_scan_result: { has_signature: true, confidence_score: 0.95 }
+      ai_scan_result: { has_signature: true, confidence_score: 0.95 },
     });
   });
 
-  it('should throw an error and block submission when AI detects NO signature', async () => {
-    setupSupabaseMocks();
+  it('should throw an error and block submission when AI detects NO signature on required documents', async () => {
+    setupSupabaseMocks({ title: 'Memorandum of Agreement (MOA)' });
 
     mockedAxios.post.mockResolvedValueOnce({
-      data: { has_signature: false, confidence_score: 0.1 }
+      data: { has_signature: false, confidence_score: 0.1 },
     });
 
-    await expect(service.submitDocument(mockStudentId, {
-      requirement_id: mockReqId,
-      file_url: 'test/path.pdf',
-      file_name: 'test.pdf',
-      file_size: 1000,
-      mime_type: 'application/pdf'
-    })).rejects.toThrow('AI Signature Verification Failed: No handwritten signatures detected on the document.');
-    
+    await expect(
+      service.submitDocument(mockStudentId, {
+        requirement_id: mockReqId,
+        file_url: 'test/path.pdf',
+        file_name: 'test.pdf',
+        file_size: 1000,
+        mime_type: 'application/pdf',
+      })
+    ).rejects.toThrow('AI Signature Verification Failed: No handwritten signatures detected on the document.');
+
     // It should have called the AI service
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
   });
 
   it('should skip AI scanning if the file is not a PDF or Image (e.g., DOCX)', async () => {
-    const insertMock = setupSupabaseMocks();
+    const insertMock = setupSupabaseMocks({ title: 'Memorandum of Agreement (MOA)' });
 
     await service.submitDocument(mockStudentId, {
       requirement_id: mockReqId,
       file_url: 'test/path.docx',
       file_name: 'test.docx',
       file_size: 1000,
-      mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     });
 
     // Axios should NOT be called
@@ -152,5 +166,103 @@ describe('DocumentSubmissionsService - AI Signature Scan', () => {
     // Verify metadata is empty object
     const insertArgs = insertMock.mock.calls[0][0];
     expect(insertArgs.metadata).toEqual({});
+  });
+
+  it('should skip AI scanning for Updated Resume even if file is PDF', async () => {
+    const insertMock = setupSupabaseMocks({ title: 'Updated Resume' });
+
+    await service.submitDocument(mockStudentId, {
+      requirement_id: mockReqId,
+      file_url: 'test/resume.pdf',
+      file_name: 'resume.pdf',
+      file_size: 1000,
+      mime_type: 'application/pdf',
+    });
+
+    // Axios should NOT be called
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+
+    // Submission succeeded without AI signature scan
+    const insertArgs = insertMock.mock.calls[0][0];
+    expect(insertArgs.metadata).toEqual({});
+  });
+
+  it('should skip AI scanning for Narrative Report even if file is PDF', async () => {
+    const insertMock = setupSupabaseMocks({ title: 'Final Narrative Report' });
+
+    await service.submitDocument(mockStudentId, {
+      requirement_id: mockReqId,
+      file_url: 'test/narrative_report.pdf',
+      file_name: 'narrative_report.pdf',
+      file_size: 1000,
+      mime_type: 'application/pdf',
+    });
+
+    // Axios should NOT be called
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+
+    const insertArgs = insertMock.mock.calls[0][0];
+    expect(insertArgs.metadata).toEqual({});
+  });
+
+  it('should skip AI scanning for Job Description even if file is PDF', async () => {
+    const insertMock = setupSupabaseMocks({ title: 'Approved Job Description' });
+
+    await service.submitDocument(mockStudentId, {
+      requirement_id: mockReqId,
+      file_url: 'test/job_description.pdf',
+      file_name: 'job_description.pdf',
+      file_size: 1000,
+      mime_type: 'application/pdf',
+    });
+
+    // Axios should NOT be called
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+
+    const insertArgs = insertMock.mock.calls[0][0];
+    expect(insertArgs.metadata).toEqual({});
+  });
+
+  it('should respect metadata.requires_signature = false override even for MOA', async () => {
+    const insertMock = setupSupabaseMocks({
+      title: 'Memorandum of Agreement',
+      metadata: { requires_signature: false },
+    });
+
+    await service.submitDocument(mockStudentId, {
+      requirement_id: mockReqId,
+      file_url: 'test/moa.pdf',
+      file_name: 'moa.pdf',
+      file_size: 1000,
+      mime_type: 'application/pdf',
+    });
+
+    // Axios should NOT be called because requires_signature is explicitly false
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+
+    const insertArgs = insertMock.mock.calls[0][0];
+    expect(insertArgs.metadata).toEqual({});
+  });
+
+  it('should respect metadata.requires_signature = true override even for Resume', async () => {
+    setupSupabaseMocks({
+      title: 'Signed Resume Copy',
+      metadata: { requires_signature: true },
+    });
+
+    mockedAxios.post.mockResolvedValueOnce({
+      data: { has_signature: true, confidence_score: 0.99 },
+    });
+
+    await service.submitDocument(mockStudentId, {
+      requirement_id: mockReqId,
+      file_url: 'test/signed_resume.pdf',
+      file_name: 'signed_resume.pdf',
+      file_size: 1000,
+      mime_type: 'application/pdf',
+    });
+
+    // Axios should be called because requires_signature is explicitly true
+    expect(mockedAxios.post).toHaveBeenCalledTimes(1);
   });
 });

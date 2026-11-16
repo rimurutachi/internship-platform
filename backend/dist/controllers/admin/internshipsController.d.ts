@@ -38,7 +38,7 @@ export declare class InternshipsController {
     unarchiveInternship(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     /**
      * GET /admin/internships/available-students
-     * Get students without active internships
+     * Get students without existing internships (pending, active, completed)
      */
     getAvailableStudents(req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined>;
     /**

@@ -22,6 +22,7 @@ export interface DocumentRequirement {
   metadata: {
     internship_ids?: string[];
     student_ids?: string[];
+    requires_signature?: boolean;
     file_requirements?: {
       max_size?: number;
       allowed_types?: string[];
@@ -58,7 +59,7 @@ export interface DocumentSubmission {
   file_size: number;
   mime_type: string;
   version: number;
-  status: 'pending' | 'approved' | 'rejected' | 'revision_requested';
+  status: 'pending' | 'approved' | 'rejected' | 'revision_requested' | 'superseded';
   reviewed_by: string | null;
   feedback: string | null;
   reviewed_at: string | null;
@@ -83,11 +84,43 @@ export interface CreateRequirementDTO {
   metadata?: {
     internship_ids?: string[];
     student_ids?: string[];
+    requires_signature?: boolean;
     file_requirements?: {
       max_size?: number;
       allowed_types?: string[];
     };
   };
+}
+
+/**
+ * Check whether a requirement requires an AI handwritten signature scan.
+ * Resumes, narrative reports, job descriptions, and general academic reports are excluded by default.
+ */
+export function requirementRequiresSignature(requirement?: {
+  title?: string;
+  metadata?: { requires_signature?: boolean };
+} | null): boolean {
+  if (!requirement) return false;
+  if (requirement.metadata && typeof requirement.metadata.requires_signature === 'boolean') {
+    return requirement.metadata.requires_signature;
+  }
+  const title = (requirement.title || '').toLowerCase().trim();
+  const exemptKeywords = [
+    'resume',
+    'cv',
+    'curriculum vitae',
+    'narrative',
+    'narrative report',
+    'job description',
+    'job desc',
+    'report',
+    'portfolio',
+    'weekly report',
+    'accomplishment report',
+    'reflection',
+    'journal',
+  ];
+  return !exemptKeywords.some((keyword) => title.includes(keyword));
 }
 
 export interface UpdateRequirementDTO extends Partial<CreateRequirementDTO> {

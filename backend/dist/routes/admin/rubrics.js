@@ -37,7 +37,32 @@ const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
 const rubricService = __importStar(require("../../services/rubricService"));
 const typeGuards_1 = require("../../utils/typeGuards");
+const supabase_js_1 = require("@supabase/supabase-js");
 const router = (0, express_1.Router)();
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+/**
+ * Helper to ensure a valid university_id is always resolved
+ */
+async function resolveUniversityId(req) {
+    const queryUniv = req.query.university_id;
+    if (queryUniv && queryUniv !== 'null' && queryUniv !== 'undefined') {
+        return queryUniv;
+    }
+    const userUniv = req.user?.university_id;
+    if (userUniv)
+        return userUniv;
+    try {
+        const { data: firstUniv } = await supabase
+            .from('universities')
+            .select('id')
+            .limit(1)
+            .single();
+        return firstUniv?.id || '';
+    }
+    catch {
+        return '';
+    }
+}
 // All routes require authentication and admin role
 router.use(auth_1.authenticateToken);
 router.use((0, auth_1.requireRole)(['admin']));
@@ -47,15 +72,16 @@ router.use((0, auth_1.requireRole)(['admin']));
  */
 router.get('/', async (req, res) => {
     try {
-        const { university_id, include_inactive } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        const { include_inactive } = req.query;
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await rubricService.getAllRubrics(university_id, include_inactive === 'true');
+        const result = await rubricService.getAllRubrics(universityId, include_inactive === 'true');
         if (!result.success) {
             return res.status(400).json(result);
         }
@@ -75,15 +101,15 @@ router.get('/', async (req, res) => {
  */
 router.get('/active', async (req, res) => {
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await rubricService.getActiveRubric(university_id);
+        const result = await rubricService.getActiveRubric(universityId);
         if (!result.success) {
             return res.status(400).json(result);
         }

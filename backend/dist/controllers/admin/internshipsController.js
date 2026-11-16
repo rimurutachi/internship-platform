@@ -200,7 +200,8 @@ class InternshipsController {
             // Validate internship assignment constraints
             const validation = await this.internshipService.validateInternshipAssignment(student_id, company_id, advisor_id, supervisor_id);
             if (!validation.valid) {
-                return res.status(validation.errors.includes('Student already has an active internship') ? 409 : 400).json({
+                const hasExisting = validation.errors.some((e) => e.toLowerCase().includes('already has'));
+                return res.status(hasExisting ? 409 : 400).json({
                     success: false,
                     error: validation.errors.join(', '),
                     errors: validation.errors,
@@ -570,23 +571,25 @@ class InternshipsController {
     }
     /**
      * GET /admin/internships/available-students
-     * Get students without active internships
+     * Get students without existing internships (pending, active, completed)
      */
     async getAvailableStudents(req, res) {
         try {
-            // Get all active internship student IDs
-            const { data: activeInternships } = await supabase
+            // Get all student IDs with existing internships (pending, active, completed)
+            const { data: existingInternships } = await supabase
                 .from('internships')
                 .select('student_id')
-                .eq('status', 'active');
-            const activeStudentIds = activeInternships?.map((i) => i.student_id) || [];
-            // Get all students not in active internships list
+                .in('status', ['pending', 'active', 'completed']);
+            const assignedStudentIds = existingInternships
+                ?.map((i) => i.student_id)
+                .filter((id) => Boolean(id)) || [];
+            // Get all students not in existing internships list
             let query = supabase
                 .from('users')
                 .select('id, name, email, university_id, profile_data')
                 .eq('role', 'student');
-            if (activeStudentIds.length > 0) {
-                query = query.not('id', 'in', `(${activeStudentIds.join(',')})`);
+            if (assignedStudentIds.length > 0) {
+                query = query.not('id', 'in', `(${assignedStudentIds.join(',')})`);
             }
             const { data: students, error } = await query;
             if (error) {

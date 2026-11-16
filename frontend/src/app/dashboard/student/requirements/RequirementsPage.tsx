@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import {
   DocumentRequirement,
   getStudentDocumentRequirements,
+  requirementRequiresSignature,
 } from '@/lib/api/document-requirements';
 
 export default function StudentRequirementsPage() {
@@ -104,7 +105,7 @@ export default function StudentRequirementsPage() {
         return (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3 mr-1" />
-            Pending Review
+            Submitted (Pending Review)
           </Badge>
         );
       case 'rejected':
@@ -262,13 +263,22 @@ export default function StudentRequirementsPage() {
                   <CardContent className="p-4 lg:p-6">
                     <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900 truncate">
                             {requirement.title}
                           </h3>
                           {requirement.is_mandatory && (
                             <Badge variant="destructive" className="text-xs">
                               Required
+                            </Badge>
+                          )}
+                          {requirementRequiresSignature(requirement) ? (
+                            <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-700 bg-indigo-50/50">
+                              Requires Signature
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground bg-muted/40">
+                              No Signature Required
                             </Badge>
                           )}
                         </div>

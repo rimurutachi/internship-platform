@@ -54,7 +54,7 @@ export interface InternshipWithRelations extends Internship {
 }
 
 export type WorkScheduleType = 'mon-fri' | 'mon-sat';
-export type ShiftTimeType = (typeof SHIFT_OPTIONS)[number]['value'];
+export type ShiftTimeType = string;
 
 export interface InternshipScheduleMetadata {
   work_days: WorkScheduleType;
@@ -116,6 +116,7 @@ export const WORK_SCHEDULE_OPTIONS = [
 ] as const;
 
 export const SHIFT_OPTIONS = [
+  // Standard 8-Hour Shifts (1 hr break)
   { value: '6:00 AM - 3:00 PM', label: '6:00 AM - 3:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
   { value: '6:30 AM - 3:30 PM', label: '6:30 AM - 3:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
   { value: '7:00 AM - 4:00 PM', label: '7:00 AM - 4:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
@@ -124,6 +125,12 @@ export const SHIFT_OPTIONS = [
   { value: '8:30 AM - 5:30 PM', label: '8:30 AM - 5:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
   { value: '9:00 AM - 6:00 PM', label: '9:00 AM - 6:00 PM (8 hrs/day, 1 hr break)', hours: 8 },
   { value: '9:30 AM - 6:30 PM', label: '9:30 AM - 6:30 PM (8 hrs/day, 1 hr break)', hours: 8 },
+  // Extended 9-Hour Shifts (Approved 1 hr OT / Extended shift)
+  { value: '8:00 AM - 6:00 PM', label: '8:00 AM - 6:00 PM (9 hrs/day, 1 hr break)', hours: 9 },
+  { value: '8:30 AM - 6:30 PM (9 hrs)', label: '8:30 AM - 6:30 PM (9 hrs/day, 1 hr break)', hours: 9 },
+  // Maximum 10-Hour Shifts (Approved 2 hrs OT / Compressed work week - Max per OJT policy)
+  { value: '7:00 AM - 6:00 PM', label: '7:00 AM - 6:00 PM (10 hrs/day, 1 hr break)', hours: 10 },
+  { value: '8:00 AM - 7:00 PM', label: '8:00 AM - 7:00 PM (10 hrs/day, 1 hr break)', hours: 10 },
 ] as const;
 
 /**
@@ -133,11 +140,20 @@ export function calculateScheduleProjections(
   startDate: string,
   requiredHours: number,
   workDays: WorkScheduleType = 'mon-fri',
-  shiftTime: string = '8:00 AM - 5:00 PM'
+  shiftTime: string = '8:00 AM - 5:00 PM',
+  customHoursPerDay?: number
 ): InternshipScheduleMetadata | null {
   if (!startDate || !requiredHours || requiredHours <= 0) return null;
 
-  const hoursPerDay = 8;
+  // Determine hours per day: custom hours override, or look up from preset, default to 8
+  const preset = SHIFT_OPTIONS.find((s) => s.value === shiftTime);
+  let hoursPerDay = customHoursPerDay !== undefined && customHoursPerDay > 0
+    ? customHoursPerDay
+    : (preset?.hours ?? 8);
+
+  // Maximum working hours per day is 10 hours per OJT policy
+  hoursPerDay = Math.min(Math.max(hoursPerDay, 1), 10);
+
   const daysPerWeek = workDays === 'mon-sat' ? 6 : 5;
   const hoursPerWeek = hoursPerDay * daysPerWeek;
   const totalWorkingDays = Math.ceil(requiredHours / hoursPerDay);

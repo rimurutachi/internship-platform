@@ -21,7 +21,7 @@ export interface DocumentSubmission {
   file_size: number;
   mime_type: string;
   version: number;
-  status: 'pending' | 'approved' | 'rejected' | 'revision_requested';
+  status: 'pending' | 'approved' | 'rejected' | 'revision_requested' | 'superseded';
   reviewed_by: string | null;
   feedback: string | null;
   reviewed_at: string | null;
@@ -66,7 +66,7 @@ export class DocumentSubmissionsService {
     // 1. Verify the requirement exists and is active
     const { data: requirement, error: reqError } = await supabase
       .from('document_requirements')
-      .select('id, title, created_by, target_audience, metadata, due_date, status')
+      .select('id, title, description, created_by, target_audience, metadata, due_date, status')
       .eq('id', data.requirement_id)
       .eq('status', 'active')
       .single();
@@ -86,23 +86,32 @@ export class DocumentSubmissionsService {
       throw new Error('The due date for this requirement has passed');
     }
 
-    // 4. Get the current version number (for resubmissions)
+    // 4. Get the current version number and check latest status
     const { data: existingSubmissions } = await supabase
       .from('document_submissions')
-      .select('version')
+      .select('version, status')
       .eq('requirement_id', data.requirement_id)
       .eq('student_id', studentId)
       .order('version', { ascending: false })
       .limit(1);
 
-    const currentVersion = existingSubmissions?.[0]?.version || 0;
+    const latestSubmission = existingSubmissions?.[0];
+    if (latestSubmission?.status === 'approved') {
+      throw new Error('This document requirement has already been approved and cannot be resubmitted');
+    }
+
+    const currentVersion = latestSubmission?.version || 0;
 
     // 4.5. Run AI Signature Scanning (Phase 4)
     let aiScanResult: any = null;
     const isScanEligible = data.mime_type === 'application/pdf' || data.mime_type.startsWith('image/');
+    const requiresSignature = this.shouldScanForSignature(requirement.title, requirement.metadata, requirement.description);
     
-    if (isScanEligible) {
+    if (isScanEligible && requiresSignature) {
+      console.log(`🔍 [Submission AI] Document requires signature. Starting AI scan for "${requirement.title}"...`);
       aiScanResult = await this.runAiSignatureScan(data.file_url, data.requirement_id);
+    } else if (isScanEligible && !requiresSignature) {
+      console.log(`⏩ [Submission AI] Skipping AI signature scan for "${requirement.title}" (signature not required).`);
     }
 
     // 5. Create the submission
@@ -128,6 +137,15 @@ export class DocumentSubmissionsService {
       throw new Error('Failed to create submission');
     }
 
+    // 5.5. Supersede any previous pending or revision_requested submissions for this requirement
+    await supabase
+      .from('document_submissions')
+      .update({ status: 'superseded', updated_at: new Date().toISOString() })
+      .eq('requirement_id', data.requirement_id)
+      .eq('student_id', studentId)
+      .neq('id', submission.id)
+      .in('status', ['pending', 'revision_requested']);
+
     // 6. Notify the advisor about the new submission
     await this.notifyAdvisorAboutSubmission(requirement.created_by, submission, requirement.title);
 
@@ -148,7 +166,7 @@ export class DocumentSubmissionsService {
       .from('document_submissions')
       .select(`
         id, requirement_id, student_id, version, status,
-        requirement:document_requirements(id, title, created_by, due_date, status)
+        requirement:document_requirements(id, title, description, created_by, due_date, status, metadata)
       `)
       .eq('id', submissionId)
       .eq('student_id', studentId)
@@ -172,9 +190,13 @@ export class DocumentSubmissionsService {
     // 3.5. Run AI Signature Scanning (Phase 4)
     let aiScanResult: any = null;
     const isScanEligible = data.mime_type === 'application/pdf' || data.mime_type.startsWith('image/');
+    const requiresSignature = this.shouldScanForSignature(requirement.title, requirement.metadata, requirement.description);
     
-    if (isScanEligible) {
+    if (isScanEligible && requiresSignature) {
+      console.log(`🔍 [Submission AI] Document requires signature. Starting AI scan for resubmission "${requirement.title}"...`);
       aiScanResult = await this.runAiSignatureScan(data.file_url, original.requirement_id);
+    } else if (isScanEligible && !requiresSignature) {
+      console.log(`⏩ [Submission AI] Skipping AI signature scan for resubmission "${requirement.title}" (signature not required).`);
     }
 
     // 4. Create new submission with incremented version
@@ -200,6 +222,15 @@ export class DocumentSubmissionsService {
       throw new Error('Failed to create resubmission');
     }
 
+    // 4.5. Supersede any previous pending or revision_requested submissions for this requirement
+    await supabase
+      .from('document_submissions')
+      .update({ status: 'superseded', updated_at: new Date().toISOString() })
+      .eq('requirement_id', original.requirement_id)
+      .eq('student_id', studentId)
+      .neq('id', submission.id)
+      .in('status', ['pending', 'revision_requested']);
+
     // 5. Notify the advisor
     await this.notifyAdvisorAboutSubmission(
       requirement.created_by,
@@ -210,6 +241,54 @@ export class DocumentSubmissionsService {
 
     console.log(`📄 Document resubmitted: ${submission.id} (v${submission.version}) by student ${studentId}`);
     return submission;
+  }
+
+  /**
+   * Determine whether a document requirement needs AI handwritten signature scanning.
+   * Resumes, narrative reports, job descriptions, and general academic reports are excluded by default.
+   * If metadata.requires_signature is explicitly configured by the advisor, that takes precedence.
+   */
+  public shouldScanForSignature(requirementTitle: string, metadata?: any, requirementDescription?: string): boolean {
+    let meta = metadata;
+    if (typeof meta === 'string') {
+      try {
+        meta = JSON.parse(meta);
+      } catch {
+        meta = {};
+      }
+    }
+
+    // 1. Explicit advisor override in metadata takes highest precedence
+    if (meta && typeof meta.requires_signature === 'boolean') {
+      return meta.requires_signature;
+    }
+
+    // 2. Default exclusion keywords (case-insensitive) on title and description
+    const textToCheck = `${requirementTitle || ''} ${requirementDescription || ''}`.toLowerCase().trim();
+    
+    const excludedKeywords = [
+      'resume',
+      'cv',
+      'curriculum vitae',
+      'narrative',
+      'narrative report',
+      'job description',
+      'job desc',
+      'report',
+      'portfolio',
+      'weekly report',
+      'accomplishment report',
+      'reflection',
+      'journal',
+    ];
+
+    const isExcluded = excludedKeywords.some((keyword) => textToCheck.includes(keyword));
+    if (isExcluded) {
+      return false;
+    }
+
+    // 3. For other documents (e.g. MOA, Waiver, Endorsement Letter, Certificate), default to scanning
+    return true;
   }
 
   /**
@@ -233,19 +312,24 @@ export class DocumentSubmissionsService {
       });
       
       const aiResult = aiResponse.data;
-      if (!aiResult.has_signature) {
+      
+      // If AI service encountered an internal error or quota limitation, do not falsely reject the document
+      if (aiResult?.status === 'failed') {
+        console.warn(`⚠️ [Submission AI] AI scan could not be completed (${aiResult.error || 'Service error'}). Bypassing scan for manual advisor review.`);
+        return aiResult;
+      }
+
+      // If AI successfully scanned the document and confirmed no signatures exist
+      if (aiResult?.status === 'success' && !aiResult.has_signature) {
         throw new Error("AI Signature Verification Failed: No handwritten signatures detected on the document.");
       }
       return aiResult;
     } catch (error: any) {
-      if (error.response?.status === 503) {
-         console.warn("⚠️ [Submission AI] AI service unavailable, bypassing scan.");
-         return null; // Bypass if AI is down
+      if (error.message.includes("Verification Failed")) {
+        throw new Error(error.message);
       }
-      if (error.message.includes("Verification Failed") || error.response?.data?.error) {
-        throw new Error(error.response?.data?.error || error.message);
-      }
-      console.error("❌ [Submission AI] Scanning error:", error.message);
+      // If AI service is down (503), timed out, or had a server error (500), allow submission for manual advisor verification
+      console.warn("⚠️ [Submission AI] AI service error or unreachable, bypassing scan for manual review:", error.response?.data?.detail || error.message);
       return null;
     }
   }
@@ -303,7 +387,7 @@ export class DocumentSubmissionsService {
     advisorId: string,
     filters: SubmissionFilters = {}
   ): Promise<{ submissions: any[]; total: number }> {
-    const { status, page = 1, limit = 20 } = filters;
+    const { status, page = 1, limit = 100 } = filters;
     const offset = (page - 1) * limit;
 
     // 1. Verify advisor owns this requirement
@@ -427,7 +511,7 @@ export class DocumentSubmissionsService {
     const { data: submission, error: subError } = await supabase
       .from('document_submissions')
       .select(`
-        id, student_id, status, file_url, file_name, file_size, mime_type,
+        id, student_id, requirement_id, status, file_url, file_name, file_size, mime_type,
         requirement:document_requirements(id, title, created_by, due_date)
       `)
       .eq('id', submissionId)
@@ -463,6 +547,17 @@ export class DocumentSubmissionsService {
     if (updateError) {
       console.error('Error reviewing submission:', updateError);
       throw new Error('Failed to update submission status');
+    }
+
+    // 3.5. If approved, supersede all other previous submissions for this student & requirement
+    if (review.status === 'approved') {
+      await supabase
+        .from('document_submissions')
+        .update({ status: 'superseded', updated_at: new Date().toISOString() })
+        .eq('requirement_id', submission.requirement_id)
+        .eq('student_id', submission.student_id)
+        .neq('id', submissionId)
+        .in('status', ['pending', 'revision_requested']);
     }
 
     // 4. If this is a DTR requirement and it was approved, process DTR hours

@@ -63,6 +63,7 @@ import {
   updateDocumentRequirement,
   deleteDocumentRequirement,
   CreateRequirementDTO,
+  requirementRequiresSignature,
 } from '@/lib/api/document-requirements';
 
 export default function DocumentRequirementsPage() {
@@ -87,6 +88,8 @@ export default function DocumentRequirementsPage() {
     due_date: '',
     is_mandatory: true,
   });
+  const [requiresSignature, setRequiresSignature] = useState(true);
+  const [userTouchedSignatureToggle, setUserTouchedSignatureToggle] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [noDueDate, setNoDueDate] = useState(false);
 
@@ -142,7 +145,14 @@ export default function DocumentRequirementsPage() {
 
     try {
       setSubmitting(true);
-      const response = await createDocumentRequirement(formData);
+      const payload: CreateRequirementDTO = {
+        ...formData,
+        metadata: {
+          ...formData.metadata,
+          requires_signature: requiresSignature,
+        },
+      };
+      const response = await createDocumentRequirement(payload);
       
       if (response.success) {
         toast({
@@ -171,7 +181,15 @@ export default function DocumentRequirementsPage() {
 
     try {
       setSubmitting(true);
-      const response = await updateDocumentRequirement(selectedRequirement.id, formData);
+      const payload: CreateRequirementDTO = {
+        ...formData,
+        metadata: {
+          ...selectedRequirement.metadata,
+          ...formData.metadata,
+          requires_signature: requiresSignature,
+        },
+      };
+      const response = await updateDocumentRequirement(selectedRequirement.id, payload);
       
       if (response.success) {
         toast({
@@ -233,6 +251,8 @@ export default function DocumentRequirementsPage() {
       is_mandatory: true,
     });
     setNoDueDate(false);
+    setRequiresSignature(true);
+    setUserTouchedSignatureToggle(false);
   };
 
   // Open edit dialog
@@ -243,8 +263,11 @@ export default function DocumentRequirementsPage() {
       description: requirement.description || '',
       due_date: requirement.due_date ? requirement.due_date.split('T')[0] : '',
       is_mandatory: requirement.is_mandatory,
+      metadata: requirement.metadata,
     });
     setNoDueDate(!requirement.due_date);
+    setRequiresSignature(requirementRequiresSignature(requirement));
+    setUserTouchedSignatureToggle(requirement.metadata?.requires_signature !== undefined);
     setShowEditDialog(true);
   };
 
@@ -428,6 +451,15 @@ export default function DocumentRequirementsPage() {
                               Required
                             </Badge>
                           )}
+                          {requirementRequiresSignature(requirement) ? (
+                            <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-700 bg-indigo-50/50">
+                              Requires Signature
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground bg-muted/40">
+                              No Signature Scan
+                            </Badge>
+                          )}
                           {requirement.status === 'archived' && (
                             <Badge variant="secondary">Archived</Badge>
                           )}
@@ -522,7 +554,13 @@ export default function DocumentRequirementsPage() {
                 id="title"
                 placeholder="e.g., Internship Agreement Form"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData({ ...formData, title: val });
+                  if (!userTouchedSignatureToggle) {
+                    setRequiresSignature(requirementRequiresSignature({ title: val }));
+                  }
+                }}
               />
             </div>
             
@@ -577,6 +615,27 @@ export default function DocumentRequirementsPage() {
                 className="rounded border-gray-300"
               />
               <Label htmlFor="is_mandatory">This is a mandatory document</Label>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-lg border border-border">
+              <input
+                type="checkbox"
+                id="requires_signature"
+                checked={requiresSignature}
+                onChange={(e) => {
+                  setRequiresSignature(e.target.checked);
+                  setUserTouchedSignatureToggle(true);
+                }}
+                className="mt-1 rounded border-gray-300"
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="requires_signature" className="text-sm font-medium cursor-pointer">
+                  Require Handwritten Signature (AI Scanner)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Scans uploaded PDFs/images for handwritten signatures. Automatically disabled for Resumes, Narrative Reports, and Job Descriptions.
+                </p>
+              </div>
             </div>
           </div>
           
@@ -661,6 +720,27 @@ export default function DocumentRequirementsPage() {
                 className="rounded border-gray-300"
               />
               <Label htmlFor="edit-is_mandatory">This is a mandatory document</Label>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 bg-muted/40 rounded-lg border border-border">
+              <input
+                type="checkbox"
+                id="edit-requires_signature"
+                checked={requiresSignature}
+                onChange={(e) => {
+                  setRequiresSignature(e.target.checked);
+                  setUserTouchedSignatureToggle(true);
+                }}
+                className="mt-1 rounded border-gray-300"
+              />
+              <div className="space-y-0.5">
+                <Label htmlFor="edit-requires_signature" className="text-sm font-medium cursor-pointer">
+                  Require Handwritten Signature (AI Scanner)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Scans uploaded PDFs/images for handwritten signatures. Automatically disabled for Resumes, Narrative Reports, and Job Descriptions.
+                </p>
+              </div>
             </div>
           </div>
           

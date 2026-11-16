@@ -18,19 +18,31 @@ jest.mock('@supabase/supabase-js', () => {
     let idCounter = 1;
 
     // Generic users/companies minimal mock for joins and role checks
-    const genericQuery = () => ({
-        select: (columns?: string, options?: { count?: string; head?: boolean }) => {
-            if (options && options.count) {
-                return Promise.resolve({ data: null, error: null, count: 0 });
-            }
-            return {
-                limit: (n: number) => Promise.resolve({ data: [], error: null }),
-                eq: (col: string, val: unknown) => ({
-                    single: () => Promise.resolve({ data: { role: 'advisor' }, error: null })
-                })
-            };
-        }
-    });
+    const genericQuery = () => {
+        const chain: any = {
+            limit: (n: number) => Promise.resolve({ data: [], error: null }),
+            eq: (col: string, val: unknown) => chain,
+            neq: (col: string, val: unknown) => chain,
+            order: () => chain,
+            single: () => Promise.resolve({ data: { role: 'advisor' }, error: null }),
+            maybeSingle: () => Promise.resolve({ data: { role: 'advisor' }, error: null }),
+            select: () => chain,
+            insert: (payload: any) => chain,
+            update: (payload: any) => chain,
+            delete: () => chain,
+        };
+        return {
+            select: (columns?: string, options?: { count?: string; head?: boolean }) => {
+                if (options && options.count) {
+                    return Promise.resolve({ data: null, error: null, count: 0 });
+                }
+                return chain;
+            },
+            insert: (payload: any) => chain,
+            update: (payload: any) => chain,
+            delete: () => chain,
+        };
+    };
 
     const internshipsQuery = () => ({
         insert: (payload: any) => {
@@ -83,11 +95,19 @@ jest.mock('@supabase/supabase-js', () => {
         })
     });
 
-    const from = (table: string) => {
+    const mockStorage = {
+        from: jest.fn(() => ({
+            upload: jest.fn().mockResolvedValue({ data: { path: 'test.pdf' }, error: null }),
+            createSignedUrl: jest.fn().mockResolvedValue({ data: { signedUrl: 'http://test-signed-url.com' }, error: null }),
+            getPublicUrl: jest.fn().mockReturnValue({ data: { publicUrl: 'http://test-public-url.com' } }),
+        }))
+    };
+
+    const from = jest.fn((table: string) => {
         if (table === 'internships') return internshipsQuery();
         if (table === 'users' || table === 'companies') return genericQuery();
         return genericQuery();
-    };
+    });
 
     return {
         createClient: jest.fn(() => ({
@@ -98,6 +118,7 @@ jest.mock('@supabase/supabase-js', () => {
                 admin: { createUser }
             },
             from,
+            storage: mockStorage,
         })),
     };
 });

@@ -252,10 +252,15 @@ export async function getInternshipHoursSummary(
       : 0;
 
     // Calculate projected end date
+    const schedule = (internship as any).metadata?.schedule;
+    const scheduleHoursPerDay = schedule?.hours_per_day || 8;
+    const scheduleWorkDays = schedule?.work_days || 'mon-fri';
     const projectedEndDate = calculateProjectedEndDate(
       internship.start_date,
       remainingHours,
-      totalHoursWorked
+      totalHoursWorked,
+      scheduleHoursPerDay,
+      scheduleWorkDays
     );
 
     const summary: InternshipHoursSummary = {
@@ -364,6 +369,10 @@ export async function getBatchInternshipHoursSummary(
         ? Math.min(Math.round((totalHoursWorked / requiredHours) * 100 * 100) / 100, 100)
         : 0;
 
+      const batchSchedule = (internship as any).metadata?.schedule;
+      const batchHoursPerDay = batchSchedule?.hours_per_day || 8;
+      const batchWorkDays = batchSchedule?.work_days || 'mon-fri';
+
       results[internship.id] = {
         internship_id: internship.id,
         required_hours: requiredHours,
@@ -373,7 +382,9 @@ export async function getBatchInternshipHoursSummary(
         projected_end_date: calculateProjectedEndDate(
           internship.start_date,
           remainingHours,
-          totalHoursWorked
+          totalHoursWorked,
+          batchHoursPerDay,
+          batchWorkDays
         ),
         weeks_reported: dtrCountByInternship[internship.id] || 0,
         dtr_submissions_count: dtrCountByInternship[internship.id] || 0,
@@ -402,15 +413,17 @@ export async function getBatchInternshipHoursSummary(
 export function calculateProjectedEndDate(
   startDate: string,
   remainingHours: number,
-  hoursWorked: number
+  hoursWorked: number,
+  hoursPerDay: number = 8,
+  workDays: 'mon-fri' | 'mon-sat' = 'mon-fri'
 ): string | null {
   if (remainingHours <= 0) {
     // Already completed, return today or latest report date
     return new Date().toISOString().split('T')[0];
   }
 
-  const HOURS_PER_DAY = 8;
-  const remainingDays = Math.ceil(remainingHours / HOURS_PER_DAY);
+  const effectiveHoursPerDay = hoursPerDay > 0 ? Math.min(Math.max(hoursPerDay, 1), 10) : 8;
+  const remainingDays = Math.ceil(remainingHours / effectiveHoursPerDay);
 
   // Start from today (not start_date) since we're projecting from current point
   const today = new Date();
@@ -422,9 +435,12 @@ export function calculateProjectedEndDate(
   while (businessDaysAdded < remainingDays) {
     projectedDate.setDate(projectedDate.getDate() + 1);
     
-    // Check if it's a weekday (Mon-Fri)
     const dayOfWeek = projectedDate.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    const isSunday = dayOfWeek === 0;
+    const isSaturday = dayOfWeek === 6;
+    const isWorkDay = workDays === 'mon-sat' ? !isSunday : (!isSunday && !isSaturday);
+
+    if (isWorkDay) {
       businessDaysAdded++;
     }
   }

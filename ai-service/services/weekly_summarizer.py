@@ -16,36 +16,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logger = logging.getLogger(__name__)
+from utils.gemini_client import gemini_manager, GEMINI_AVAILABLE
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("⚠️ google-generativeai not installed. Weekly summarizer will use fallback mode.")
+logger = logging.getLogger(__name__)
 
 
 class WeeklySummarizer:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY", "")
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-        
-        if GEMINI_AVAILABLE and self.api_key:
-            try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel(self.model_name)
-                logger.info(f"✅ Weekly Summarizer initialized with Gemini model: {self.model_name}")
-            except Exception as e:
-                self.model = None
-                logger.error(f"❌ Error configuring Gemini model: {e}")
+        self.model_name = gemini_manager.get_primary_model()
+        if self.is_available():
+            logger.info(f"✅ Weekly Summarizer initialized with Gemini primary model: {self.model_name}")
         else:
-            self.model = None
             if not self.api_key:
                 logger.warning("⚠️ GEMINI_API_KEY not set for WeeklySummarizer.")
 
     def is_available(self) -> bool:
-        return GEMINI_AVAILABLE and bool(self.api_key) and self.model is not None
+        return gemini_manager.is_available()
 
     def _generate_fallback_summary(self, week_data: Dict[str, Any]) -> str:
         """
@@ -180,14 +167,15 @@ For EACH week listed above, write a cohesive, authentic, first-person reflective
 Do NOT include markdown formatting like ```json or any other text outside the JSON array."""
 
         try:
-            logger.info(f"🤖 [WeeklySummarizer] Sending batch prompt for {len(weeks)} weeks to Gemini ({self.model_name})...")
-            response = self.model.generate_content(
+            logger.info(f"🤖 [WeeklySummarizer] Sending batch prompt for {len(weeks)} weeks to Gemini (primary: {self.model_name})...")
+            response, model_used = gemini_manager.generate_content(
                 prompt,
                 generation_config={
                     "temperature": 0.3,
                     "top_p": 0.85,
                     "max_output_tokens": 4096,
-                }
+                },
+                preferred_model=self.model_name
             )
 
             raw_text = response.text.strip()
@@ -210,7 +198,7 @@ Do NOT include markdown formatting like ```json or any other text outside the JS
                         "date_range": w.get("date_range"),
                         "total_hours": total_hours,
                         "summary": summaries_by_week[week_num].strip(),
-                        "source": "gemini"
+                        "source": f"gemini ({model_used})"
                     })
                 else:
                     # Fallback for missing week

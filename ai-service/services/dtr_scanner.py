@@ -19,15 +19,9 @@ import requests
 import time
 from typing import Optional, Dict, Any, List
 
-logger = logging.getLogger(__name__)
+from utils.gemini_client import gemini_manager, GEMINI_AVAILABLE
 
-# Check for google-generativeai
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("⚠️ google-generativeai not installed. DTR scanning will use fallback mode.")
+logger = logging.getLogger(__name__)
 
 
 class DTRScanResult:
@@ -39,7 +33,8 @@ class DTRScanResult:
         daily_breakdown: List[Dict[str, Any]] = None,
         confidence_score: float = 0,
         notes: str = "",
-        error: str = ""
+        error: str = "",
+        model_used: str = ""
     ):
         self.status = status
         self.total_hours = total_hours
@@ -47,6 +42,7 @@ class DTRScanResult:
         self.confidence_score = confidence_score
         self.notes = notes
         self.error = error
+        self.model_used = model_used
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -55,7 +51,8 @@ class DTRScanResult:
             "daily_breakdown": self.daily_breakdown,
             "confidence_score": self.confidence_score,
             "notes": self.notes,
-            "error": self.error
+            "error": self.error,
+            "model_used": self.model_used
         }
 
 
@@ -63,18 +60,16 @@ class DTRScanner:
     """
     Scans DTR (Daily Time Record) documents using Google Gemini Vision API
     to extract rendered hours for internship tracking.
+    Supports automatic multi-model failover when quota limits are reached.
     """
 
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY", "")
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.model_name = gemini_manager.get_primary_model()
         
-        if GEMINI_AVAILABLE and self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel(self.model_name)
-            logger.info(f"✅ DTR Scanner initialized with Gemini model: {self.model_name}")
+        if self.is_available():
+            logger.info(f"✅ DTR Scanner initialized with primary Gemini model: {self.model_name}")
         else:
-            self.model = None
             if not self.api_key:
                 logger.warning("⚠️ GEMINI_API_KEY not set. DTR scanning will not be available.")
             if not GEMINI_AVAILABLE:
@@ -82,7 +77,7 @@ class DTRScanner:
 
     def is_available(self) -> bool:
         """Check if DTR scanning is available"""
-        return GEMINI_AVAILABLE and bool(self.api_key) and self.model is not None
+        return gemini_manager.is_available()
 
     async def scan_dtr(self, file_url: str) -> DTRScanResult:
         """
@@ -220,13 +215,14 @@ If you cannot read the document at all, respond with:
                 "data": file_bytes
             }
 
-            # Generate response
-            response = self.model.generate_content(
-                [prompt, file_part],
+            # Generate response with automatic model fallback
+            response, model_used = gemini_manager.generate_content(
+                contents=[prompt, file_part],
                 generation_config={
                     "temperature": 0.1,  # Low temperature for accuracy
                     "max_output_tokens": 4096,
-                }
+                },
+                preferred_model=self.model_name
             )
 
             # Parse the response
@@ -238,7 +234,7 @@ If you cannot read the document at all, respond with:
                 response_text = re.sub(r'^```(?:json)?\s*', '', response_text)
                 response_text = re.sub(r'\s*```$', '', response_text)
             
-            logger.info(f"🤖 [DTRScanner] Raw Gemini response: {response_text[:200]}...")
+            logger.info(f"🤖 [DTRScanner] Raw Gemini response ({model_used}): {response_text[:200]}...")
 
             # Parse JSON
             parsed = json.loads(response_text)
@@ -263,7 +259,8 @@ If you cannot read the document at all, respond with:
                         daily_breakdown=daily_breakdown,
                         confidence_score=float(parsed.get("confidence_score", 0)),
                         notes=parsed.get("notes", ""),
-                        error=f"Invalid DTR: Rendered hours on {day.get('date', 'a specific day')} ({hours} hours) exceed the maximum limit of 10 hours per day (8 regular + 2 overtime). Please submit an updated DTR."
+                        error=f"Invalid DTR: Rendered hours on {day.get('date', 'a specific day')} ({hours} hours) exceed the maximum limit of 10 hours per day (8 regular + 2 overtime). Please submit an updated DTR.",
+                        model_used=model_used
                     )
             
             return DTRScanResult(
@@ -271,7 +268,8 @@ If you cannot read the document at all, respond with:
                 total_hours=float(parsed.get("total_hours", 0)),
                 daily_breakdown=daily_breakdown,
                 confidence_score=float(parsed.get("confidence_score", 0)),
-                notes=parsed.get("notes", "")
+                notes=parsed.get("notes", ""),
+                model_used=model_used
             )
 
         except json.JSONDecodeError as e:

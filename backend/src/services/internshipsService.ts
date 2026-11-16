@@ -34,16 +34,16 @@ export class InternshipsService {
     const errors: string[] = [];
 
     try {
-      // Check student doesn't have active internship
-      const { data: activeInternship } = await supabase
+      // Check student doesn't have an existing active or pending internship
+      const { data: existingInternship } = await supabase
         .from('internships')
-        .select('id')
+        .select('id, status')
         .eq('student_id', student_id)
-        .eq('status', 'active')
+        .in('status', ['pending', 'active'])
         .maybeSingle();
 
-      if (activeInternship) {
-        errors.push('Student already has an active internship');
+      if (existingInternship) {
+        errors.push(`Student already has an existing internship (${existingInternship.status})`);
       }
 
       // Check student exists and is a student

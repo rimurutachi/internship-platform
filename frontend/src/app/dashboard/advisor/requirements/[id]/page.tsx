@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -17,6 +17,9 @@ import {
   Eye,
   MessageSquare,
   Zap,
+  ChevronDown,
+  ChevronUp,
+  History,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,6 +74,7 @@ export default function RequirementDetailPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+  const [expandedStudents, setExpandedStudents] = useState<Record<string, boolean>>({});
 
   // Review dialog state
   const [showReviewDialog, setShowReviewDialog] = useState(false);
@@ -237,9 +241,7 @@ export default function RequirementDetailPage() {
       
       const [reqResponse, subResponse] = await Promise.all([
         getDocumentRequirement(requirementId),
-        getRequirementSubmissions(requirementId, {
-          status: statusFilter === 'all' ? undefined : statusFilter,
-        }),
+        getRequirementSubmissions(requirementId, { limit: 100 }),
       ]);
 
       if (reqResponse.success && reqResponse.data) {
@@ -261,7 +263,7 @@ export default function RequirementDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [requirementId, statusFilter, toast]);
+  }, [requirementId, toast]);
 
   useEffect(() => {
     fetchData();
@@ -326,6 +328,8 @@ export default function RequirementDetailPage() {
         return <Badge variant="destructive">Rejected</Badge>;
       case 'revision_requested':
         return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Revision Requested</Badge>;
+      case 'superseded':
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Superseded</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -340,14 +344,47 @@ export default function RequirementDetailPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Calculate stats
-  const stats = {
-    total: submissions.length,
-    pending: submissions.filter((s) => s.status === 'pending').length,
-    approved: submissions.filter((s) => s.status === 'approved').length,
-    rejected: submissions.filter((s) => s.status === 'rejected').length,
-    revision: submissions.filter((s) => s.status === 'revision_requested').length,
+  // Toggle version history for a student
+  const toggleExpandStudent = (studentId: string) => {
+    setExpandedStudents((prev) => ({
+      ...prev,
+      [studentId]: !prev[studentId],
+    }));
   };
+
+  // Group submissions by student to display 1 primary card per student with expandable version history
+  const studentGroups = useMemo(() => {
+    const map = new Map<string, { student: any; latest: DocumentSubmission; history: DocumentSubmission[] }>();
+
+    // Sort submissions by version descending so highest version is processed first
+    const sorted = [...submissions].sort((a, b) => (b.version || 0) - (a.version || 0));
+
+    for (const sub of sorted) {
+      const studentId = sub.student?.id || sub.student_id;
+      if (!map.has(studentId)) {
+        map.set(studentId, {
+          student: sub.student,
+          latest: sub,
+          history: [],
+        });
+      } else {
+        map.get(studentId)!.history.push(sub);
+      }
+    }
+
+    return Array.from(map.values());
+  }, [submissions]);
+
+  // Calculate stats based on each student's latest active submission status
+  const stats = useMemo(() => {
+    return {
+      total: studentGroups.length,
+      pending: studentGroups.filter((g) => g.latest.status === 'pending').length,
+      approved: studentGroups.filter((g) => g.latest.status === 'approved').length,
+      rejected: studentGroups.filter((g) => g.latest.status === 'rejected').length,
+      revision: studentGroups.filter((g) => g.latest.status === 'revision_requested').length,
+    };
+  }, [studentGroups]);
 
   if (loading) {
     return (
@@ -503,17 +540,17 @@ export default function RequirementDetailPage() {
               {/* Target Student Filter / Notice Banner */}
               {targetStudentId && (
                 (() => {
-                  const targetSub = submissions.find(
-                    (s) => s.student_id === targetStudentId || (s as any).student?.id === targetStudentId
+                  const targetGroup = studentGroups.find(
+                    (g) => g.latest.student_id === targetStudentId || (g.student as any)?.id === targetStudentId
                   );
-                  if (targetSub) {
+                  if (targetGroup) {
                     return filterByTargetStudent ? (
                       <div className="mb-6 p-4 rounded-lg bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                           <div>
                             <p className="font-semibold text-sm text-indigo-950 dark:text-indigo-200">
-                              Viewing submission for {targetStudentName || `${targetSub.student?.first_name} ${targetSub.student?.last_name}`}
+                              Viewing submission for {targetStudentName || `${targetGroup.student?.first_name} ${targetGroup.student?.last_name}`}
                             </p>
                             <p className="text-xs text-indigo-600 dark:text-indigo-400">
                               Filtered automatically from student details
@@ -526,7 +563,7 @@ export default function RequirementDetailPage() {
                           onClick={() => setFilterByTargetStudent(false)}
                           className="bg-white hover:bg-indigo-50 border-indigo-200 text-indigo-700 text-xs flex-shrink-0"
                         >
-                          Show All Submissions ({submissions.length})
+                          Show All Submissions ({studentGroups.length})
                         </Button>
                       </div>
                     ) : (
@@ -563,23 +600,39 @@ export default function RequirementDetailPage() {
               )}
 
               {(() => {
-                const displayedSubmissions = (targetStudentId && filterByTargetStudent)
-                  ? (submissions.filter((s) => s.student_id === targetStudentId || (s as any).student?.id === targetStudentId))
-                  : submissions;
+                let displayed = studentGroups;
 
-                if (displayedSubmissions.length === 0) {
+                if (targetStudentId && filterByTargetStudent) {
+                  displayed = displayed.filter(
+                    (g) => g.latest.student_id === targetStudentId || (g.student as any)?.id === targetStudentId
+                  );
+                }
+
+                if (statusFilter !== 'all') {
+                  displayed = displayed.filter((g) => g.latest.status === statusFilter);
+                }
+
+                if (displayed.length === 0) {
                   return (
                     <div className="text-center py-8">
                       <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No submissions yet</p>
+                      <p className="text-gray-500">
+                        {statusFilter === 'all'
+                          ? 'No submissions yet'
+                          : `No ${statusFilter.replace('_', ' ')} submissions found`}
+                      </p>
                     </div>
                   );
                 }
 
                 return (
                   <div className="space-y-4">
-                    {displayedSubmissions.map((submission) => {
-                      const isTarget = targetStudentId && (submission.student_id === targetStudentId || (submission as any).student?.id === targetStudentId);
+                    {displayed.map((group) => {
+                      const studentKey = group.student?.id || group.latest.student_id;
+                      const isTarget = targetStudentId && (group.latest.student_id === targetStudentId || (group.student as any)?.id === targetStudentId);
+                      const isExpanded = !!expandedStudents[studentKey];
+                      const submission = group.latest;
+
                       return (
                         <div
                           key={submission.id}
@@ -596,7 +649,7 @@ export default function RequirementDetailPage() {
                                 <div className="flex items-center gap-2">
                                   <User className="h-4 w-4 text-gray-400" />
                                   <span className="font-medium">
-                                    {submission.student?.first_name} {submission.student?.last_name}
+                                    {group.student?.first_name} {group.student?.last_name}
                                   </span>
                                 </div>
                                 {isTarget && (
@@ -610,83 +663,161 @@ export default function RequirementDetailPage() {
                                 )}
                               </div>
                           
-                          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                            <FileText className="h-4 w-4" />
-                            <span>{submission.file_name}</span>
-                            <span className="text-gray-300">•</span>
-                            <span>{formatFileSize(submission.file_size)}</span>
-                          </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                                <FileText className="h-4 w-4" />
+                                <span>{submission.file_name}</span>
+                                <span className="text-gray-300">•</span>
+                                <span>{formatFileSize(submission.file_size)}</span>
+                              </div>
                           
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Clock className="h-4 w-4" />
-                            <span>
-                              Submitted: {new Date(submission.submitted_at).toLocaleString()}
-                            </span>
-                          </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <Clock className="h-4 w-4" />
+                                <span>
+                                  Submitted: {new Date(submission.submitted_at).toLocaleString()}
+                                </span>
+                              </div>
                           
-                          {submission.feedback && (
-                            <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
-                              <MessageSquare className="h-4 w-4 inline mr-1" />
-                              <span className="text-gray-600">{submission.feedback}</span>
+                              {submission.feedback && (
+                                <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
+                                  <MessageSquare className="h-4 w-4 inline mr-1" />
+                                  <span className="text-gray-600">{submission.feedback}</span>
+                                </div>
+                              )}
+                            </div>
+                        
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!fileUrls[submission.id]}
+                                asChild={!!fileUrls[submission.id]}
+                              >
+                                {fileUrls[submission.id] ? (
+                                  <a href={fileUrls[submission.id]} target="_blank" rel="noopener noreferrer">
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    View
+                                  </a>
+                                ) : (
+                                  <>
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    View
+                                  </>
+                                )}
+                              </Button>
+                          
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!fileUrls[submission.id]}
+                                asChild={!!fileUrls[submission.id]}
+                              >
+                                {fileUrls[submission.id] ? (
+                                  <a href={fileUrls[submission.id]} download>
+                                    <Download className="h-4 w-4 mr-1" />
+                                    Download
+                                  </a>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4 mr-1" />
+                                    Download
+                                  </>
+                                )}
+                              </Button>
+                          
+                              {submission.status === 'pending' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => openReviewDialog(submission)}
+                                >
+                                  Review
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Previous Versions Accordion / Toggle */}
+                          {group.history.length > 0 && (
+                            <div className="mt-3 pt-3 border-t">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleExpandStudent(studentKey)}
+                                className="text-xs text-gray-500 hover:text-gray-800 p-0 h-auto flex items-center gap-1.5"
+                              >
+                                <History className="h-3.5 w-3.5" />
+                                <span>
+                                  {isExpanded ? 'Hide' : 'View'} version history ({group.history.length} older {group.history.length === 1 ? 'version' : 'versions'})
+                                </span>
+                                {isExpanded ? (
+                                  <ChevronUp className="h-3.5 w-3.5 ml-0.5" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5 ml-0.5" />
+                                )}
+                              </Button>
+
+                              {isExpanded && (
+                                <div className="mt-2.5 space-y-2 pl-3 border-l-2 border-gray-200">
+                                  {group.history.map((prevSub) => (
+                                    <div
+                                      key={prevSub.id}
+                                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded bg-gray-50 text-xs"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-gray-700">{prevSub.file_name}</span>
+                                          <Badge variant="outline" className="text-[10px] py-0 px-1">v{prevSub.version}</Badge>
+                                          {getStatusBadge(prevSub.status)}
+                                        </div>
+                                        <div className="text-gray-400">
+                                          {formatFileSize(prevSub.file_size)} • Submitted: {new Date(prevSub.submitted_at).toLocaleString()}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs"
+                                          disabled={!fileUrls[prevSub.id]}
+                                          asChild={!!fileUrls[prevSub.id]}
+                                        >
+                                          {fileUrls[prevSub.id] ? (
+                                            <a href={fileUrls[prevSub.id]} target="_blank" rel="noopener noreferrer">
+                                              <Eye className="h-3.5 w-3.5 mr-1" />
+                                              View
+                                            </a>
+                                          ) : (
+                                            <span><Eye className="h-3.5 w-3.5 mr-1" />View</span>
+                                          )}
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs"
+                                          disabled={!fileUrls[prevSub.id]}
+                                          asChild={!!fileUrls[prevSub.id]}
+                                        >
+                                          {fileUrls[prevSub.id] ? (
+                                            <a href={fileUrls[prevSub.id]} download>
+                                              <Download className="h-3.5 w-3.5 mr-1" />
+                                              Download
+                                            </a>
+                                          ) : (
+                                            <span><Download className="h-3.5 w-3.5 mr-1" />Download</span>
+                                          )}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!fileUrls[submission.id]}
-                            asChild={!!fileUrls[submission.id]}
-                          >
-                            {fileUrls[submission.id] ? (
-                              <a href={fileUrls[submission.id]} target="_blank" rel="noopener noreferrer">
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </a>
-                            ) : (
-                              <>
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
-                              </>
-                            )}
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!fileUrls[submission.id]}
-                            asChild={!!fileUrls[submission.id]}
-                          >
-                            {fileUrls[submission.id] ? (
-                              <a href={fileUrls[submission.id]} download>
-                                <Download className="h-4 w-4 mr-1" />
-                                Download
-                              </a>
-                            ) : (
-                              <>
-                                <Download className="h-4 w-4 mr-1" />
-                                Download
-                              </>
-                            )}
-                          </Button>
-                          
-                          {submission.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              onClick={() => openReviewDialog(submission)}
-                            >
-                              Review
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
           </CardContent>
           </Card>
     </div>

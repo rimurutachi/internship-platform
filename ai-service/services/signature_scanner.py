@@ -15,15 +15,9 @@ import logging
 import requests
 from typing import Dict, Any
 
-logger = logging.getLogger(__name__)
+from utils.gemini_client import gemini_manager, GEMINI_AVAILABLE
 
-# Check for google-generativeai
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("⚠️ google-generativeai not installed. Signature scanning will use fallback mode.")
+logger = logging.getLogger(__name__)
 
 
 class SignatureScanResult:
@@ -34,13 +28,15 @@ class SignatureScanResult:
         has_signature: bool = False,
         confidence_score: float = 0.0,
         notes: str = "",
-        error: str = ""
+        error: str = "",
+        model_used: str = ""
     ):
         self.status = status
         self.has_signature = has_signature
         self.confidence_score = confidence_score
         self.notes = notes
         self.error = error
+        self.model_used = model_used
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -48,7 +44,8 @@ class SignatureScanResult:
             "has_signature": self.has_signature,
             "confidence_score": self.confidence_score,
             "notes": self.notes,
-            "error": self.error
+            "error": self.error,
+            "model_used": self.model_used
         }
 
 
@@ -56,24 +53,23 @@ class SignatureScanner:
     """
     Scans document files using Google Gemini Vision API
     to detect the presence of handwritten wet signatures.
+    Supports automatic multi-model failover if quota limits are encountered.
     """
 
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY", "")
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-        
-        if GEMINI_AVAILABLE and self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel(self.model_name)
-            logger.info(f"✅ Signature Scanner initialized with Gemini model: {self.model_name}")
+        self.model_name = gemini_manager.get_primary_model()
+        if self.is_available():
+            logger.info(f"✅ Signature Scanner initialized with primary model: {self.model_name}")
         else:
-            self.model = None
             if not self.api_key:
                 logger.warning("⚠️ GEMINI_API_KEY not set. Signature scanning will not be available.")
+            if not GEMINI_AVAILABLE:
+                logger.warning("⚠️ google-generativeai not installed. Signature scanning will use fallback mode.")
 
     def is_available(self) -> bool:
         """Check if signature scanning is available"""
-        return GEMINI_AVAILABLE and bool(self.api_key) and self.model is not None
+        return gemini_manager.is_available()
 
     async def scan_document(self, file_url: str) -> SignatureScanResult:
         """
@@ -133,13 +129,16 @@ class SignatureScanner:
             }
             """
 
-            # 3. Call Gemini API
-            logger.info(f"🧠 [Signature Scanner] Sending to Gemini model: {self.model_name}")
+            # 3. Call Gemini API with automatic model fallback
+            logger.info(f"🧠 [Signature Scanner] Sending document to Gemini (primary: {self.model_name})...")
             
-            result = self.model.generate_content([
-                {"mime_type": content_type, "data": file_data},
-                prompt
-            ])
+            result, model_used = gemini_manager.generate_content(
+                contents=[
+                    {"mime_type": content_type, "data": file_data},
+                    prompt
+                ],
+                preferred_model=self.model_name
+            )
             
             response_text = result.text
             
@@ -162,10 +161,11 @@ class SignatureScanner:
                     status="success",
                     has_signature=data.get("has_signature", False),
                     confidence_score=float(data.get("confidence_score", 0.0)),
-                    notes=data.get("notes", "")
+                    notes=data.get("notes", ""),
+                    model_used=model_used
                 )
                 
-                logger.info(f"✅ [Signature Scanner] Scan complete. Has signature: {scan_result.has_signature} (Confidence: {scan_result.confidence_score})")
+                logger.info(f"✅ [Signature Scanner] Scan complete with model '{model_used}'. Has signature: {scan_result.has_signature} (Confidence: {scan_result.confidence_score})")
                 return scan_result
                 
             except json.JSONDecodeError as je:

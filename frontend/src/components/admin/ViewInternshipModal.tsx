@@ -348,7 +348,11 @@ export function ViewInternshipModal({
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Daily Shift</p>
                       <p className="font-medium">
-                        {internship.metadata.schedule.shift_time || '8:00 AM - 5:00 PM'} (8 hrs/day)
+                        {internship.metadata.schedule.shift_time
+                          ? (internship.metadata.schedule.shift_time.includes('hrs/day')
+                              ? internship.metadata.schedule.shift_time
+                              : `${internship.metadata.schedule.shift_time} (${internship.metadata.schedule.hours_per_day || 8} hrs/day)`)
+                          : `8:00 AM - 5:00 PM (${internship.metadata.schedule.hours_per_day || 8} hrs/day)`}
                       </p>
                     </div>
                     <div className="space-y-1">
