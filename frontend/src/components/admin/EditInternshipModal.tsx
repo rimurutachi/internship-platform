@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   adminInternshipsAPI,
   WORK_SCHEDULE_OPTIONS,
@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Clock, Calendar, TrendingUp, Sparkles } from 'lucide-react';
+import { Loader2, Clock, Calendar, TrendingUp, Sparkles, Info } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface EditInternshipModalProps {
@@ -65,6 +65,9 @@ export function EditInternshipModal({
   // Schedule state
   const [workSchedule, setWorkSchedule] = useState<WorkScheduleType>('mon-fri');
   const [shiftTime, setShiftTime] = useState<ShiftTimeType>('8:00 AM - 5:00 PM');
+  const [useCustomShift, setUseCustomShift] = useState(false);
+  const [customShiftTime, setCustomShiftTime] = useState('');
+  const [customDailyHours, setCustomDailyHours] = useState(9);
 
   const [formData, setFormData] = useState<InternshipUpdateInput & { required_hours?: number; program_code?: string }>({
     position: internship.position,
@@ -77,6 +80,28 @@ export function EditInternshipModal({
     required_hours: (internship as any).required_hours || 240,
     program_code: (internship as any).program_code || '',
   });
+
+  const fetchHoursSummary = async () => {
+    try {
+      const result = await hoursApi.getInternshipHoursSummary(internship.id);
+      if (result.success && result.data) {
+        setHoursSummary(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch hours summary:', error);
+    }
+  };
+
+  const fetchPrograms = async () => {
+    try {
+      const result = await hoursApi.getAllPrograms();
+      if (result.success && result.data) {
+        setPrograms(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch programs:', error);
+    }
+  };
 
   // Reset form data when internship changes
   useEffect(() => {
@@ -103,10 +128,20 @@ export function EditInternshipModal({
         setWorkSchedule('mon-fri');
       }
 
-      if (existingSchedule?.shift_time) {
-        setShiftTime(existingSchedule.shift_time as ShiftTimeType);
+      const existingShift = existingSchedule?.shift_time || '8:00 AM - 5:00 PM';
+      const existingHoursPerDay = existingSchedule?.hours_per_day || 8;
+      const isPreset = SHIFT_OPTIONS.some((s) => s.value === existingShift);
+
+      if (existingSchedule?.shift_time && (!isPreset || (existingHoursPerDay !== 8 && !SHIFT_OPTIONS.find(o => o.value === existingShift && o.hours === existingHoursPerDay)))) {
+        setUseCustomShift(true);
+        // Clean up label if it contains "(X hrs/day)" suffix
+        setCustomShiftTime(existingShift.replace(/\s*\(\d+(\.\d+)?\s*hrs\/day\)/i, ''));
+        setCustomDailyHours(existingHoursPerDay);
       } else {
-        setShiftTime('8:00 AM - 5:00 PM');
+        setUseCustomShift(false);
+        setShiftTime(existingShift as ShiftTimeType);
+        setCustomDailyHours(existingHoursPerDay);
+        setCustomShiftTime('');
       }
       
       // Check if using custom hours (no program code or program not in list)
@@ -118,27 +153,21 @@ export function EditInternshipModal({
     }
   }, [open, internship]);
 
-  const fetchHoursSummary = async () => {
-    try {
-      const result = await hoursApi.getInternshipHoursSummary(internship.id);
-      if (result.success && result.data) {
-        setHoursSummary(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch hours summary:', error);
+  const effectiveHoursPerDay = useMemo(() => {
+    if (useCustomShift) {
+      return customDailyHours > 0 ? Math.min(Math.max(customDailyHours, 1), 10) : 8;
     }
-  };
+    const preset = SHIFT_OPTIONS.find((s) => s.value === shiftTime);
+    return preset?.hours ?? 8;
+  }, [useCustomShift, customDailyHours, shiftTime]);
 
-  const fetchPrograms = async () => {
-    try {
-      const result = await hoursApi.getAllPrograms();
-      if (result.success && result.data) {
-        setPrograms(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch programs:', error);
+  const effectiveShiftLabel = useMemo(() => {
+    if (useCustomShift) {
+      const label = customShiftTime.trim() || 'Custom Schedule';
+      return `${label} (${effectiveHoursPerDay} hrs/day)`;
     }
-  };
+    return shiftTime;
+  }, [useCustomShift, customShiftTime, effectiveHoursPerDay, shiftTime]);
 
   // Calculate schedule projections
   const projections =
@@ -147,7 +176,8 @@ export function EditInternshipModal({
           formData.start_date,
           formData.required_hours,
           workSchedule,
-          shiftTime
+          effectiveShiftLabel,
+          effectiveHoursPerDay
         )
       : null;
 
@@ -238,7 +268,7 @@ export function EditInternshipModal({
           schedule: projections
             ? {
                 work_days: workSchedule,
-                shift_time: shiftTime,
+                shift_time: effectiveShiftLabel,
                 hours_per_day: projections.hoursPerDay,
                 hours_per_week: projections.hoursPerWeek,
                 total_working_days: projections.totalWorkingDays,
@@ -408,23 +438,104 @@ export function EditInternshipModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="shift_time">Daily Working Shift *</Label>
-              <Select
-                value={shiftTime}
-                onValueChange={(val: any) => setShiftTime(val)}
-                disabled={loading}
-              >
-                <SelectTrigger id="shift_time">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SHIFT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="shift_time">Daily Working Shift *</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!useCustomShift) {
+                      setUseCustomShift(true);
+                      if (!customShiftTime) setCustomShiftTime('8:00 AM - 6:00 PM');
+                      setCustomDailyHours(9);
+                    } else {
+                      setUseCustomShift(false);
+                    }
+                  }}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  {useCustomShift ? '← Standard Shifts' : '+ Custom Shift / Hours'}
+                </button>
+              </div>
+
+              {!useCustomShift ? (
+                <Select
+                  value={shiftTime}
+                  onValueChange={(val: any) => {
+                    if (val === 'custom') {
+                      setUseCustomShift(true);
+                      if (!customShiftTime) setCustomShiftTime('8:00 AM - 6:00 PM');
+                      setCustomDailyHours(9);
+                    } else {
+                      setShiftTime(val);
+                    }
+                  }}
+                  disabled={loading}
+                >
+                  <SelectTrigger id="shift_time">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SHIFT_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom" className="text-primary font-medium">
+                      + Custom shift / working hours...
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="space-y-3 p-3 bg-muted/40 rounded-lg border border-border">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="custom-shift-time" className="text-xs text-muted-foreground">
+                        Shift Time Window *
+                      </Label>
+                      <Input
+                        id="custom-shift-time"
+                        placeholder="e.g., 8:00 AM - 6:00 PM"
+                        value={customShiftTime}
+                        onChange={(e) => setCustomShiftTime(e.target.value)}
+                        disabled={loading}
+                        className="h-9 text-xs"
+                        required={useCustomShift}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="custom-daily-hours" className="text-xs text-muted-foreground flex items-center justify-between">
+                        <span>Daily Working Hours *</span>
+                        <span className="font-mono font-semibold text-primary">
+                          {customDailyHours} hrs/day
+                        </span>
+                      </Label>
+                      <Input
+                        id="custom-daily-hours"
+                        type="number"
+                        min={1}
+                        max={10}
+                        step={0.5}
+                        value={customDailyHours || ''}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (isNaN(val)) {
+                            setCustomDailyHours(0);
+                          } else {
+                            setCustomDailyHours(Math.min(Math.max(val, 0), 10));
+                          }
+                        }}
+                        disabled={loading}
+                        className="h-9 text-xs"
+                        required={useCustomShift}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Info className="h-3 w-3 text-primary shrink-0" />
+                    <span>Valid range: 1 to 10 hours/day (max 10 hrs per OJT policy).</span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -503,7 +614,9 @@ export function EditInternshipModal({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 <div className="p-2.5 rounded-md bg-muted/40">
                   <span className="text-muted-foreground block mb-0.5">Shift Hours</span>
-                  <span className="font-semibold text-foreground">{shiftTime}</span>
+                  <span className="font-semibold text-foreground">
+                    {projections.shiftTime || effectiveShiftLabel}
+                  </span>
                 </div>
 
                 <div className="p-2.5 rounded-md bg-muted/40">

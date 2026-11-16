@@ -170,17 +170,18 @@ async function storeMetricsSnapshot(universityId) {
             .from('ojt_dashboard_metrics')
             .insert({
             university_id: universityId,
-            students_enrolled: metrics.students_enrolled,
+            total_students_enrolled: metrics.students_enrolled,
             students_pending_deployment: metrics.students_pending_deployment,
             active_internships: metrics.active_internships,
             completed_internships: metrics.completed_internships,
             total_companies: metrics.total_companies,
-            companies_with_available_capacity: metrics.companies_with_capacity, // Fixed column name mismatch
+            companies_with_available_capacity: metrics.companies_with_capacity,
             total_weekly_reports_submitted: metrics.total_weekly_dtr,
             pending_supervisor_evaluations: metrics.pending_supervisor_evaluations,
             pending_advisor_evaluations: metrics.pending_advisor_evaluations,
-            completed_evaluations_this_month: metrics.completed_evaluations_this_month,
-            snapshot_date: new Date().toISOString(),
+            completed_evaluations: metrics.completed_evaluations_this_month,
+            metric_date: new Date().toISOString().split('T')[0],
+            calculated_at: new Date().toISOString(),
         });
         if (error) {
             throw new Error(`Failed to store metrics snapshot: ${error.message}`);
@@ -210,8 +211,8 @@ async function getHistoricalMetrics(universityId, days = 30) {
             .from('ojt_dashboard_metrics')
             .select('*')
             .eq('university_id', universityId)
-            .gte('snapshot_date', startDate.toISOString())
-            .order('snapshot_date', { ascending: true });
+            .gte('metric_date', startDate.toISOString().split('T')[0])
+            .order('metric_date', { ascending: true });
         if (error) {
             throw new Error(`Failed to fetch historical metrics: ${error.message}`);
         }

@@ -1,29 +1,25 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-import json
 from services.dtr_scanner import DTRScanner, DTRScanResult
+
 
 @pytest.fixture
 def mock_dtr_scanner():
-    with patch('services.dtr_scanner.GEMINI_AVAILABLE', True), \
-         patch('services.dtr_scanner.os.getenv', return_value='dummy_key'), \
-         patch('services.dtr_scanner.genai'):
+    with patch('services.dtr_scanner.gemini_manager.is_available', return_value=True):
         scanner = DTRScanner()
-        # Mock model since we don't want real API calls
-        scanner.model = MagicMock()
         yield scanner
+
 
 @pytest.mark.asyncio
 async def test_dtr_scanner_initialization():
-    with patch('services.dtr_scanner.GEMINI_AVAILABLE', False):
+    with patch('services.dtr_scanner.gemini_manager.is_available', return_value=False):
         scanner = DTRScanner()
         assert not scanner.is_available()
 
-    with patch('services.dtr_scanner.GEMINI_AVAILABLE', True), \
-         patch('services.dtr_scanner.os.getenv', return_value=''), \
-         patch('services.dtr_scanner.genai'):
+    with patch('services.dtr_scanner.gemini_manager.is_available', return_value=True):
         scanner = DTRScanner()
-        assert not scanner.is_available()
+        assert scanner.is_available()
+
 
 @pytest.mark.asyncio
 async def test_scan_dtr_success(mock_dtr_scanner):
@@ -41,13 +37,15 @@ async def test_scan_dtr_success(mock_dtr_scanner):
     mock_dtr_scanner._download_file.assert_called_once_with("http://dummy.url/file.jpg")
     mock_dtr_scanner._analyze_with_gemini.assert_called_once_with(b"dummy bytes", "image/jpeg")
 
+
 @pytest.mark.asyncio
 async def test_scan_dtr_unavailable():
-    with patch('services.dtr_scanner.GEMINI_AVAILABLE', False):
+    with patch('services.dtr_scanner.gemini_manager.is_available', return_value=False):
         scanner = DTRScanner()
         result = await scanner.scan_dtr("http://dummy.url/file.jpg")
         assert result.status == "failed"
         assert "not configured" in result.error
+
 
 @pytest.mark.asyncio
 async def test_scan_dtr_download_fail(mock_dtr_scanner):
@@ -58,6 +56,7 @@ async def test_scan_dtr_download_fail(mock_dtr_scanner):
     
     assert result.status == "failed"
     assert "Failed to download" in result.error
+
 
 @pytest.mark.asyncio
 async def test_download_file(mock_dtr_scanner):
@@ -89,47 +88,52 @@ async def test_download_file(mock_dtr_scanner):
         assert file_bytes is None
         assert mime_type is None
 
+
 @pytest.mark.asyncio
 async def test_analyze_with_gemini_success(mock_dtr_scanner):
     mock_response = MagicMock()
     mock_response.text = '{"total_hours": 35.5, "daily_breakdown": [], "confidence_score": 0.9, "notes": ""}'
-    mock_dtr_scanner.model.generate_content.return_value = mock_response
     
-    result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
-    
-    assert result.status == "success"
-    assert result.total_hours == 35.5
-    assert result.confidence_score == 0.9
+    with patch('services.dtr_scanner.gemini_manager.generate_content', return_value=(mock_response, "gemini-3.5-flash-lite")):
+        result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
+        
+        assert result.status == "success"
+        assert result.total_hours == 35.5
+        assert result.confidence_score == 0.9
+        assert result.model_used == "gemini-3.5-flash-lite"
+
 
 @pytest.mark.asyncio
 async def test_analyze_with_gemini_markdown_json(mock_dtr_scanner):
     mock_response = MagicMock()
     mock_response.text = '```json\n{"total_hours": 35.5}\n```'
-    mock_dtr_scanner.model.generate_content.return_value = mock_response
     
-    result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
-    
-    assert result.status == "success"
-    assert result.total_hours == 35.5
+    with patch('services.dtr_scanner.gemini_manager.generate_content', return_value=(mock_response, "gemini-3.1-flash-lite")):
+        result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
+        
+        assert result.status == "success"
+        assert result.total_hours == 35.5
+        assert result.model_used == "gemini-3.1-flash-lite"
+
 
 @pytest.mark.asyncio
 async def test_analyze_with_gemini_fallback(mock_dtr_scanner):
     mock_response = MagicMock()
     # Invalid JSON but contains the text pattern
     mock_response.text = 'The total hours worked is 40.5 hours for the week.'
-    mock_dtr_scanner.model.generate_content.return_value = mock_response
     
-    result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
-    
-    assert result.status == "success"
-    assert result.total_hours == 40.5
-    assert "fallback" in result.notes
+    with patch('services.dtr_scanner.gemini_manager.generate_content', return_value=(mock_response, "gemini-3.5-flash-lite")):
+        result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
+        
+        assert result.status == "success"
+        assert result.total_hours == 40.5
+        assert "fallback" in result.notes
+
 
 @pytest.mark.asyncio
 async def test_analyze_with_gemini_error(mock_dtr_scanner):
-    mock_dtr_scanner.model.generate_content.side_effect = Exception("API Error")
-    
-    result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
-    
-    assert result.status == "failed"
-    assert "API Error" in result.error
+    with patch('services.dtr_scanner.gemini_manager.generate_content', side_effect=Exception("API Error")):
+        result = await mock_dtr_scanner._analyze_with_gemini(b"dummy image", "image/jpeg")
+        
+        assert result.status == "failed"
+        assert "API Error" in result.error

@@ -936,8 +936,9 @@ async function verifyCompanyWebsite(req, res) {
             normalizedUrl = `https://${normalizedUrl}`;
         }
         // Validate URL syntax
+        let parsed;
         try {
-            const parsed = new URL(normalizedUrl);
+            parsed = new URL(normalizedUrl);
             if (!parsed.hostname || !parsed.hostname.includes('.')) {
                 return res.json({
                     success: true,
@@ -959,64 +960,104 @@ async function verifyCompanyWebsite(req, res) {
                 },
             });
         }
-        // Check connectivity via axios
-        try {
-            const response = await axios_1.default.get(normalizedUrl, {
-                timeout: 5000,
-                maxRedirects: 5,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                },
-                validateStatus: (status) => status < 400,
-            });
-            return res.json({
-                success: true,
-                data: {
-                    verified: true,
-                    statusCode: response.status,
-                    normalizedUrl,
-                    message: 'Website is verified and active',
-                },
-            });
+        // Candidates in priority order (user preferred first, then alternate www/non-www)
+        const baseHost = parsed.hostname.replace(/^www\./i, '');
+        const userPreferred = normalizedUrl;
+        const alternateUrl = parsed.hostname.toLowerCase().startsWith('www.')
+            ? `${parsed.protocol}//${baseHost}${parsed.pathname !== '/' ? parsed.pathname : ''}`
+            : `${parsed.protocol}//www.${baseHost}${parsed.pathname !== '/' ? parsed.pathname : ''}`;
+        const candidates = [userPreferred];
+        if (alternateUrl !== userPreferred) {
+            candidates.push(alternateUrl);
         }
-        catch (requestError) {
-            // If HTTPS failed (e.g. SSL cert issue), attempt HTTP fallback
-            if (normalizedUrl.startsWith('https://')) {
-                try {
-                    const httpUrl = normalizedUrl.replace(/^https:\/\//i, 'http://');
-                    const httpResponse = await axios_1.default.get(httpUrl, {
-                        timeout: 4000,
-                        maxRedirects: 5,
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        },
-                        validateStatus: (status) => status < 400,
-                    });
+        const commonHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Accept: '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+        };
+        // Valid statuses: 2xx, 3xx, or 401, 403 (Cloudflare/Akamai/WAF bot protection), 405, 429
+        const isVerifiedStatus = (status) => (status >= 200 && status < 400) || [401, 403, 405, 429].includes(status);
+        for (const testUrl of candidates) {
+            // 1. Try HEAD request first (Enterprise CDNs like Akamai/Cloudflare respond in <100ms)
+            try {
+                const headResponse = await axios_1.default.head(testUrl, {
+                    timeout: 4000,
+                    maxRedirects: 5,
+                    headers: commonHeaders,
+                    validateStatus: (status) => isVerifiedStatus(status) || status === 405,
+                });
+                if (isVerifiedStatus(headResponse.status)) {
                     return res.json({
                         success: true,
                         data: {
                             verified: true,
-                            statusCode: httpResponse.status,
-                            normalizedUrl: httpUrl,
-                            message: 'Website is verified and active',
+                            statusCode: headResponse.status,
+                            normalizedUrl: testUrl,
+                            message: headResponse.status === 403 || headResponse.status === 401
+                                ? 'Website is verified and active (protected enterprise domain)'
+                                : 'Website is verified and active',
                         },
                     });
                 }
-                catch {
-                    // Fall through to unverified
+            }
+            catch (headErr) {
+                if (headErr.response && isVerifiedStatus(headErr.response.status)) {
+                    return res.json({
+                        success: true,
+                        data: {
+                            verified: true,
+                            statusCode: headErr.response.status,
+                            normalizedUrl: testUrl,
+                            message: 'Website is verified and active (protected enterprise domain)',
+                        },
+                    });
                 }
             }
-            return res.json({
-                success: true,
-                data: {
-                    verified: false,
-                    normalizedUrl,
-                    message: 'Website could not be reached or is invalid',
-                    error: requestError.message,
-                },
-            });
+            // 2. Fallback to GET request if HEAD didn't yield conclusive status
+            try {
+                const getResponse = await axios_1.default.get(testUrl, {
+                    timeout: 5000,
+                    maxRedirects: 5,
+                    headers: commonHeaders,
+                    validateStatus: (status) => isVerifiedStatus(status),
+                });
+                if (isVerifiedStatus(getResponse.status)) {
+                    return res.json({
+                        success: true,
+                        data: {
+                            verified: true,
+                            statusCode: getResponse.status,
+                            normalizedUrl: testUrl,
+                            message: getResponse.status === 403 || getResponse.status === 401
+                                ? 'Website is verified and active (protected enterprise domain)'
+                                : 'Website is verified and active',
+                        },
+                    });
+                }
+            }
+            catch (getErr) {
+                if (getErr.response && isVerifiedStatus(getErr.response.status)) {
+                    return res.json({
+                        success: true,
+                        data: {
+                            verified: true,
+                            statusCode: getErr.response.status,
+                            normalizedUrl: testUrl,
+                            message: 'Website is verified and active (protected enterprise domain)',
+                        },
+                    });
+                }
+            }
         }
+        // If all candidates failed
+        return res.json({
+            success: true,
+            data: {
+                verified: false,
+                normalizedUrl,
+                message: 'Website could not be reached or domain is inactive',
+            },
+        });
     }
     catch (error) {
         console.error('Verify company website error:', error);

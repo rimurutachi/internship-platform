@@ -135,19 +135,19 @@ router.get('/overview', async (req, res) => {
 router.get('/insights', async (req, res) => {
     console.log('[admin/dashboard] GET /insights', req.query);
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await adminDashboardService.getAIInsights(university_id);
+        const result = await adminDashboardService.getAIInsights(universityId);
         if (!result.success) {
             return res.status(400).json(result);
         }
-        console.log('[admin/dashboard] /insights success', { university_id: university_id });
+        console.log('[admin/dashboard] /insights success', { university_id: universityId });
         return res.status(200).json(result);
     }
     catch (error) {
@@ -166,19 +166,19 @@ router.get('/insights', async (req, res) => {
 router.get('/quick-actions', async (req, res) => {
     console.log('[admin/dashboard] GET /quick-actions', req.query);
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await adminDashboardService.getQuickActionItems(university_id);
+        const result = await adminDashboardService.getQuickActionItems(universityId);
         if (!result.success) {
             return res.status(400).json(result);
         }
-        console.log('[admin/dashboard] /quick-actions success', { university_id: university_id });
+        console.log('[admin/dashboard] /quick-actions success', { university_id: universityId });
         return res.status(200).json(result);
     }
     catch (error) {
@@ -197,20 +197,21 @@ router.get('/quick-actions', async (req, res) => {
 router.get('/historical', async (req, res) => {
     console.log('[admin/dashboard] GET /historical', req.query);
     try {
-        const { university_id, days } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        const { days } = req.query;
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
         const daysNum = days ? parseInt(days, 10) : 30;
-        const result = await adminDashboardService.getHistoricalMetrics(university_id, daysNum);
+        const result = await adminDashboardService.getHistoricalMetrics(universityId, daysNum);
         if (!result.success) {
             return res.status(400).json(result);
         }
-        console.log('[admin/dashboard] /historical success', { university_id: university_id, days: daysNum });
+        console.log('[admin/dashboard] /historical success', { university_id: universityId, days: daysNum });
         return res.status(200).json(result);
     }
     catch (error) {
@@ -259,19 +260,22 @@ router.get('/ojt-overview', async (req, res) => {
 router.post('/snapshot', async (req, res) => {
     console.log('[admin/dashboard] POST /snapshot', req.body);
     try {
-        const { university_id } = req.body;
-        if (!university_id) {
+        let universityId = req.body?.university_id;
+        if (!universityId) {
+            universityId = await resolveUniversityId(req);
+        }
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await adminDashboardService.storeMetricsSnapshot(university_id);
+        const result = await adminDashboardService.storeMetricsSnapshot(universityId);
         if (!result.success) {
             return res.status(500).json(result);
         }
-        console.log('[admin/dashboard] /snapshot success', { university_id });
+        console.log('[admin/dashboard] /snapshot success', { university_id: universityId });
         return res.status(200).json(result);
     }
     catch (error) {
@@ -290,19 +294,19 @@ router.post('/snapshot', async (req, res) => {
 router.get('/company-capacity', async (req, res) => {
     console.log('[admin/dashboard] GET /company-capacity', req.query);
     try {
-        const { university_id } = req.query;
-        if (!university_id) {
+        const universityId = await resolveUniversityId(req);
+        if (!universityId) {
             return res.status(400).json({
                 success: false,
                 error: 'Validation error',
-                message: 'university_id is required',
+                message: 'university_id is required and could not be determined',
             });
         }
-        const result = await adminDashboardService.getCompanyCapacityBreakdown(university_id);
+        const result = await adminDashboardService.getCompanyCapacityBreakdown(universityId);
         if (!result.success) {
             return res.status(400).json(result);
         }
-        console.log('[admin/dashboard] /company-capacity success', { university_id: university_id });
+        console.log('[admin/dashboard] /company-capacity success', { university_id: universityId });
         return res.status(200).json(result);
     }
     catch (error) {

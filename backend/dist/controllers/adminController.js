@@ -132,6 +132,15 @@ async function createUser(req, res) {
                 message: 'Email, first name, last name, role, and password are required',
             });
         }
+        // Validate email format
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (typeof email !== 'string' || !emailRegex.test(email.trim())) {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation error',
+                message: 'Please provide a valid and complete email address (e.g., user@example.com)',
+            });
+        }
         // Validate role
         const validRoles = ['student', 'advisor', 'supervisor', 'admin'];
         if (!validRoles.includes(role)) {

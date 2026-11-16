@@ -21,6 +21,7 @@ export interface DocumentRequirement {
   metadata: {
     internship_ids?: string[];
     student_ids?: string[];
+    requires_signature?: boolean;
     file_requirements?: {
       max_size?: number;
       allowed_types?: string[];
@@ -54,6 +55,7 @@ export interface CreateRequirementDTO {
   metadata?: {
     internship_ids?: string[];
     student_ids?: string[];
+    requires_signature?: boolean;
     file_requirements?: {
       max_size?: number;
       allowed_types?: string[];
@@ -70,6 +72,7 @@ export interface UpdateRequirementDTO {
   metadata?: {
     internship_ids?: string[];
     student_ids?: string[];
+    requires_signature?: boolean;
     file_requirements?: {
       max_size?: number;
       allowed_types?: string[];
@@ -225,7 +228,31 @@ export class DocumentRequirementsService {
 
     // Add submission stats
     const stats = await this.getSubmissionStats(requirementId);
-    return { ...requirement, submission_stats: stats };
+
+    // For students, attach their latest submission and submission status
+    let studentSubmissionData: any = {};
+    if (userRole === "student") {
+      const { data: submission } = await supabase
+        .from("document_submissions")
+        .select("*")
+        .eq("requirement_id", requirementId)
+        .eq("student_id", userId)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const submissionStatus = submission?.status || "not_submitted";
+      studentSubmissionData = {
+        my_submission: submission,
+        submission_status: submissionStatus,
+        is_overdue:
+          requirement.due_date &&
+          new Date(requirement.due_date) < new Date() &&
+          submissionStatus !== "approved",
+      };
+    }
+
+    return { ...requirement, submission_stats: stats, ...studentSubmissionData };
   }
 
   /**

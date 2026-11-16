@@ -45,6 +45,7 @@ import {
   submitDocument,
   resubmitDocument,
   getStudentSubmissionSignedUrl,
+  requirementRequiresSignature,
 } from '@/lib/api/document-requirements';
 
 export default function StudentRequirementDetailPage() {
@@ -232,15 +233,31 @@ export default function StudentRequirementDetailPage() {
         getSubmissionHistory(requirementId),
       ]);
 
-      if (reqResponse.success && reqResponse.data) {
-        setRequirement(reqResponse.data);
-      }
+      let reqData = reqResponse.success && reqResponse.data ? { ...reqResponse.data } : null;
+      const historyData = historyResponse.success && historyResponse.data ? historyResponse.data : [];
 
       if (historyResponse.success && historyResponse.data) {
         setSubmissionHistory(historyResponse.data);
       }
+
+      if (reqData) {
+        // Prioritize latest submission from historyData (sorted by version descending)
+        if (historyData.length > 0) {
+          const latest = historyData[0];
+          reqData.my_submission = latest;
+          reqData.submission_status = latest.status;
+          reqData.is_overdue = Boolean(
+            reqData.due_date &&
+            new Date(reqData.due_date) < new Date() &&
+            latest.status !== 'approved'
+          );
+        }
+        setRequirement(reqData);
+      }
+
       // Generate signed URLs for all files
-      await generateFileUrls(reqResponse.data || null, historyResponse.data || []);    } catch (error) {
+      await generateFileUrls(reqData || null, historyData);
+    } catch (error) {
       console.error('Error fetching data:', error);
       toast({
         title: 'Error',
@@ -366,7 +383,7 @@ export default function StudentRequirementDetailPage() {
         return (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3 mr-1" />
-            Pending Review
+            Submitted (Pending Review)
           </Badge>
         );
       case 'rejected':
@@ -381,6 +398,12 @@ export default function StudentRequirementDetailPage() {
           <Badge variant="secondary" className="bg-orange-100 text-orange-800">
             <RotateCcw className="h-3 w-3 mr-1" />
             Revision Requested
+          </Badge>
+        );
+      case 'superseded':
+        return (
+          <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+            Superseded
           </Badge>
         );
       default:
@@ -407,8 +430,12 @@ export default function StudentRequirementDetailPage() {
     if (!requirement) return false;
     const status = requirement.submission_status;
     
-    // Can submit if: not submitted, rejected, or revision requested
-    return !status || status === 'not_submitted' || status === 'rejected' || status === 'revision_requested';
+    // Can submit ONLY if: not submitted, rejected, or revision requested
+    // If approved or pending, student CANNOT submit to avoid overlap!
+    if (status === 'approved' || status === 'pending') {
+      return false;
+    }
+    return status === 'not_submitted' || status === 'rejected' || status === 'revision_requested' || (!status && submissionHistory.length === 0);
   };
 
   if (loading) {
@@ -448,10 +475,19 @@ export default function StudentRequirementDetailPage() {
             <CardHeader>
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
                     <CardTitle className="text-2xl">{requirement.title}</CardTitle>
                     {requirement.is_mandatory && (
                       <Badge variant="destructive">Required</Badge>
+                    )}
+                    {requirementRequiresSignature(requirement) ? (
+                      <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50/70 text-xs">
+                        Requires Handwritten Signature
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50/70 text-xs">
+                        No Signature Required
+                      </Badge>
                     )}
                   </div>
                   <CardDescription className="text-base">
@@ -553,6 +589,40 @@ export default function StudentRequirementDetailPage() {
             </Card>
           )}
 
+          {/* Approved Completion Banner */}
+          {requirement.submission_status === 'approved' && (
+            <Card className="mb-6 border-green-200 bg-green-50/50 dark:bg-green-950/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-900 dark:text-green-200">
+                    Document Requirement Approved
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-400">
+                    Your latest document has been reviewed and approved by your advisor. No further action or submission is required.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pending Review Banner */}
+          {requirement.submission_status === 'pending' && (
+            <Card className="mb-6 border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20">
+              <CardContent className="p-4 flex items-center gap-3">
+                <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-yellow-900 dark:text-yellow-200">
+                    Document Submitted & Under Review
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                    Your document has been submitted and is currently waiting for your advisor to review and validate. You do not need to re-upload.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Upload Section */}
           {canSubmit() && (
             <Card className="mb-6">
@@ -565,7 +635,9 @@ export default function StudentRequirementDetailPage() {
                 <CardDescription>
                   {requirement.submission_status === 'revision_requested'
                     ? 'Please address the feedback and upload a revised version.'
-                    : 'Upload your document to submit for this requirement.'}
+                    : requirementRequiresSignature(requirement)
+                    ? 'Upload your completed document. Please make sure handwritten signatures are clearly visible for verification.'
+                    : 'Upload your document to submit for this requirement. No handwritten signature is required.'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
