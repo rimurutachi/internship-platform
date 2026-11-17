@@ -12,6 +12,12 @@ Provides:
 import os
 import logging
 from typing import List, Optional, Tuple, Any, Dict
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded
+if os.path.exists(".env.production"):
+    load_dotenv(".env.production")
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 

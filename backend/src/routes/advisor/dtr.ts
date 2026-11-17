@@ -139,4 +139,29 @@ router.get('/dtr-submissions/:id/signed-url', async (req: AuthRequest, res: Resp
   }
 });
 
+/**
+ * POST /advisor/dtr-submissions/:id/rescan
+ * Trigger AI rescan for a DTR submission
+ */
+router.post('/dtr-submissions/:id/rescan', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const result = await dtrSubmissionService.rescanDTR(id);
+
+    return res.json({
+      success: result.success,
+      data: result,
+      message: result.success ? 'DTR rescan completed successfully' : 'DTR rescan failed',
+    });
+  } catch (error) {
+    console.error('Error rescanning DTR submission:', error);
+    const message = error instanceof Error ? error.message : 'Failed to rescan DTR submission';
+    const statusCode = message.includes('not found') ? 404 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      error: message,
+    });
+  }
+});
+
 export default router;
