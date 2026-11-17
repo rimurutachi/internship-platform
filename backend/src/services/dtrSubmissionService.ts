@@ -470,7 +470,7 @@ export class DTRSubmissionService {
   /**
    * Trigger AI scan for DTR hours extraction
    */
-  private async triggerAIScan(
+  public async triggerAIScan(
     dtrId: string,
     fileUrl: string,
     internshipId: string
@@ -526,6 +526,35 @@ export class DTRSubmissionService {
         })
         .eq('id', dtrId);
     }
+  }
+
+  /**
+   * Re-scan an existing DTR submission with AI
+   */
+  async rescanDTR(dtrId: string): Promise<{ success: boolean; extracted_hours: number; scan_result: any }> {
+    const { data: dtr, error } = await supabase
+      .from('weekly_dtr_submissions')
+      .select('id, file_url, internship_id')
+      .eq('id', dtrId)
+      .single();
+
+    if (error || !dtr) {
+      throw new Error('DTR submission not found');
+    }
+
+    await this.triggerAIScan(dtr.id, dtr.file_url, dtr.internship_id);
+
+    const { data: updated } = await supabase
+      .from('weekly_dtr_submissions')
+      .select('extracted_hours, ai_scan_status, ai_scan_result')
+      .eq('id', dtrId)
+      .single();
+
+    return {
+      success: updated?.ai_scan_status === 'completed',
+      extracted_hours: updated?.extracted_hours || 0,
+      scan_result: updated?.ai_scan_result,
+    };
   }
 
   /**

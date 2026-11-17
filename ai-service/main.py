@@ -38,8 +38,10 @@ from models.schemas import (
 )
 from services.ai_engine import AIEngine
 
-# Load env vars
-load_dotenv()
+# Load env vars: prioritize .env.production if it exists, otherwise fall back to .env
+if os.path.exists(".env.production"):
+    load_dotenv(".env.production")
+load_dotenv()  # Fallback or supplementary load from .env
 
 # Setup logging with detailed format
 logging.basicConfig(
