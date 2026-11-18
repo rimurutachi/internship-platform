@@ -47,17 +47,18 @@ export async function createDailyReport(
       throw new Error('Cannot submit reports for inactive internships');
     }
 
-    // Validate report_date is within internship period
+    // Validate report_date is on or after the internship start date
+    // Note: We do NOT hard-block report_date > internship.end_date because end_date
+    // is a projected/estimated schedule. Students with absences, holidays, or leaves
+    // need to log make-up days until their required OJT hours are completed.
     const reportDateObj = new Date(report_date);
     const startDate = new Date(internship.start_date);
-    const endDate = new Date(internship.end_date);
     // Set all to midnight for a clean comparison
     reportDateObj.setHours(0, 0, 0, 0);
     startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
 
-    if (reportDateObj < startDate || reportDateObj > endDate) {
-      throw new Error('Report date must be within the internship period');
+    if (reportDateObj < startDate) {
+      throw new Error('Report date cannot be before the internship start date');
     }
 
     // Validate report_date is not in the future

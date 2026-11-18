@@ -184,10 +184,10 @@ class TrendAnalyzer:
             university_data[university_id]['sentiments'].append(sentiment_score)
             
             # Monthly sentiment tracking
-            approved_at = eval_data.get('approved_at')
-            if approved_at:
+            eval_timestamp = eval_data.get('approved_at') or eval_data.get('submitted_at')
+            if eval_timestamp:
                 try:
-                    dt = date_parser.parse(approved_at)
+                    dt = date_parser.parse(eval_timestamp)
                     month_key = dt.strftime('%Y-%m')
                     monthly_sentiments[month_key].append(sentiment_score)
                 except Exception:
@@ -221,10 +221,10 @@ class TrendAnalyzer:
         """Calculate the time period covered by the evaluations."""
         dates = []
         for e in evaluations:
-            approved_at = e.get('approved_at')
-            if approved_at:
+            eval_timestamp = e.get('approved_at') or e.get('submitted_at')
+            if eval_timestamp:
                 try:
-                    dates.append(date_parser.parse(approved_at))
+                    dates.append(date_parser.parse(eval_timestamp))
                 except Exception:
                     pass
         
@@ -439,7 +439,7 @@ class TrendAnalyzer:
                 'type': 'sentiment_trend',
                 'category': 'sentiment',
                 'title': f'Overall Evaluation Sentiment: {sentiment_desc.title()}',
-                'description': f'Based on {total_evaluations} approved evaluations, feedback sentiment is {sentiment_desc}.',
+                'description': f'Based on {total_evaluations} submitted evaluations, feedback sentiment is {sentiment_desc}.',
                 'data': {'average_score': round(avg_recent, 2)}
             })
         

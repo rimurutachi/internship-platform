@@ -396,7 +396,7 @@ export function AdminAnalyticsOJT() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-4 text-center italic">
-                Insights generated from approved evaluations only
+                Insights generated from submitted evaluations
               </p>
             </>
           ) : (
@@ -405,10 +405,10 @@ export function AdminAnalyticsOJT() {
                 <GraduationCap className="w-6 h-6 text-violet-400" />
               </div>
               <p className="text-sm text-muted-foreground text-center">
-                There are no approved evaluations to analyze yet.
+                There are no submitted evaluations to analyze yet.
               </p>
               <p className="text-xs text-muted-foreground/70 text-center">
-                Insights are generated from approved evaluations only.
+                Insights are generated from submitted evaluations.
               </p>
             </div>
           )}

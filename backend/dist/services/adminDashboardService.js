@@ -113,8 +113,8 @@ async function calculateDashboardMetrics(universityId) {
             supabase
                 .from('evaluations')
                 .select('id', { count: 'exact', head: true })
-                .eq('status', 'approved')
-                .gte('approved_at', startOfMonth.toISOString())
+                .in('status', ['submitted', 'approved'])
+                .gte('submitted_at', startOfMonth.toISOString())
         ]);
         // Safe extraction with default fallbacks
         const studentsEnrolled = studentsEnrolledRes.status === 'fulfilled' ? studentsEnrolledRes.value.count || 0 : 0;
@@ -265,7 +265,7 @@ async function getAIInsights(universityId) {
             data: formattedInsights.length > 0 ? formattedInsights : [
                 {
                     type: 'info',
-                    message: 'No AI insights available yet. Insights will be generated after evaluations are approved.',
+                    message: 'No AI insights available yet. Insights will be generated after evaluations are submitted.',
                 },
             ],
         };
