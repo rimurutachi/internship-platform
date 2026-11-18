@@ -15,6 +15,57 @@ function getUserProgram(profileData: any): string {
 }
 
 /**
+ * Determine whether a document requirement is strictly for a Memorandum of Agreement (MOA).
+ * Matches standalone MOA / M.O.A. abbreviations or explicit "Memorandum of Agreement" phrases
+ * while excluding unrelated agreements or waivers (e.g. "Trainee-Industry Agreement Liability Waiver").
+ */
+export function isMOARequirement(title: string): boolean {
+  const normalized = (title || '').trim();
+  if (!normalized) return false;
+
+  return (
+    /\bmoa\b/i.test(normalized) ||
+    /\bm\.o\.a\b/i.test(normalized) ||
+    /memora[mn]dum\s+(?:of|for)\s+agre+ment/i.test(normalized)
+  );
+}
+
+/**
+ * Fetch all document requirements specifically designated for MOA submissions.
+ */
+async function fetchMOARequirements(): Promise<{ id: string; title: string }[]> {
+  const { data, error } = await supabase
+    .from('document_requirements')
+    .select('id, title')
+    .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%memoramdum%,title.ilike.%M.O.A%');
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).filter((r: any) => isMOARequirement(r.title));
+}
+
+/**
+ * Keep only the latest submission per (student_id, requirement_id) pair.
+ * Assumes submissions are ordered newest-first.
+ */
+function deduplicateSubmissions<T extends { student_id: string; requirement_id: string }>(
+  submissions: T[]
+): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const sub of submissions) {
+    const key = `${sub.student_id}-${sub.requirement_id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(sub);
+    }
+  }
+  return result;
+}
+
+/**
  * GET /api/admin/moa/submissions
  * Get all approved MOA submissions from document requirements, with student info
  * Query: program, year_level, section, search, page, limit
@@ -27,12 +78,10 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
     const offset = (pageNum - 1) * limitNum;
 
     // 1. Get all MOA-related requirements
-    const { data: moaRequirements, error: reqError } = await supabase
-      .from('document_requirements')
-      .select('id, title')
-      .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%agreement%,title.ilike.%M.O.A%');
-
-    if (reqError) {
+    let moaRequirements: { id: string; title: string }[];
+    try {
+      moaRequirements = await fetchMOARequirements();
+    } catch (reqError: any) {
       console.error('Error fetching MOA requirements:', reqError);
       return res.status(500).json({
         success: false,
@@ -41,7 +90,7 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const requirementIds = (moaRequirements || []).map(r => r.id);
+    const requirementIds = moaRequirements.map(r => r.id);
 
     if (requirementIds.length === 0) {
       return res.json({
@@ -70,15 +119,7 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
     }
 
     // Keep only the latest approved submission per student per requirement
-    const seen = new Set<string>();
-    const latestApprovedSubmissions: any[] = [];
-    for (const sub of rawSubmissions || []) {
-      const key = `${sub.student_id}-${sub.requirement_id}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        latestApprovedSubmissions.push(sub);
-      }
-    }
+    const latestApprovedSubmissions = deduplicateSubmissions(rawSubmissions || []);
 
     // 3. Fetch student user data in a separate query
     //    (program/section live in profile_data jsonb, not direct columns)
@@ -173,13 +214,9 @@ router.get('/submissions', async (req: AuthRequest, res: Response) => {
  */
 router.get('/stats', async (req: AuthRequest, res: Response) => {
   try {
-    // Get MOA requirement IDs
-    const { data: moaRequirements } = await supabase
-      .from('document_requirements')
-      .select('id, title')
-      .or('title.ilike.%MOA%,title.ilike.%memorandum%,title.ilike.%agreement%,title.ilike.%M.O.A%');
-
-    const requirementIds = (moaRequirements || []).map(r => r.id);
+    // Get MOA requirement IDs using the exact same filter as /submissions
+    const moaRequirements = await fetchMOARequirements();
+    const requirementIds = moaRequirements.map(r => r.id);
 
     if (requirementIds.length === 0) {
       return res.json({
@@ -196,16 +233,34 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
     }
 
     // Get all submissions for MOA requirements (no embedded join)
-    const { data: allSubmissions } = await supabase
+    const { data: allSubmissions, error: subError } = await supabase
       .from('document_submissions')
-      .select('id, status, student_id')
-      .in('requirement_id', requirementIds);
+      .select('id, requirement_id, status, student_id, submitted_at')
+      .in('requirement_id', requirementIds)
+      .order('submitted_at', { ascending: false });
+
+    if (subError) {
+      console.error('Error fetching MOA stats submissions:', subError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch MOA statistics',
+        message: subError.message,
+      });
+    }
 
     const submissions = allSubmissions || [];
-    const approved = submissions.filter((s: any) => s.status === 'approved');
-    const pending = submissions.filter((s: any) => s.status === 'pending');
-    const rejected = submissions.filter((s: any) => s.status === 'rejected');
-    const revisionRequested = submissions.filter((s: any) => s.status === 'revision_requested');
+    const approved = deduplicateSubmissions(
+      submissions.filter((s: any) => s.status === 'approved')
+    );
+    const pending = deduplicateSubmissions(
+      submissions.filter((s: any) => s.status === 'pending')
+    );
+    const rejected = deduplicateSubmissions(
+      submissions.filter((s: any) => s.status === 'rejected')
+    );
+    const revisionRequested = deduplicateSubmissions(
+      submissions.filter((s: any) => s.status === 'revision_requested')
+    );
 
     // Fetch student profile_data for approved submissions to group by program
     const approvedStudentIds = [...new Set(approved.map((s: any) => s.student_id))];

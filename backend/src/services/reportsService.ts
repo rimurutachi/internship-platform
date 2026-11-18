@@ -517,7 +517,7 @@ class ReportsService {
       csv += 'Top Skill Demands\n';
       csv += 'Skill,Frequency,Percentage\n';
       data.ai_insights.skill_trends.most_demanded_overall.forEach((s: any) => {
-        csv += `"${s.name || s.skill}",${s.frequency},${s.percentage}%\n`;
+        csv += `"${s.name || s.skill}",${s.frequency ?? s.count ?? 0},${s.percentage}%\n`;
       });
       csv += '\n';
     }
@@ -525,7 +525,7 @@ class ReportsService {
       csv += 'Top Company Performance\n';
       csv += 'Company,Evaluation Count,Average Grade,Average Score,Performance Rating\n';
       data.ai_insights.company_performance.forEach((c: any) => {
-         csv += `"${c.company_name}",${c.evaluation_count},${c.average_grade},${c.avg_score || c.average_score || 0},"${c.performance_rating || c.performance_category || ''}"\n`;
+         csv += `"${c.company_name}",${c.evaluation_count ?? c.total_evaluations ?? 0},${c.average_grade ?? c.avg_grade ?? 0},${c.avg_score ?? c.average_score ?? 0},"${c.performance_rating || c.performance_category || ''}"\n`;
       });
       csv += '\n';
     }
@@ -677,9 +677,9 @@ class ReportsService {
 
       if (data.ai_insights.skill_trends && data.ai_insights.skill_trends.most_demanded_overall) {
         const rows = data.ai_insights.skill_trends.most_demanded_overall.slice(0, 10).map((item: any) => [
-          item.name,
+          item.name || item.skill,
           `${item.percentage}%`,
-          String(item.frequency)
+          String(item.frequency ?? item.count ?? 0)
         ]);
         
         await doc.table({
@@ -694,8 +694,8 @@ class ReportsService {
         const rows = data.ai_insights.company_performance.slice(0, 10).map((c: any, index: number) => [
           String(index + 1),
           c.company_name,
-          String(c.average_grade),
-          c.performance_rating
+          String(c.average_grade ?? c.avg_grade ?? 0),
+          c.performance_rating || c.performance_category || ''
         ]);
         
         await doc.table({
@@ -1031,7 +1031,7 @@ class ReportsService {
 
         const startRow = aiRow;
         data.ai_insights.skill_trends.most_demanded_overall.slice(0, 10).forEach((item: any) => {
-          aiSheet.getRow(aiRow).values = [item.name, `${item.percentage}%`, item.frequency];
+          aiSheet.getRow(aiRow).values = [item.name || item.skill, `${item.percentage}%`, item.frequency ?? item.count ?? 0];
           aiRow++;
         });
         styleDataRows(aiSheet, startRow, aiRow - 1, 3);

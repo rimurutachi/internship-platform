@@ -84,11 +84,26 @@ interface CompanyPerformance {
   company_name: string;
   avg_score: number;
   avg_grade: number;
+  average_score?: number;
+  average_grade?: number;
   evaluation_count: number;
+  total_evaluations?: number;
   positive_sentiment_rate: number;
+  sentiment_score?: number;
+  sentiment_label?: string;
   top_skills: string[];
   performance_category: 'excellent' | 'good' | 'average' | 'needs_improvement';
+  performance_rating?: string;
   trend: 'up' | 'down' | 'stable';
+}
+
+interface SkillTrendItem {
+  skill?: string;
+  name?: string;
+  frequency?: number;
+  count?: number;
+  percentage: number;
+  category?: string;
 }
 
 interface TrendAnalysisData {
@@ -108,9 +123,9 @@ interface TrendAnalysisData {
   }>;
   company_performance: CompanyPerformance[];
   skill_trends?: {
-    technical_skills: Array<{ skill: string; frequency: number; percentage: number }>;
-    soft_skills: Array<{ skill: string; frequency: number; percentage: number }>;
-    most_demanded_overall: Array<{ skill: string; frequency: number; percentage: number }>;
+    technical_skills: SkillTrendItem[];
+    soft_skills: SkillTrendItem[];
+    most_demanded_overall: SkillTrendItem[];
   };
   sentiment_trends: Array<{
     period: string;
@@ -316,10 +331,40 @@ export default function ReportsPage() {
 
           // Set company performance data
           if (data.company_performance && data.company_performance.length > 0) {
-            const companyData = data.company_performance.map(cp => ({
-              ...cp,
-              trend: determineTrend(cp.avg_score),
-            }));
+            const companyData = data.company_performance.map(cp => {
+              const avgScore = cp.avg_score ?? cp.average_score ?? 0;
+              const avgGrade = cp.avg_grade ?? cp.average_grade ?? 0;
+              const evalCount = cp.evaluation_count ?? cp.total_evaluations ?? 0;
+              const rawRating = cp.performance_category || cp.performance_rating || 'average';
+              const perfCategory: CompanyPerformance['performance_category'] =
+                rawRating === 'excellent'
+                  ? 'excellent'
+                  : rawRating === 'good'
+                  ? 'good'
+                  : rawRating === 'below_average' || rawRating === 'poor' || rawRating === 'needs_improvement'
+                  ? 'needs_improvement'
+                  : 'average';
+              const sentimentRate =
+                typeof cp.positive_sentiment_rate === 'number'
+                  ? cp.positive_sentiment_rate
+                  : typeof cp.sentiment_score === 'number'
+                  ? Math.max(0, Math.min(100, Math.round(((cp.sentiment_score + 1) / 2) * 100)))
+                  : cp.sentiment_label === 'positive'
+                  ? 85
+                  : cp.sentiment_label === 'neutral'
+                  ? 60
+                  : 30;
+
+              return {
+                ...cp,
+                avg_score: avgScore,
+                avg_grade: avgGrade,
+                evaluation_count: evalCount,
+                performance_category: perfCategory,
+                positive_sentiment_rate: sentimentRate,
+                trend: determineTrend(avgScore, avgGrade),
+              };
+            });
             setCompanyPerformance(companyData);
             console.log('✅ [Reports] Set company performance:', companyData.length);
           }
@@ -327,11 +372,11 @@ export default function ReportsPage() {
           // Set skill demands from skill trends
           if (data.skill_trends?.most_demanded_overall && data.skill_trends.most_demanded_overall.length > 0) {
             const skillData = data.skill_trends.most_demanded_overall.slice(0, 8).map((skill, index) => ({
-              skill: skill.skill,
-              demand: Math.min(100, Math.round(skill.percentage * 1.5)),
+              skill: skill.skill || skill.name || 'Skill',
+              demand: Math.min(100, Math.round((skill.percentage || 0) * 1.5)),
               trend: (index < 3 ? 'up' : (index < 6 ? 'stable' : 'down')) as 'up' | 'down' | 'stable',
-              frequency: skill.frequency,
-              percentage: skill.percentage,
+              frequency: skill.frequency ?? skill.count ?? 0,
+              percentage: skill.percentage ?? 0,
             }));
             setSkillDemands(skillData);
             console.log('✅ [Reports] Set skill demands:', skillData.length);
@@ -361,10 +406,18 @@ export default function ReportsPage() {
         if (companiesResponse.ok) {
           const companiesResult = await companiesResponse.json();
           if (companiesResult.success && companiesResult.data?.companies) {
-            setCompanyPerformance(companiesResult.data.companies.map((cp: CompanyPerformance) => ({
-              ...cp,
-              trend: determineTrend(cp.avg_score),
-            })));
+            setCompanyPerformance(companiesResult.data.companies.map((cp: CompanyPerformance) => {
+              const avgScore = cp.avg_score ?? cp.average_score ?? 0;
+              const avgGrade = cp.avg_grade ?? cp.average_grade ?? 0;
+              const evalCount = cp.evaluation_count ?? cp.total_evaluations ?? 0;
+              return {
+                ...cp,
+                avg_score: avgScore,
+                avg_grade: avgGrade,
+                evaluation_count: evalCount,
+                trend: determineTrend(avgScore, avgGrade),
+              };
+            }));
           }
         }
 
@@ -377,12 +430,12 @@ export default function ReportsPage() {
         if (skillsResponse.ok) {
           const skillsResult = await skillsResponse.json();
           if (skillsResult.success && skillsResult.data?.most_demanded_overall) {
-            setSkillDemands(skillsResult.data.most_demanded_overall.slice(0, 8).map((skill: { skill: string; frequency: number; percentage: number }, index: number) => ({
-              skill: skill.skill,
-              demand: Math.min(100, Math.round(skill.percentage * 1.5)),
+            setSkillDemands(skillsResult.data.most_demanded_overall.slice(0, 8).map((skill: SkillTrendItem, index: number) => ({
+              skill: skill.skill || skill.name || 'Skill',
+              demand: Math.min(100, Math.round((skill.percentage || 0) * 1.5)),
               trend: index < 3 ? 'up' : (index < 6 ? 'stable' : 'down'),
-              frequency: skill.frequency,
-              percentage: skill.percentage,
+              frequency: skill.frequency ?? skill.count ?? 0,
+              percentage: skill.percentage ?? 0,
             })));
           }
         }
@@ -423,10 +476,15 @@ export default function ReportsPage() {
     }
   }, []);
 
-  // Helper function to determine trend based on score
-  const determineTrend = (score: number): 'up' | 'down' | 'stable' => {
-    if (score >= 85) return 'up';
-    if (score >= 70) return 'stable';
+  // Helper function to determine trend based on grade (CvSU 1.0-5.0 scale) or score
+  const determineTrend = (score: number, grade?: number): 'up' | 'down' | 'stable' => {
+    if (typeof grade === 'number' && grade > 0) {
+      if (grade <= 1.75) return 'up';
+      if (grade <= 2.5) return 'stable';
+      return 'down';
+    }
+    if (score >= 58) return 'up';
+    if (score >= 45) return 'stable';
     return 'down';
   };
 

@@ -146,13 +146,13 @@ class SkillTrendAnalyzer:
         
         for e in evaluations:
             text = e.get('supervisor_comments', '')
-            approved_at = e.get('approved_at')
+            eval_timestamp = e.get('approved_at') or e.get('submitted_at')
             
-            if not text or len(text) < 10 or not approved_at:
+            if not text or len(text) < 10 or not eval_timestamp:
                 continue
             
             try:
-                dt = date_parser.parse(approved_at)
+                dt = date_parser.parse(eval_timestamp)
                 month_key = dt.strftime('%Y-%m')
             except Exception:
                 continue

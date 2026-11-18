@@ -57,7 +57,7 @@ class EvaluationData(BaseModel):
     criterion_scores: Optional[List[CriterionScore]] = []
     
     # Timestamps for time-series analysis
-    approved_at: str = Field(..., description="ISO timestamp when evaluation was approved")
+    approved_at: Optional[str] = Field(None, description="ISO timestamp when evaluation was submitted or approved")
     submitted_at: Optional[str] = None
     
     model_config = ConfigDict(

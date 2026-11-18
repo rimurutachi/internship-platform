@@ -114,14 +114,16 @@ export class DTRSubmissionService {
       throw new Error('Cannot submit DTR for inactive internships');
     }
 
-    // 2. Validate week dates are within internship period
+    // 2. Validate week dates
+    // Note: We do NOT hard-block weekEnd > internship.end_date because end_date is an
+    // initial projected schedule. When students have absences/leaves, their DTR periods
+    // extend until the required OJT hours are met.
     const weekStart = new Date(data.week_start_date);
     const weekEnd = new Date(data.week_end_date);
     const intStart = new Date(internship.start_date);
-    const intEnd = new Date(internship.end_date);
 
-    if (weekStart < intStart || weekEnd > intEnd) {
-      throw new Error('Week dates must be within the internship period');
+    if (weekStart < intStart) {
+      throw new Error('Week start date cannot be before the internship start date');
     }
 
     if (weekEnd < weekStart) {

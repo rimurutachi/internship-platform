@@ -283,11 +283,18 @@ export default function CurrentInternship() {
         });
       }
 
+      const isCompleted =
+        internshipData.status === "completed" ||
+        progress >= 100 ||
+        (internshipData.total_hours_worked &&
+          internshipData.required_hours &&
+          internshipData.total_hours_worked >= internshipData.required_hours);
+
       dynamicMilestones.push({
         id: dynamicMilestones.length + 1,
         title: "Internship Completion",
         date: internshipData.end_date,
-        completed: new Date(internshipData.end_date) <= today,
+        completed: Boolean(isCompleted),
       });
 
       setMilestones(dynamicMilestones);

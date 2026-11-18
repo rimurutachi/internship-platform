@@ -171,11 +171,6 @@ export default function PrintableEvaluationForm({
     };
   }, []);
 
-  // Determine which score range the total falls into for highlighting
-  const getScoreRangeHighlight = (minScore: number, maxScore: number) => {
-    return totalScore >= minScore && totalScore <= maxScore;
-  };
-
   // Build the grading scale rows from DB data
   const sortedScale = [...gradingScale].sort((a, b) => a.min_score - b.min_score);
 
@@ -294,11 +289,11 @@ export default function PrintableEvaluationForm({
                   return (
                     <tr key={idx}>
                       <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'left', fontWeight: 'bold', width: '130px', fontSize: '10px' }}>{label}</td>
-                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center', backgroundColor: cs.score >= 1 && cs.score <= 2 ? '#ffff00' : undefined }}>{descs[0]}</td>
-                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center', backgroundColor: cs.score >= 3 && cs.score <= 4 ? '#ffff00' : undefined }}>{descs[1]}</td>
-                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center', backgroundColor: cs.score >= 5 && cs.score <= 6 ? '#ffff00' : undefined }}>{descs[2]}</td>
-                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center', backgroundColor: cs.score >= 7 && cs.score <= 8 ? '#ffff00' : undefined }}>{descs[3]}</td>
-                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center', backgroundColor: cs.score >= 9 && cs.score <= 10 ? '#ffff00' : undefined }}>{descs[4]}</td>
+                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center' }}>{descs[0]}</td>
+                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center' }}>{descs[1]}</td>
+                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center' }}>{descs[2]}</td>
+                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center' }}>{descs[3]}</td>
+                      <td colSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '8px', fontStyle: 'italic', textAlign: 'center' }}>{descs[4]}</td>
                       <td style={{ border: '1px solid #000', padding: '3px 4px', width: '45px', fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>{cs.score}</td>
                     </tr>
                   );
@@ -322,7 +317,6 @@ export default function PrintableEvaluationForm({
                       padding: '2px 4px',
                       textAlign: 'center',
                       fontSize: '9px',
-                      backgroundColor: getScoreRangeHighlight(range.min_score, range.max_score) ? '#ffff00' : undefined,
                     }}>
                       {range.min_score}-{range.max_score}
                     </td>
@@ -337,7 +331,6 @@ export default function PrintableEvaluationForm({
                       textAlign: 'center',
                       fontSize: '9px',
                       fontWeight: 'bold',
-                      backgroundColor: getScoreRangeHighlight(range.min_score, range.max_score) ? '#ffff00' : undefined,
                     }}>
                       {range.grade}
                     </td>
@@ -396,15 +389,14 @@ export default function PrintableEvaluationForm({
 
             {/* Signature Section */}
             <div style={{ marginTop: '40px', textAlign: 'right' }}>
+              <div style={{ width: '280px', marginLeft: 'auto', textAlign: 'center', fontWeight: 'bold', fontSize: '11px', paddingBottom: '2px' }}>
+                {supervisorName}
+              </div>
               <div style={{ borderTop: '1px solid #000', width: '280px', marginLeft: 'auto', textAlign: 'center', paddingTop: '2px', fontSize: '9px', fontStyle: 'italic' }}>
                 (Signature over Printed Name)
               </div>
-              <table style={{ marginLeft: 'auto', marginTop: '6px', fontSize: '10px' }}>
+              <table style={{ width: 'auto', marginLeft: 'auto', marginTop: '6px', fontSize: '10px' }}>
                 <tbody>
-                  <tr>
-                    <td style={{ textAlign: 'right', paddingRight: '8px' }}>Supervisor:</td>
-                    <td style={{ fontWeight: 'bold' }}>{supervisorName}</td>
-                  </tr>
                   <tr>
                     <td style={{ textAlign: 'right', paddingRight: '8px' }}>Position:</td>
                     <td>Company Supervisor</td>

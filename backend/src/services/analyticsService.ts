@@ -24,7 +24,7 @@ const supabase = createClient(
 );
 
 /**
- * Fetch approved evaluations with all context needed for AI analysis
+ * Fetch submitted/approved evaluations with all context needed for AI analysis
  */
 export async function fetchApprovedEvaluationsForAnalysis(
   options: {
@@ -35,7 +35,7 @@ export async function fetchApprovedEvaluationsForAnalysis(
     dateTo?: string;
   } = {}
 ): Promise<EvaluationData[]> {
-  console.log('🔵 [Analytics] Fetching approved evaluations for AI analysis', options);
+  console.log('🔵 [Analytics] Fetching submitted evaluations for AI analysis', options);
 
   let query = supabase
     .from('evaluations')
@@ -51,6 +51,7 @@ export async function fetchApprovedEvaluationsForAnalysis(
       punctuality,
       approved_at,
       submitted_at,
+      created_at,
       criterion_scores:evaluation_criterion_scores(
         criterion_code,
         criterion_name,
@@ -75,21 +76,14 @@ export async function fetchApprovedEvaluationsForAnalysis(
         )
       )
     `)
-    .eq('status', 'approved')
+    .in('status', ['submitted', 'approved'])
     .not('supervisor_comments', 'is', null)
-    .order('approved_at', { ascending: false });
+    .order('submitted_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false });
 
-  // Apply filters
+  // Apply limit filter
   if (options.limit) {
     query = query.limit(options.limit);
-  }
-
-  if (options.dateFrom) {
-    query = query.gte('approved_at', options.dateFrom);
-  }
-
-  if (options.dateTo) {
-    query = query.lte('approved_at', options.dateTo);
   }
 
   const { data: evaluations, error } = await query;
@@ -100,48 +94,93 @@ export async function fetchApprovedEvaluationsForAnalysis(
   }
 
   if (!evaluations || evaluations.length === 0) {
-    console.log('⚠️ [Analytics] No approved evaluations found');
+    console.log('⚠️ [Analytics] No submitted evaluations found');
     return [];
+  }
+
+  // Resolve fallback university in case any student record is missing university_id
+  let fallbackUniversity: { id: string; name: string } | null = null;
+  const hasMissingUniversity = evaluations.some(
+    (e: any) => e.internship && e.internship.company && !e.internship.student?.university
+  );
+  if (hasMissingUniversity) {
+    let uniQuery = supabase.from('universities').select('id, name');
+    if (options.universityId) {
+      uniQuery = uniQuery.eq('id', options.universityId);
+    }
+    const { data: defaultUni } = await uniQuery.limit(1).maybeSingle();
+    fallbackUniversity = defaultUni || {
+      id: options.universityId || 'cvsu-bacoor',
+      name: 'Cavite State University - Bacoor City Campus',
+    };
   }
 
   // Transform to EvaluationData format expected by AI service
   const transformedEvaluations: EvaluationData[] = evaluations
-    .filter((e: any) => e.internship && e.internship.company && e.internship.student?.university)
-    .map((e: any) => ({
-      evaluation_id: e.id,
-      internship_id: e.internship_id,
-      student_id: e.internship.student_id,
-      supervisor_id: e.supervisor_id,
-      advisor_id: e.advisor_id,
-      company_id: e.internship.company.id,
-      company_name: e.internship.company.name,
-      university_id: e.internship.student.university.id,
-      university_name: e.internship.student.university.name,
-      position: e.internship.position || 'Intern',
-      department: e.internship.department,
-      supervisor_comments: e.supervisor_comments,
-      total_score: e.total_score,
-      final_grade: e.final_grade,
-      attendance: e.attendance,
-      punctuality: e.punctuality,
-      criterion_scores: e.criterion_scores?.map((cs: any) => ({
-        criterion_code: cs.criterion_code,
-        criterion_name: cs.criterion_name,
-        score: cs.score,
-      })) || [],
-      approved_at: e.approved_at,
-      submitted_at: e.submitted_at,
-    }));
+    .filter((e: any) => e.internship && e.internship.company)
+    .map((e: any) => {
+      const effectiveTimestamp =
+        e.submitted_at || e.approved_at || e.created_at || new Date().toISOString();
+      const studentUniversity = e.internship.student?.university || fallbackUniversity;
 
-  // Filter by university/company if specified (post-fetch filtering for JOINed data)
+      return {
+        evaluation_id: e.id,
+        internship_id: e.internship_id,
+        student_id: e.internship.student_id,
+        supervisor_id: e.supervisor_id,
+        advisor_id: e.advisor_id,
+        company_id: e.internship.company.id,
+        company_name: e.internship.company.name,
+        university_id: studentUniversity?.id || options.universityId || 'cvsu-bacoor',
+        university_name: studentUniversity?.name || 'Cavite State University - Bacoor City Campus',
+        position: e.internship.position || 'Intern',
+        department: e.internship.department,
+        supervisor_comments: e.supervisor_comments,
+        total_score: e.total_score,
+        final_grade: e.final_grade,
+        attendance: e.attendance,
+        punctuality: e.punctuality,
+        criterion_scores: e.criterion_scores?.map((cs: any) => ({
+          criterion_code: cs.criterion_code,
+          criterion_name: cs.criterion_name,
+          score: cs.score,
+        })) || [],
+        approved_at: e.approved_at || effectiveTimestamp,
+        submitted_at: e.submitted_at || effectiveTimestamp,
+      };
+    });
+
+  // Filter by date range, university, and company if specified
   let filteredEvaluations = transformedEvaluations;
 
+  if (options.dateFrom) {
+    const fromTime = new Date(options.dateFrom).getTime();
+    if (!isNaN(fromTime)) {
+      filteredEvaluations = filteredEvaluations.filter((e) => {
+        const evalTime = new Date(e.submitted_at || e.approved_at).getTime();
+        return !isNaN(evalTime) && evalTime >= fromTime;
+      });
+    }
+  }
+
+  if (options.dateTo) {
+    const toTime = new Date(options.dateTo).getTime();
+    if (!isNaN(toTime)) {
+      filteredEvaluations = filteredEvaluations.filter((e) => {
+        const evalTime = new Date(e.submitted_at || e.approved_at).getTime();
+        return !isNaN(evalTime) && evalTime <= toTime;
+      });
+    }
+  }
+
   if (options.universityId) {
-    filteredEvaluations = filteredEvaluations.filter(e => e.university_id === options.universityId);
+    filteredEvaluations = filteredEvaluations.filter(
+      (e) => !e.university_id || e.university_id === options.universityId
+    );
   }
 
   if (options.companyId) {
-    filteredEvaluations = filteredEvaluations.filter(e => e.company_id === options.companyId);
+    filteredEvaluations = filteredEvaluations.filter((e) => e.company_id === options.companyId);
   }
 
   console.log(`✅ [Analytics] Fetched ${filteredEvaluations.length} evaluations for analysis`);
@@ -185,7 +224,7 @@ export async function getTrendAnalysis(
         type: 'performance',
         category: 'data',
         title: 'No Evaluations Available',
-        description: 'There are no approved evaluations to analyze yet.',
+        description: 'There are no submitted evaluations to analyze yet.',
         data: {}
       }],
       company_performance: [],
@@ -242,7 +281,7 @@ export async function getDashboardInsights(
         type: 'performance',
         category: 'data',
         title: 'No Evaluations Available',
-        description: 'There are no approved evaluations to analyze yet.',
+        description: 'There are no submitted evaluations to analyze yet.',
         data: {}
       }],
       quick_stats: {},
