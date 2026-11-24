@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAllUsers = getAllUsers;
 exports.getUserById = getUserById;
@@ -12,6 +15,7 @@ exports.updateUserStatus = updateUserStatus;
 exports.graduateStudent = graduateStudent;
 const supabase_js_1 = require("@supabase/supabase-js");
 const typeGuards_1 = require("../../utils/typeGuards");
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Get all users with filtering, search, and pagination
@@ -205,14 +209,22 @@ async function verifyUserProfile(req, res) {
                 comments: comments || null,
             },
         });
-        // Send notification to user
-        await supabase.from('notifications').insert({
-            user_id: id,
-            type: 'profile_verified',
-            title: 'Profile Verified',
-            message: 'Your profile has been verified by an administrator.',
-            data: { comments: comments || null },
-        });
+        // Send real-time notification to user
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: id,
+                type: 'profile_verified',
+                title: 'Profile Verified',
+                message: 'Your profile has been verified by an administrator.',
+                action_url: `/dashboard/${user.role || 'student'}/settings`,
+                reference_id: id,
+                reference_type: 'user',
+                metadata: { comments: comments || null },
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send profile verified notification:', notifError);
+        }
         return res.status(200).json({
             success: true,
             data: updatedUser,
@@ -299,14 +311,22 @@ async function rejectUserProfile(req, res) {
                 rejection_reason,
             },
         });
-        // Send notification to user with feedback
-        await supabase.from('notifications').insert({
-            user_id: id,
-            type: 'profile_rejected',
-            title: 'Profile Needs Correction',
-            message: `Your profile needs correction: ${rejection_reason}`,
-            data: { rejection_reason },
-        });
+        // Send real-time notification to user with feedback
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: id,
+                type: 'profile_rejected',
+                title: 'Profile Needs Correction',
+                message: `Your profile needs correction: ${rejection_reason}`,
+                action_url: `/dashboard/${user.role || 'student'}/settings`,
+                reference_id: id,
+                reference_type: 'user',
+                metadata: { rejection_reason },
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send profile rejection notification:', notifError);
+        }
         return res.status(200).json({
             success: true,
             data: updatedUser,
@@ -412,6 +432,20 @@ async function archiveUser(req, res) {
                 },
             },
         });
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: id,
+                type: 'account_archived',
+                title: 'Account Archived',
+                message: 'Your account has been archived by an administrator. Contact your administrator if you need access restored.',
+                action_url: `/dashboard/${user.role || 'student'}`,
+                reference_id: id,
+                reference_type: 'user',
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send user archive notification:', notifError);
+        }
         return res.status(200).json({
             success: true,
             data: archivedUser,
@@ -508,6 +542,20 @@ async function unarchiveUser(req, res) {
                 },
             },
         });
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: id,
+                type: 'account_restored',
+                title: 'Account Restored',
+                message: 'Your account has been unarchived and restored to active status.',
+                action_url: `/dashboard/${user.role || 'student'}`,
+                reference_id: id,
+                reference_type: 'user',
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send user unarchive notification:', notifError);
+        }
         return res.status(200).json({
             success: true,
             data: unarchivedUser,
@@ -596,6 +644,21 @@ async function updateUserRole(req, res) {
                 new_role: role,
             },
         });
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: id,
+                type: 'account_updated',
+                title: 'Account Role Updated',
+                message: `Your account role has been updated to "${role}" by an administrator.`,
+                action_url: `/dashboard/${role}`,
+                reference_id: id,
+                reference_type: 'user',
+                metadata: { new_role: role },
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send role update notification:', notifError);
+        }
         return res.status(200).json({
             success: true,
             data: user,
@@ -678,6 +741,21 @@ async function updateUserStatus(req, res) {
                 new_status: status,
             },
         });
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: id,
+                type: 'account_updated',
+                title: 'Account Status Updated',
+                message: `Your account status has been updated to "${status}" by an administrator.`,
+                action_url: `/dashboard/${user.role || 'student'}/settings`,
+                reference_id: id,
+                reference_type: 'user',
+                metadata: { new_status: status },
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send status update notification:', notifError);
+        }
         return res.status(200).json({
             success: true,
             data: user,
@@ -798,17 +876,43 @@ async function graduateStudent(req, res) {
                 internship_id: completedInternship.id,
             },
         });
-        // Notify the student
-        await supabase.from('notifications').insert({
-            user_id: id,
-            type: 'student_graduated',
-            title: 'Congratulations! You have Graduated',
-            message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
-            data: {
-                graduation_notes: graduation_notes || null,
-                graduated_at: new Date().toISOString(),
-            },
-        });
+        // Notify the student and their faculty advisor in real time
+        try {
+            const gradNotifs = [
+                {
+                    user_id: id,
+                    type: 'student_graduated',
+                    title: 'Congratulations! You have Graduated',
+                    message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
+                    action_url: '/dashboard/student',
+                    reference_id: id,
+                    reference_type: 'user',
+                    metadata: {
+                        graduation_notes: graduation_notes || null,
+                        graduated_at: new Date().toISOString(),
+                    },
+                },
+            ];
+            if (completedInternship.advisor_id) {
+                gradNotifs.push({
+                    user_id: completedInternship.advisor_id,
+                    type: 'student_graduated',
+                    title: 'Advisee Graduated',
+                    message: `${user.first_name} ${user.last_name} has been officially marked as graduated.`,
+                    action_url: '/dashboard/advisor/students',
+                    reference_id: id,
+                    reference_type: 'user',
+                    metadata: {
+                        graduation_notes: graduation_notes || null,
+                        graduated_at: new Date().toISOString(),
+                    },
+                });
+            }
+            await notificationService_1.default.createBulkNotifications(gradNotifs);
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send graduation notifications:', notifError);
+        }
         console.log(`✅ Student ${id} graduated successfully by admin ${adminId}`);
         return res.status(200).json({
             success: true,

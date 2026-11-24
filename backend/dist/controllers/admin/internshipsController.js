@@ -247,6 +247,53 @@ class InternshipsController {
             }
             // Log activity
             await this.internshipService.logActivity(req.user.id, 'internship_created', internship.id, `Admin created internship for student at company as ${position}`, { internship_data: internship });
+            // Notify student, advisor, and supervisor in real time
+            try {
+                const [{ data: studentUser }, { data: companyData }] = await Promise.all([
+                    supabase.from('users').select('first_name, last_name').eq('id', student_id).maybeSingle(),
+                    supabase.from('companies').select('name').eq('id', company_id).maybeSingle(),
+                ]);
+                const studentName = studentUser
+                    ? `${studentUser.first_name || ''} ${studentUser.last_name || ''}`.trim() || 'A student'
+                    : 'A student';
+                const companyName = companyData?.name || 'the host company';
+                const assignmentNotifications = [
+                    {
+                        user_id: student_id,
+                        type: 'internship_created',
+                        title: 'New Internship Assigned',
+                        message: `Your internship as ${position} at ${companyName} has been created (${status}).`,
+                        action_url: '/dashboard/student/current-internship',
+                        reference_id: internship.id,
+                        reference_type: 'internship',
+                        metadata: { internship_id: internship.id, company_id, position, status },
+                    },
+                    {
+                        user_id: advisor_id,
+                        type: 'internship_created',
+                        title: 'New Student Internship Assigned',
+                        message: `You have been assigned as the faculty advisor for ${studentName}'s internship (${position}) at ${companyName}.`,
+                        action_url: '/dashboard/advisor/students',
+                        reference_id: internship.id,
+                        reference_type: 'internship',
+                        metadata: { internship_id: internship.id, student_id, company_id, position },
+                    },
+                    {
+                        user_id: supervisor_id,
+                        type: 'internship_created',
+                        title: 'New Intern Assigned',
+                        message: `${studentName} has been assigned to you as ${position} at ${companyName}.`,
+                        action_url: '/dashboard/supervisor/interns',
+                        reference_id: internship.id,
+                        reference_type: 'internship',
+                        metadata: { internship_id: internship.id, student_id, company_id, position },
+                    },
+                ];
+                await notificationService_1.default.createBulkNotifications(assignmentNotifications);
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to send internship creation notifications:', notifError);
+            }
             console.log('[AdminInternships] createInternship success', { internshipId: internship.id });
             res.status(201).json({
                 success: true,
@@ -344,29 +391,125 @@ class InternshipsController {
             if (Object.keys(changes).length > 0) {
                 await this.internshipService.logActivity(req.user.id, 'internship_updated', id, 'Admin updated internship', { changes });
             }
-            // Send notifications for status changes
-            if (status && status !== currentInternship.status) {
-                const statusMessages = {
-                    active: { title: 'Internship Approved', message: 'Your internship has been approved and is now active.' },
-                    completed: { title: 'Internship Completed', message: 'Congratulations! Your internship has been marked as completed.' },
-                    cancelled: { title: 'Internship Cancelled', message: 'Your internship has been cancelled. Please contact your advisor for more information.' },
-                };
-                const notifInfo = statusMessages[status];
-                if (notifInfo && currentInternship.student_id) {
-                    try {
-                        await notificationService_1.default.createNotification({
+            // Send notifications for status changes, reassignments, and key updates
+            try {
+                const notificationsToSend = [];
+                const effectiveAdvisorId = advisor_id !== undefined ? advisor_id : currentInternship.advisor_id;
+                const effectiveSupervisorId = supervisor_id !== undefined ? supervisor_id : currentInternship.supervisor_id;
+                if (status && status !== currentInternship.status) {
+                    const statusMessages = {
+                        active: { title: 'Internship Approved', message: 'Your internship has been approved and is now active.' },
+                        completed: { title: 'Internship Completed', message: 'Congratulations! Your internship has been marked as completed.' },
+                        cancelled: { title: 'Internship Cancelled', message: 'Your internship has been cancelled. Please contact your advisor for more information.' },
+                    };
+                    const notifInfo = statusMessages[status];
+                    if (notifInfo && currentInternship.student_id) {
+                        notificationsToSend.push({
                             user_id: currentInternship.student_id,
                             type: `internship_${status}`,
                             title: notifInfo.title,
                             message: notifInfo.message,
-                            action_url: `/dashboard/student/internship`,
+                            action_url: '/dashboard/student/current-internship',
+                            reference_id: id,
                             reference_type: 'internship',
+                            metadata: { internship_id: id, previous_status: currentInternship.status, new_status: status },
                         });
                     }
-                    catch (notifError) {
-                        console.error('⚠️ Failed to send internship status notification:', notifError);
+                    if (effectiveAdvisorId) {
+                        notificationsToSend.push({
+                            user_id: effectiveAdvisorId,
+                            type: `internship_${status}`,
+                            title: `Student Internship ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                            message: `An assigned student internship status has been updated to "${status}".`,
+                            action_url: '/dashboard/advisor/students',
+                            reference_id: id,
+                            reference_type: 'internship',
+                            metadata: { internship_id: id, student_id: currentInternship.student_id, new_status: status },
+                        });
+                    }
+                    if (effectiveSupervisorId) {
+                        notificationsToSend.push({
+                            user_id: effectiveSupervisorId,
+                            type: `internship_${status}`,
+                            title: `Intern Status Updated (${status.charAt(0).toUpperCase() + status.slice(1)})`,
+                            message: `An assigned intern's internship status has been updated to "${status}".`,
+                            action_url: '/dashboard/supervisor/interns',
+                            reference_id: id,
+                            reference_type: 'internship',
+                            metadata: { internship_id: id, student_id: currentInternship.student_id, new_status: status },
+                        });
                     }
                 }
+                if (advisor_id && advisor_id !== currentInternship.advisor_id) {
+                    notificationsToSend.push({
+                        user_id: advisor_id,
+                        type: 'internship_updated',
+                        title: 'Internship Assigned to You',
+                        message: 'You have been assigned as the faculty advisor for an internship.',
+                        action_url: '/dashboard/advisor/students',
+                        reference_id: id,
+                        reference_type: 'internship',
+                        metadata: { internship_id: id, student_id: currentInternship.student_id },
+                    });
+                    if (currentInternship.advisor_id) {
+                        notificationsToSend.push({
+                            user_id: currentInternship.advisor_id,
+                            type: 'internship_updated',
+                            title: 'Internship Reassigned',
+                            message: 'An internship previously assigned to you has been reassigned to another advisor.',
+                            action_url: '/dashboard/advisor/students',
+                            reference_id: id,
+                            reference_type: 'internship',
+                            metadata: { internship_id: id, student_id: currentInternship.student_id },
+                        });
+                    }
+                }
+                if (supervisor_id && supervisor_id !== currentInternship.supervisor_id) {
+                    notificationsToSend.push({
+                        user_id: supervisor_id,
+                        type: 'internship_updated',
+                        title: 'Intern Assigned to You',
+                        message: 'You have been assigned as the workplace supervisor for an intern.',
+                        action_url: '/dashboard/supervisor/interns',
+                        reference_id: id,
+                        reference_type: 'internship',
+                        metadata: { internship_id: id, student_id: currentInternship.student_id },
+                    });
+                    if (currentInternship.supervisor_id) {
+                        notificationsToSend.push({
+                            user_id: currentInternship.supervisor_id,
+                            type: 'internship_updated',
+                            title: 'Intern Reassigned',
+                            message: 'An intern previously assigned to you has been reassigned to another supervisor.',
+                            action_url: '/dashboard/supervisor/interns',
+                            reference_id: id,
+                            reference_type: 'internship',
+                            metadata: { internship_id: id, student_id: currentInternship.student_id },
+                        });
+                    }
+                }
+                const hasDetailChanges = (start_date !== undefined && start_date !== currentInternship.start_date) ||
+                    (end_date !== undefined && end_date !== currentInternship.end_date) ||
+                    (required_hours !== undefined && Number(required_hours) !== currentInternship.required_hours) ||
+                    (position !== undefined && position !== currentInternship.position);
+                if (hasDetailChanges && (!status || status === currentInternship.status) && currentInternship.student_id) {
+                    notificationsToSend.push({
+                        user_id: currentInternship.student_id,
+                        type: 'internship_updated',
+                        title: 'Internship Details Updated',
+                        message: 'Your internship schedule, position, or required hours have been updated by an administrator.',
+                        action_url: '/dashboard/student/current-internship',
+                        reference_id: id,
+                        reference_type: 'internship',
+                        metadata: { internship_id: id, changes },
+                    });
+                }
+                if (notificationsToSend.length > 0) {
+                    await notificationService_1.default.createBulkNotifications(notificationsToSend);
+                }
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to send internship update notifications:', notifError);
             }
             res.json({
                 success: true,
@@ -416,21 +559,48 @@ class InternshipsController {
             }
             // Log deletion
             await this.internshipService.logActivity(req.user.id, 'internship_cancelled', id, 'Admin cancelled internship', { previous_status: internship.status });
-            // Notify student about cancellation
-            if (internship.student_id) {
-                try {
-                    await notificationService_1.default.createNotification({
+            // Notify student, advisor, and supervisor about cancellation
+            try {
+                const cancelNotifications = [];
+                if (internship.student_id) {
+                    cancelNotifications.push({
                         user_id: internship.student_id,
                         type: 'internship_cancelled',
                         title: 'Internship Cancelled',
                         message: 'Your internship has been cancelled by an administrator. Please contact your advisor for more information.',
-                        action_url: `/dashboard/student/internship`,
+                        action_url: '/dashboard/student/current-internship',
+                        reference_id: id,
                         reference_type: 'internship',
                     });
                 }
-                catch (notifError) {
-                    console.error('⚠️ Failed to send cancellation notification:', notifError);
+                if (internship.advisor_id) {
+                    cancelNotifications.push({
+                        user_id: internship.advisor_id,
+                        type: 'internship_cancelled',
+                        title: 'Student Internship Cancelled',
+                        message: 'An assigned student internship has been cancelled by an administrator.',
+                        action_url: '/dashboard/advisor/students',
+                        reference_id: id,
+                        reference_type: 'internship',
+                    });
                 }
+                if (internship.supervisor_id) {
+                    cancelNotifications.push({
+                        user_id: internship.supervisor_id,
+                        type: 'internship_cancelled',
+                        title: 'Intern Placement Cancelled',
+                        message: 'An assigned intern placement has been cancelled by an administrator.',
+                        action_url: '/dashboard/supervisor/interns',
+                        reference_id: id,
+                        reference_type: 'internship',
+                    });
+                }
+                if (cancelNotifications.length > 0) {
+                    await notificationService_1.default.createBulkNotifications(cancelNotifications);
+                }
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to send cancellation notifications:', notifError);
             }
             res.json({
                 success: true,

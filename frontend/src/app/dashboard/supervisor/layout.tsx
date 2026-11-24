@@ -2,6 +2,7 @@
 
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { UserProvider } from '@/components/providers/UserProvider';
+import { NotificationsProvider } from '@/components/providers/NotificationsProvider';
 import { SidebarProvider } from '@/components/providers/SidebarContext';
 import { MobileHeaderProvider } from '@/components/providers/MobileHeaderContext';
 import { DashboardShell } from '@/components/shared/DashboardShell';
@@ -16,20 +17,22 @@ export default function SupervisorLayout({
   return (
     <ProtectedRoute requiredRole="supervisor">
       <UserProvider>
-        <SidebarProvider>
-          <MobileHeaderProvider
-            defaultTitle="Supervisor Portal"
-            defaultSubtitle="Intern Management"
-          >
-            <DashboardShell
-              sidebar={<SupervisorSidebar />}
-              header={<SupervisorHeader />}
-              bottomNavType="supervisor"
+        <NotificationsProvider>
+          <SidebarProvider>
+            <MobileHeaderProvider
+              defaultTitle="Supervisor Portal"
+              defaultSubtitle="Intern Management"
             >
-              {children}
-            </DashboardShell>
-          </MobileHeaderProvider>
-        </SidebarProvider>
+              <DashboardShell
+                sidebar={<SupervisorSidebar />}
+                header={<SupervisorHeader />}
+                bottomNavType="supervisor"
+              >
+                {children}
+              </DashboardShell>
+            </MobileHeaderProvider>
+          </SidebarProvider>
+        </NotificationsProvider>
       </UserProvider>
     </ProtectedRoute>
   );

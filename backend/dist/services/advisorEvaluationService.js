@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPendingEvaluations = getPendingEvaluations;
 exports.getEvaluationsByStatus = getEvaluationsByStatus;
@@ -8,6 +11,7 @@ exports.getDailyReportsProgressForContext = getDailyReportsProgressForContext;
 exports.getEvaluationStatistics = getEvaluationStatistics;
 exports.getEvaluationWithContext = getEvaluationWithContext;
 const supabase_js_1 = require("@supabase/supabase-js");
+const notificationService_1 = __importDefault(require("./notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Get pending evaluations for an advisor
@@ -202,28 +206,56 @@ async function approveEvaluation(evaluationId, advisorId, approvalData) {
                 released_by_advisor: true,
             },
         });
-        // Notify supervisor
-        await supabase.from('notifications').insert({
-            user_id: evaluation.internship.supervisor_id,
-            type: 'evaluation_approved',
-            title: 'Evaluation Approved',
-            message: 'Your evaluation has been approved by the advisor',
-            data: {
-                evaluation_id: evaluationId,
-                comments: approval_comments?.trim() || null,
-            },
-        });
-        // Notify student
-        await supabase.from('notifications').insert({
-            user_id: evaluation.internship.student_id,
-            type: 'evaluation_approved',
-            title: 'Final Evaluation Approved',
-            message: `Your final evaluation has been released by your advisor. Grade: ${evaluation.final_grade}`,
-            data: {
-                evaluation_id: evaluationId,
-                final_grade: evaluation.final_grade,
-            },
-        });
+        // Notify supervisor, student, and admins in real time
+        try {
+            const notificationsToSend = [];
+            if (evaluation.internship.supervisor_id) {
+                notificationsToSend.push({
+                    user_id: evaluation.internship.supervisor_id,
+                    type: 'evaluation_approved',
+                    title: 'Evaluation Approved',
+                    message: 'Your final evaluation has been approved by the faculty advisor.',
+                    action_url: '/dashboard/supervisor/evaluations',
+                    reference_id: evaluationId,
+                    reference_type: 'evaluation',
+                    metadata: {
+                        evaluation_id: evaluationId,
+                        comments: approval_comments?.trim() || null,
+                    },
+                });
+            }
+            if (evaluation.internship.student_id) {
+                const effectiveGrade = updates.final_grade || evaluation.final_grade;
+                notificationsToSend.push({
+                    user_id: evaluation.internship.student_id,
+                    type: 'evaluation_approved',
+                    title: 'Final Evaluation Approved',
+                    message: `Your final evaluation has been released by your advisor. Grade: ${effectiveGrade}`,
+                    action_url: '/dashboard/student/evaluations',
+                    reference_id: evaluationId,
+                    reference_type: 'evaluation',
+                    metadata: {
+                        evaluation_id: evaluationId,
+                        final_grade: effectiveGrade,
+                    },
+                });
+            }
+            if (notificationsToSend.length > 0) {
+                await notificationService_1.default.createBulkNotifications(notificationsToSend);
+            }
+            await notificationService_1.default.notifyAdmins({
+                type: 'evaluation_approved',
+                title: 'Final Evaluation Approved by Advisor',
+                message: `An advisor approved a final evaluation (Grade: ${updates.final_grade || evaluation.final_grade}).`,
+                action_url: '/dashboard/admin/evaluations',
+                reference_id: evaluationId,
+                reference_type: 'evaluation',
+                metadata: { evaluation_id: evaluationId, internship_id: evaluation.internship_id },
+            }, advisorId);
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send evaluation approval notifications:', notifError);
+        }
         // NOTE: AI trend analysis removed from approval flow in v2.0.0
         // Admin can now trigger trend analysis on-demand from the analytics dashboard
         // This improves approval performance and allows more comprehensive batch analysis
@@ -297,17 +329,27 @@ async function requestRevision(evaluationId, advisorId, revisionReason) {
                 revision_reason: revisionReason.trim(),
             },
         });
-        // Notify supervisor with detailed feedback
-        await supabase.from('notifications').insert({
-            user_id: evaluation.internship.supervisor_id,
-            type: 'evaluation_revision_requested',
-            title: 'Evaluation Revision Requested',
-            message: `The advisor has requested revisions on your evaluation: ${revisionReason}`,
-            data: {
-                evaluation_id: evaluationId,
-                revision_reason: revisionReason.trim(),
-            },
-        });
+        // Notify supervisor with detailed feedback in real time
+        try {
+            if (evaluation.internship.supervisor_id) {
+                await notificationService_1.default.createNotification({
+                    user_id: evaluation.internship.supervisor_id,
+                    type: 'evaluation_revision_requested',
+                    title: 'Evaluation Revision Requested',
+                    message: `The advisor has requested revisions on your evaluation: ${revisionReason}`,
+                    action_url: '/dashboard/supervisor/evaluations',
+                    reference_id: evaluationId,
+                    reference_type: 'evaluation',
+                    metadata: {
+                        evaluation_id: evaluationId,
+                        revision_reason: revisionReason.trim(),
+                    },
+                });
+            }
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to notify supervisor about revision request:', notifError);
+        }
         return {
             success: true,
             data: updatedEval,

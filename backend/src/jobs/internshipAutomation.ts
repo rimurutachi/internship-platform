@@ -13,6 +13,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import notificationService from '../services/notificationService';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -116,29 +117,43 @@ async function processInternshipAutomation(): Promise<AutomationStats> {
             console.log(`✅ Student ${internship.student_id} marked as pending_graduation`);
 
             // Notify student
-            await supabase.from('notifications').insert({
-              user_id: internship.student_id,
-              type: 'internship_completed',
-              title: 'Internship Completed!',
-              message: 'Congratulations! Your internship has been completed. Your status has been updated to pending graduation.',
-              data: { internship_id: internship.id },
+            try {
+              await notificationService.createNotification({
+                user_id: internship.student_id,
+                type: 'internship_completed',
+                title: 'Internship Completed!',
+                message: 'Congratulations! Your internship has been completed. Your status has been updated to pending graduation.',
+                action_url: '/dashboard/student/current-internship',
+                reference_id: internship.id,
+                reference_type: 'internship',
+                metadata: { internship_id: internship.id },
+              });
+              stats.notificationsSent++;
+            } catch (notifErr) {
+              console.error('Failed to notify student on auto-complete:', notifErr);
+            }
+          }
+        } else if (!approvedEval && internship.advisor_id) {
+          // No approved evaluation - notify advisor
+          try {
+            await notificationService.createNotification({
+              user_id: internship.advisor_id,
+              type: 'evaluation_reminder',
+              title: 'Evaluation Required',
+              message: `Internship for ${student?.first_name} ${student?.last_name} has ended but final evaluation is not yet approved.`,
+              action_url: '/dashboard/advisor/evaluations',
+              reference_id: internship.id,
+              reference_type: 'internship',
+              metadata: {
+                internship_id: internship.id,
+                student_id: internship.student_id,
+              },
             });
             stats.notificationsSent++;
+            console.log(`⚠️ Notified advisor about missing evaluation for internship ${internship.id}`);
+          } catch (notifErr) {
+            console.error('Failed to notify advisor on missing evaluation:', notifErr);
           }
-        } else if (!approvedEval) {
-          // No approved evaluation - notify advisor
-          await supabase.from('notifications').insert({
-            user_id: internship.advisor_id,
-            type: 'evaluation_required',
-            title: 'Evaluation Required',
-            message: `Internship for ${student?.first_name} ${student?.last_name} has ended but final evaluation is not yet approved.`,
-            data: { 
-              internship_id: internship.id,
-              student_id: internship.student_id,
-            },
-          });
-          stats.notificationsSent++;
-          console.log(`⚠️ Notified advisor about missing evaluation for internship ${internship.id}`);
         }
 
         // Log activity
@@ -190,15 +205,22 @@ async function processInternshipAutomation(): Promise<AutomationStats> {
         .limit(1)
         .single();
 
-      if (!existingReminder) {
+      if (!existingReminder && internship.supervisor_id) {
         // Send reminder to supervisor about upcoming evaluation
-        await supabase.from('notifications').insert({
-          user_id: internship.supervisor_id,
-          type: 'evaluation_reminder',
-          title: 'Final Evaluation Due Soon',
-          message: `Internship for ${student?.first_name} ${student?.last_name} ends in 7 days. Please prepare the final evaluation.`,
-          data: { internship_id: internship.id },
-        });
+        try {
+          await notificationService.createNotification({
+            user_id: internship.supervisor_id,
+            type: 'evaluation_reminder',
+            title: 'Final Evaluation Due Soon',
+            message: `Internship for ${student?.first_name} ${student?.last_name} ends in 7 days. Please prepare the final evaluation.`,
+            action_url: '/dashboard/supervisor/evaluations',
+            reference_id: internship.id,
+            reference_type: 'internship',
+            metadata: { internship_id: internship.id },
+          });
+        } catch (notifErr) {
+          console.error('Failed to send 7-day reminder notification:', notifErr);
+        }
 
         // Record reminder
         await supabase.from('internship_reminders').insert({

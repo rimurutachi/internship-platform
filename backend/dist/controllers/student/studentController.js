@@ -4,7 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const supabase_js_1 = require("@supabase/supabase-js");
+const typeGuards_1 = require("../../utils/typeGuards");
 const studentService_1 = __importDefault(require("../../services/studentService"));
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 class StudentController {
     /**
@@ -895,23 +897,17 @@ class StudentController {
     async markNotificationRead(req, res, next) {
         try {
             const userId = req.user?.id;
-            const { id } = req.params;
+            const id = (0, typeGuards_1.ensureString)(req.params.id, 'id');
             if (!userId) {
                 return res.status(401).json({ success: false, error: 'Unauthorized' });
             }
-            const { error } = await supabase
-                .from('notifications')
-                .update({ is_read: true, updated_at: new Date().toISOString() })
-                .eq('id', id)
-                .eq('user_id', userId);
-            if (error) {
-                return res.status(500).json({ success: false, error: error.message });
-            }
+            await notificationService_1.default.markAsRead(id, userId);
             res.json({ success: true, data: { message: 'Notification marked as read' } });
         }
         catch (error) {
             console.error('Error marking notification as read:', error);
-            res.status(500).json({ success: false, error: error.message });
+            const status = error.message?.includes('not found') ? 404 : error.message?.includes('only mark') ? 403 : 500;
+            res.status(status).json({ success: false, error: error.message });
         }
     }
     /**
@@ -924,14 +920,7 @@ class StudentController {
             if (!userId) {
                 return res.status(401).json({ success: false, error: 'Unauthorized' });
             }
-            const { error } = await supabase
-                .from('notifications')
-                .update({ is_read: true, updated_at: new Date().toISOString() })
-                .eq('user_id', userId)
-                .eq('is_read', false);
-            if (error) {
-                return res.status(500).json({ success: false, error: error.message });
-            }
+            await notificationService_1.default.markAllAsRead(userId);
             res.json({ success: true, data: { message: 'All notifications marked as read' } });
         }
         catch (error) {

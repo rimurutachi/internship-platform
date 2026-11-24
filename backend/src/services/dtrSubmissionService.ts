@@ -697,7 +697,8 @@ export class DTRSubmissionService {
         type: 'internship_completed',
         title: '🎓 Internship Completed!',
         message: `Congratulations! You have completed all your required ${requiredHours} internship hours (${totalHours} hours rendered).`,
-        action_url: '/dashboard/student',
+        action_url: '/dashboard/student/current-internship',
+        reference_id: internshipId,
         reference_type: 'internship',
       });
 
@@ -707,11 +708,35 @@ export class DTRSubmissionService {
           user_id: internship.advisor_id,
           type: 'internship_completed',
           title: 'Student Completed Internship Hours',
-          message: `A student has fulfilled their required ${requiredHours} internship hours.`,
+          message: `A student has fulfilled their required ${requiredHours} internship hours (${totalHours} hours rendered).`,
           action_url: '/dashboard/advisor/students',
+          reference_id: internshipId,
           reference_type: 'internship',
         });
       }
+
+      // Notify supervisor (cue to prepare Final Evaluation)
+      if (internship.supervisor_id) {
+        await notificationService.createNotification({
+          user_id: internship.supervisor_id,
+          type: 'internship_completed',
+          title: 'Intern Completed Required Hours — Final Evaluation Ready',
+          message: `Your intern has completed all ${requiredHours} required hours. You may now submit their Final Evaluation.`,
+          action_url: '/dashboard/supervisor/evaluations',
+          reference_id: internshipId,
+          reference_type: 'internship',
+        });
+      }
+
+      // Notify admins
+      await notificationService.notifyAdmins({
+        type: 'internship_completed',
+        title: 'Student Completed Internship Hours',
+        message: `An internship has reached 100% completion (${totalHours}/${requiredHours} hours rendered).`,
+        action_url: '/dashboard/admin/internships',
+        reference_id: internshipId,
+        reference_type: 'internship',
+      });
     }
 
     console.log(`✅ [DTR] Total hours for internship ${internshipId}: ${totalHours} (Status: ${isNowCompleted ? 'COMPLETED' : internship?.status || 'active'})`);
@@ -746,7 +771,10 @@ export class DTRSubmissionService {
         message: isResubmission
           ? `${studentName} has resubmitted their Weekly DTR for Week ${dtr.week_number}`
           : `${studentName} has submitted their Weekly DTR for Week ${dtr.week_number}`,
-        action_url: `/dashboard/advisor/dtr-submissions`,
+        action_url: dtr.requirement_id
+          ? `/dashboard/advisor/requirements/${dtr.requirement_id}`
+          : '/dashboard/advisor/requirements',
+        reference_id: dtr.id,
         reference_type: 'weekly_dtr',
       });
     } catch (error) {
@@ -761,27 +789,33 @@ export class DTRSubmissionService {
     try {
       let title: string;
       let message: string;
+      let notifType: string;
 
       if (dtr.status === 'approved') {
         const hours = dtr.manual_hours_override ?? dtr.extracted_hours ?? 0;
         title = 'Weekly DTR Approved';
         message = `Your Weekly DTR for Week ${dtr.week_number} has been approved${hours > 0 ? `. ${hours} hours added to your progress.` : '.'}`;
+        notifType = 'document_approved';
       } else if (dtr.status === 'revision_requested') {
         title = 'DTR Revision Requested';
         message = `Please revise and resubmit your Weekly DTR for Week ${dtr.week_number}`;
         if (dtr.feedback) {
           message += `. Feedback: ${dtr.feedback}`;
         }
+        notifType = 'document_revision_requested';
       } else {
         return;
       }
 
       await notificationService.createNotification({
         user_id: studentId,
-        type: 'document_reviewed',
+        type: notifType,
         title,
         message,
-        action_url: `/dashboard/student/dtr`,
+        action_url: dtr.requirement_id
+          ? `/dashboard/student/requirements/${dtr.requirement_id}`
+          : '/dashboard/student/requirements',
+        reference_id: dtr.id,
         reference_type: 'weekly_dtr',
       });
     } catch (error) {

@@ -233,7 +233,7 @@ export class ArchiveService {
         type: "account_archived",
         title: "Account Archived",
         message: `Your ${role} account has been archived. ${reason}. Contact the administrator if you need to reactivate your account.`,
-        action_url: "/dashboard",
+        action_url: `/dashboard/${role}`,
         reference_type: "user",
       });
 
@@ -253,7 +253,7 @@ export class ArchiveService {
         type: "account_archive_warning",
         title: "Account Archive Warning",
         message: `Your ${role} account will be automatically archived in ${daysRemaining} days. Please complete any pending tasks or contact the administrator if you need an extension.`,
-        action_url: "/dashboard",
+        action_url: `/dashboard/${role}`,
         reference_type: "user",
       });
     } catch (error) {

@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createFinalEvaluation = createFinalEvaluation;
 exports.saveFinalEvaluationDraft = saveFinalEvaluationDraft;
@@ -9,6 +12,7 @@ exports.deleteEvaluationDraft = deleteEvaluationDraft;
 const supabase_js_1 = require("@supabase/supabase-js");
 const rubricService_1 = require("../../services/rubricService");
 const typeGuards_1 = require("../../utils/typeGuards");
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Create final evaluation (draft)
@@ -451,18 +455,24 @@ async function submitFinalEvaluation(req, res) {
         });
         // Notify advisor - evaluation submitted for their review/approval
         if (evaluation.internship.advisor_id) {
-            await supabase.from('notifications').insert({
-                user_id: evaluation.internship.advisor_id,
-                type: 'evaluation_pending_review',
-                title: 'Evaluation Pending Your Review',
-                message: 'A supervisor has submitted a final evaluation that requires your review and approval.',
-                reference_id: id,
-                reference_type: 'evaluation',
-                metadata: {
-                    evaluation_id: id,
-                    internship_id: evaluation.internship_id,
-                },
-            });
+            try {
+                await notificationService_1.default.createNotification({
+                    user_id: evaluation.internship.advisor_id,
+                    type: 'evaluation_submitted',
+                    title: 'Evaluation Pending Your Review',
+                    message: 'A supervisor has submitted a final evaluation that requires your review and approval.',
+                    action_url: '/dashboard/advisor/evaluations',
+                    reference_id: id,
+                    reference_type: 'evaluation',
+                    metadata: {
+                        evaluation_id: id,
+                        internship_id: evaluation.internship_id,
+                    },
+                });
+            }
+            catch (notifError) {
+                console.error('⚠️ Failed to notify advisor about submitted evaluation:', notifError);
+            }
         }
         // Note: Admin and student notifications will be sent when advisor approves the evaluation
         return res.status(200).json({

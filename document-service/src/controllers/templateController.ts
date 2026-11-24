@@ -3,6 +3,7 @@ import { AuthRequest } from "../middleware/auth";
 import templateService from "../services/templateService";
 import auditService from "../services/auditService";
 import storageService from "../services/storageService";
+import notificationClient from "../services/notificationClient";
 
 export async function createTemplate(req: AuthRequest, res: Response) {
   try {
@@ -37,6 +38,33 @@ export async function createTemplate(req: AuthRequest, res: Response) {
       action: "template_created",
       metadata: { template_id: result.id, template_name: name, field_count: fields?.length || 0 },
     });
+
+    // Notify all students assigned to this advisor about the new template
+    if (req.user.role === "advisor") {
+      try {
+        const [studentIds, advisorInfo] = await Promise.all([
+          notificationClient.getAdvisorStudentIds(req.user.id),
+          notificationClient.getUserDisplayNameAndRole(req.user.id),
+        ]);
+
+        if (studentIds.length > 0) {
+          await notificationClient.sendBulkNotifications(
+            studentIds.map((studentId) => ({
+              user_id: studentId,
+              type: "document_template_uploaded",
+              title: "New Document Template Available",
+              message: `${advisorInfo.name} uploaded a new document template: "${name}". You can download, edit, and submit it for pre-approval in Documents.`,
+              action_url: "/dashboard/student/documents",
+              reference_id: result.id,
+              reference_type: "document",
+              metadata: { template_id: result.id, template_name: name, category },
+            }))
+          );
+        }
+      } catch (notifErr) {
+        console.warn("⚠️ [Template Controller] Failed to notify students:", notifErr);
+      }
+    }
 
     console.log("✅ [Template Controller] Template created");
 

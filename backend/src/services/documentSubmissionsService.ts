@@ -664,10 +664,11 @@ export class DocumentSubmissionsService {
         // Notify student
         await notificationService.createNotification({
           user_id: studentId,
-          type: 'internship_activated',
+          type: 'internship_active',
           title: '🎉 Internship Officially Active!',
           message: 'All your required pre-internship documents (MOA, Endorsement Letter, and Approved Job Description) have been approved. Your internship is now officially ACTIVE!',
-          action_url: '/dashboard/student',
+          action_url: '/dashboard/student/current-internship',
+          reference_id: pendingInternship.id,
           reference_type: 'internship',
         });
 
@@ -675,13 +676,40 @@ export class DocumentSubmissionsService {
         if (pendingInternship.advisor_id && pendingInternship.advisor_id !== reviewerId) {
           await notificationService.createNotification({
             user_id: pendingInternship.advisor_id,
-            type: 'internship_activated',
+            type: 'internship_active',
             title: 'Student Internship Activated',
             message: 'Student pre-internship requirements completed. Internship status updated to Active.',
-            action_url: `/dashboard/advisor/students`,
+            action_url: '/dashboard/advisor/students',
+            reference_id: pendingInternship.id,
             reference_type: 'internship',
           });
         }
+
+        // Notify supervisor if assigned
+        if (pendingInternship.supervisor_id) {
+          await notificationService.createNotification({
+            user_id: pendingInternship.supervisor_id,
+            type: 'internship_active',
+            title: 'Intern Placement Now Active',
+            message: 'Your assigned intern has completed all pre-internship requirements and their internship is now Active.',
+            action_url: '/dashboard/supervisor/interns',
+            reference_id: pendingInternship.id,
+            reference_type: 'internship',
+          });
+        }
+
+        // Notify admins
+        await notificationService.notifyAdmins(
+          {
+            type: 'internship_active',
+            title: 'Internship Automatically Activated',
+            message: 'A student completed all required pre-internship documents and their internship status is now Active.',
+            action_url: '/dashboard/admin/internships',
+            reference_id: pendingInternship.id,
+            reference_type: 'internship',
+          },
+          reviewerId
+        );
       }
     } catch (err: any) {
       console.error('⚠️ Error checking and activating internship:', err.message);
@@ -892,19 +920,23 @@ export class DocumentSubmissionsService {
     try {
       let title: string;
       let message: string;
+      let notifType: string;
 
       switch (submission.status) {
         case 'approved':
           title = 'Document Approved';
           message = `Your submission for "${requirementTitle}" has been approved`;
+          notifType = 'document_approved';
           break;
         case 'rejected':
           title = 'Document Rejected';
           message = `Your submission for "${requirementTitle}" has been rejected`;
+          notifType = 'document_rejected';
           break;
         case 'revision_requested':
           title = 'Revision Requested';
           message = `Please revise and resubmit "${requirementTitle}"`;
+          notifType = 'document_revision_requested';
           break;
         default:
           return;
@@ -916,10 +948,11 @@ export class DocumentSubmissionsService {
 
       await notificationService.createNotification({
         user_id: studentId,
-        type: 'document_reviewed',
+        type: notifType,
         title,
         message,
         action_url: `/dashboard/student/requirements/${submission.requirement_id}`,
+        reference_id: submission.id,
         reference_type: 'document_submission',
       });
     } catch (error) {

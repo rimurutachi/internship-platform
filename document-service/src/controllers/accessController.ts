@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { AuthRequest } from "../middleware/auth";
 import { env } from "../config/env";
 import auditService from "../services/auditService";
+import notificationClient from "../services/notificationClient";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
@@ -55,19 +56,7 @@ export async function grantAccess(req: AuthRequest, res: Response) {
 
       console.log("🔐 [Access] Granting access to ALL active students for advisor", req.user.id);
 
-      // Fetch all active students assigned to this advisor
-      const { data: internships, error: intError } = await supabase
-        .from("internships")
-        .select("student_id")
-        .eq("advisor_id", req.user.id)
-        .in("status", ["active", "pending"]);
-
-      if (intError) {
-        console.error("❌ [Access] Fetch students error", intError);
-        throw intError;
-      }
-
-      const studentIds = [...new Set(internships.map(i => i.student_id))];
+      const studentIds = await notificationClient.getAdvisorStudentIds(req.user.id);
 
       if (studentIds.length === 0) {
         return res.status(400).json({ success: false, error: "No active students found for this advisor." });
@@ -99,6 +88,30 @@ export async function grantAccess(req: AuthRequest, res: Response) {
         action: "access_granted_to_all_students",
         metadata: { student_count: studentIds.length, level: permission_level },
       });
+
+      // Notify all students in real time
+      try {
+        const [{ data: docInfo }, sharerInfo] = await Promise.all([
+          supabase.from("documents").select("title").eq("id", documentId).maybeSingle(),
+          notificationClient.getUserDisplayNameAndRole(req.user.id),
+        ]);
+        const docTitle = docInfo?.title || "a document";
+
+        await notificationClient.sendBulkNotifications(
+          studentIds.map((studentId) => ({
+            user_id: studentId,
+            type: "document_shared",
+            title: "Document Shared With You",
+            message: `${sharerInfo.name} shared "${docTitle}" with you (${permission_level} access).`,
+            action_url: `/dashboard/student/documents/${documentId}`,
+            reference_id: documentId,
+            reference_type: "document",
+            metadata: { document_id: documentId, permission_level },
+          }))
+        );
+      } catch (notifErr) {
+        console.warn("⚠️ [Access] Failed to notify students about shared document:", notifErr);
+      }
 
       console.log(`✅ [Access] Access granted to ${studentIds.length} students`);
       return res.status(201).json({ success: true, data });
@@ -134,6 +147,30 @@ export async function grantAccess(req: AuthRequest, res: Response) {
       action: `access_granted_to_${user_id.substring(0, 8)}`,
       metadata: { target_user: user_id, level: permission_level },
     });
+
+    if (user_id !== req.user.id) {
+      try {
+        const [{ data: docInfo }, sharerInfo, targetInfo] = await Promise.all([
+          supabase.from("documents").select("title").eq("id", documentId).maybeSingle(),
+          notificationClient.getUserDisplayNameAndRole(req.user.id),
+          notificationClient.getUserDisplayNameAndRole(user_id),
+        ]);
+        const docTitle = docInfo?.title || "a document";
+
+        await notificationClient.sendNotification({
+          user_id,
+          type: "document_shared",
+          title: "Document Shared With You",
+          message: `${sharerInfo.name} shared "${docTitle}" with you (${permission_level} access).`,
+          action_url: `/dashboard/${targetInfo.role || "student"}/documents/${documentId}`,
+          reference_id: documentId,
+          reference_type: "document",
+          metadata: { document_id: documentId, permission_level },
+        });
+      } catch (notifErr) {
+        console.warn("⚠️ [Access] Failed to notify target user about shared document:", notifErr);
+      }
+    }
 
     console.log("✅ [Access] Access granted");
 

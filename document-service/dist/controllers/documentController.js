@@ -32,6 +32,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractFields = void 0;
 exports.getDocuments = getDocuments;
@@ -48,6 +51,7 @@ const supabase_js_1 = require("@supabase/supabase-js");
 const env_1 = require("../config/env");
 const storageService_1 = require("../services/storageService");
 const docxGenerator_1 = require("../utils/docxGenerator");
+const notificationClient_1 = __importDefault(require("../services/notificationClient"));
 const supabase = (0, supabase_js_1.createClient)(env_1.env.SUPABASE_URL, env_1.env.SUPABASE_SERVICE_KEY);
 async function getDocuments(req, res) {
     try {
@@ -348,7 +352,7 @@ async function updateDocument(req, res) {
         // Pre-approved documents cannot be edited to preserve content integrity
         const { data: currentDoc, error: fetchError } = await supabase
             .from("documents")
-            .select("status, owner_id")
+            .select("status, owner_id, title")
             .eq("id", id)
             .single();
         if (fetchError || !currentDoc) {
@@ -378,22 +382,15 @@ async function updateDocument(req, res) {
         // HYBRID WORKFLOW: Automatically grant/revoke access to advisor based on status
         if (updates.status === "in_review" || updates.status === "draft") {
             try {
-                const { data: internship } = await supabase
-                    .from("internships")
-                    .select("advisor_id")
-                    .eq("student_id", currentDoc.owner_id)
-                    .in("status", ["active", "pending"])
-                    .order("created_at", { ascending: false })
-                    .limit(1)
-                    .single();
-                if (internship?.advisor_id) {
+                const advisorId = await notificationClient_1.default.getStudentAdvisorId(currentDoc.owner_id);
+                if (advisorId) {
                     if (updates.status === "in_review") {
                         // Grant view access - check if exists first since there's no unique constraint
                         const { data: existingAccess } = await supabase
                             .from("document_access_control")
                             .select("id")
                             .eq("document_id", id)
-                            .eq("user_id", internship.advisor_id)
+                            .eq("user_id", advisorId)
                             .limit(1)
                             .maybeSingle();
                         if (existingAccess) {
@@ -406,7 +403,7 @@ async function updateDocument(req, res) {
                         else {
                             await supabase.from("document_access_control").insert({
                                 document_id: id,
-                                user_id: internship.advisor_id,
+                                user_id: advisorId,
                                 permission_level: "view",
                                 granted_by: req.user?.id || currentDoc.owner_id,
                                 granted_at: new Date().toISOString(),
@@ -414,18 +411,32 @@ async function updateDocument(req, res) {
                             });
                         }
                         console.log(`✅ [Documents] Granted advisor view access for document ${id}`);
+                        // Notify advisor in real time when document enters pre-approval review
+                        if (currentDoc.status !== "in_review" && advisorId !== req.user?.id) {
+                            const studentInfo = await notificationClient_1.default.getUserDisplayNameAndRole(currentDoc.owner_id);
+                            await notificationClient_1.default.sendNotification({
+                                user_id: advisorId,
+                                type: "document_submitted",
+                                title: "Document Submitted for Pre-Approval",
+                                message: `${studentInfo.name} submitted "${data.title || currentDoc.title || "a document"}" for your pre-approval review.`,
+                                action_url: `/dashboard/advisor/documents/${id}`,
+                                reference_id: id,
+                                reference_type: "document",
+                                metadata: { document_id: id, student_id: currentDoc.owner_id },
+                            });
+                        }
                     }
                     else if (updates.status === "draft") {
                         // Revoke access by setting revoked_at
                         await supabase.from("document_access_control").update({
                             revoked_at: new Date().toISOString()
-                        }).eq("document_id", id).eq("user_id", internship.advisor_id);
+                        }).eq("document_id", id).eq("user_id", advisorId);
                         console.log(`✅ [Documents] Revoked advisor view access for document ${id} (reverted to draft)`);
                     }
                 }
             }
             catch (accessErr) {
-                console.warn("⚠️ [Documents] Could not update advisor access:", accessErr);
+                console.warn("⚠️ [Documents] Could not update advisor access or notify:", accessErr);
             }
         }
         return res.json({ success: true, data });

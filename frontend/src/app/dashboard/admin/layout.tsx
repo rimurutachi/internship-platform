@@ -2,6 +2,7 @@
 
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { UserProvider } from '@/components/providers/UserProvider';
+import { NotificationsProvider } from '@/components/providers/NotificationsProvider';
 import { SidebarProvider } from '@/components/providers/SidebarContext';
 import { MobileHeaderProvider } from '@/components/providers/MobileHeaderContext';
 import { DashboardShell } from '@/components/shared/DashboardShell';
@@ -16,20 +17,22 @@ export default function AdminLayout({
   return (
     <ProtectedRoute requiredRole="admin">
       <UserProvider>
-        <SidebarProvider>
-          <MobileHeaderProvider
-            defaultTitle="Admin Portal"
-            defaultSubtitle="Management Dashboard"
-          >
-            <DashboardShell
-              sidebar={<AdminSidebar />}
-              header={<AdminHeader />}
-              bottomNavType="admin"
+        <NotificationsProvider>
+          <SidebarProvider>
+            <MobileHeaderProvider
+              defaultTitle="Admin Portal"
+              defaultSubtitle="Management Dashboard"
             >
-              {children}
-            </DashboardShell>
-          </MobileHeaderProvider>
-        </SidebarProvider>
+              <DashboardShell
+                sidebar={<AdminSidebar />}
+                header={<AdminHeader />}
+                bottomNavType="admin"
+              >
+                {children}
+              </DashboardShell>
+            </MobileHeaderProvider>
+          </SidebarProvider>
+        </NotificationsProvider>
       </UserProvider>
     </ProtectedRoute>
   );

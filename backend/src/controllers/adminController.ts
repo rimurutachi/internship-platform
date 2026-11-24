@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { createClient } from '@supabase/supabase-js';
 import { ensureString } from '../utils/typeGuards';
+import notificationService from '../services/notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -1032,7 +1033,7 @@ export async function graduateStudent(req: AuthRequest, res: Response) {
     // Check if student has at least one completed internship
     const { data: completedInternships } = await supabase
       .from('internships')
-      .select('id')
+      .select('id, advisor_id')
       .eq('student_id', id)
       .eq('status', 'completed')
       .limit(1);
@@ -1099,17 +1100,44 @@ export async function graduateStudent(req: AuthRequest, res: Response) {
       },
     });
 
-    // Notify the student
-    await supabase.from('notifications').insert({
-      user_id: id,
-      type: 'student_graduated',
-      title: 'Congratulations! You have Graduated',
-      message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
-      data: {
-        graduation_notes: graduation_notes || null,
-        graduated_at: new Date().toISOString(),
-      },
-    });
+    // Notify the student and advisor in real time
+    try {
+      const gradNotifs = [
+        {
+          user_id: id,
+          type: 'student_graduated',
+          title: 'Congratulations! You have Graduated',
+          message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
+          action_url: '/dashboard/student',
+          reference_id: id,
+          reference_type: 'user',
+          metadata: {
+            graduation_notes: graduation_notes || null,
+            graduated_at: new Date().toISOString(),
+          },
+        },
+      ];
+
+      if (completedInternships[0].advisor_id) {
+        gradNotifs.push({
+          user_id: completedInternships[0].advisor_id,
+          type: 'student_graduated',
+          title: 'Advisee Graduated',
+          message: `${user.first_name} ${user.last_name} has been officially marked as graduated.`,
+          action_url: '/dashboard/advisor/students',
+          reference_id: id,
+          reference_type: 'user',
+          metadata: {
+            graduation_notes: graduation_notes || null,
+            graduated_at: new Date().toISOString(),
+          },
+        });
+      }
+
+      await notificationService.createBulkNotifications(gradNotifs);
+    } catch (notifError) {
+      console.error('⚠️ Failed to send graduation notifications:', notifError);
+    }
 
     console.log(`✅ Student ${id} graduated successfully by admin ${adminId}`);
 

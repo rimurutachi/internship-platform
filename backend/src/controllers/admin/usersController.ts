@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import { createClient } from '@supabase/supabase-js';
 import { ensureString } from '../../utils/typeGuards';
+import notificationService from '../../services/notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -239,14 +240,21 @@ export async function verifyUserProfile(req: AuthRequest, res: Response) {
       },
     });
 
-    // Send notification to user
-    await supabase.from('notifications').insert({
-      user_id: id,
-      type: 'profile_verified',
-      title: 'Profile Verified',
-      message: 'Your profile has been verified by an administrator.',
-      data: { comments: comments || null },
-    });
+    // Send real-time notification to user
+    try {
+      await notificationService.createNotification({
+        user_id: id,
+        type: 'profile_verified',
+        title: 'Profile Verified',
+        message: 'Your profile has been verified by an administrator.',
+        action_url: `/dashboard/${user.role || 'student'}/settings`,
+        reference_id: id,
+        reference_type: 'user',
+        metadata: { comments: comments || null },
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send profile verified notification:', notifError);
+    }
 
     return res.status(200).json({
       success: true,
@@ -342,14 +350,21 @@ export async function rejectUserProfile(req: AuthRequest, res: Response) {
       },
     });
 
-    // Send notification to user with feedback
-    await supabase.from('notifications').insert({
-      user_id: id,
-      type: 'profile_rejected',
-      title: 'Profile Needs Correction',
-      message: `Your profile needs correction: ${rejection_reason}`,
-      data: { rejection_reason },
-    });
+    // Send real-time notification to user with feedback
+    try {
+      await notificationService.createNotification({
+        user_id: id,
+        type: 'profile_rejected',
+        title: 'Profile Needs Correction',
+        message: `Your profile needs correction: ${rejection_reason}`,
+        action_url: `/dashboard/${user.role || 'student'}/settings`,
+        reference_id: id,
+        reference_type: 'user',
+        metadata: { rejection_reason },
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send profile rejection notification:', notifError);
+    }
 
     return res.status(200).json({
       success: true,
@@ -465,6 +480,20 @@ export async function archiveUser(req: AuthRequest, res: Response) {
       },
     });
 
+    try {
+      await notificationService.createNotification({
+        user_id: id,
+        type: 'account_archived',
+        title: 'Account Archived',
+        message: 'Your account has been archived by an administrator. Contact your administrator if you need access restored.',
+        action_url: `/dashboard/${user.role || 'student'}`,
+        reference_id: id,
+        reference_type: 'user',
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send user archive notification:', notifError);
+    }
+
     return res.status(200).json({
       success: true,
       data: archivedUser,
@@ -569,6 +598,20 @@ export async function unarchiveUser(req: AuthRequest, res: Response) {
       },
     });
 
+    try {
+      await notificationService.createNotification({
+        user_id: id,
+        type: 'account_restored',
+        title: 'Account Restored',
+        message: 'Your account has been unarchived and restored to active status.',
+        action_url: `/dashboard/${user.role || 'student'}`,
+        reference_id: id,
+        reference_type: 'user',
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send user unarchive notification:', notifError);
+    }
+
     return res.status(200).json({
       success: true,
       data: unarchivedUser,
@@ -665,6 +708,21 @@ export async function updateUserRole(req: AuthRequest, res: Response) {
       },
     });
 
+    try {
+      await notificationService.createNotification({
+        user_id: id,
+        type: 'account_updated',
+        title: 'Account Role Updated',
+        message: `Your account role has been updated to "${role}" by an administrator.`,
+        action_url: `/dashboard/${role}`,
+        reference_id: id,
+        reference_type: 'user',
+        metadata: { new_role: role },
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send role update notification:', notifError);
+    }
+
     return res.status(200).json({
       success: true,
       data: user,
@@ -750,6 +808,21 @@ export async function updateUserStatus(req: AuthRequest, res: Response) {
         new_status: status,
       },
     });
+
+    try {
+      await notificationService.createNotification({
+        user_id: id,
+        type: 'account_updated',
+        title: 'Account Status Updated',
+        message: `Your account status has been updated to "${status}" by an administrator.`,
+        action_url: `/dashboard/${user.role || 'student'}/settings`,
+        reference_id: id,
+        reference_type: 'user',
+        metadata: { new_status: status },
+      });
+    } catch (notifError) {
+      console.error('⚠️ Failed to send status update notification:', notifError);
+    }
 
     return res.status(200).json({
       success: true,
@@ -883,17 +956,44 @@ export async function graduateStudent(req: AuthRequest, res: Response) {
       },
     });
 
-    // Notify the student
-    await supabase.from('notifications').insert({
-      user_id: id,
-      type: 'student_graduated',
-      title: 'Congratulations! You have Graduated',
-      message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
-      data: {
-        graduation_notes: graduation_notes || null,
-        graduated_at: new Date().toISOString(),
-      },
-    });
+    // Notify the student and their faculty advisor in real time
+    try {
+      const gradNotifs = [
+        {
+          user_id: id,
+          type: 'student_graduated',
+          title: 'Congratulations! You have Graduated',
+          message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
+          action_url: '/dashboard/student',
+          reference_id: id,
+          reference_type: 'user',
+          metadata: {
+            graduation_notes: graduation_notes || null,
+            graduated_at: new Date().toISOString(),
+          },
+        },
+      ];
+
+      if (completedInternship.advisor_id) {
+        gradNotifs.push({
+          user_id: completedInternship.advisor_id,
+          type: 'student_graduated',
+          title: 'Advisee Graduated',
+          message: `${user.first_name} ${user.last_name} has been officially marked as graduated.`,
+          action_url: '/dashboard/advisor/students',
+          reference_id: id,
+          reference_type: 'user',
+          metadata: {
+            graduation_notes: graduation_notes || null,
+            graduated_at: new Date().toISOString(),
+          },
+        });
+      }
+
+      await notificationService.createBulkNotifications(gradNotifs);
+    } catch (notifError) {
+      console.error('⚠️ Failed to send graduation notifications:', notifError);
+    }
 
     console.log(`✅ Student ${id} graduated successfully by admin ${adminId}`);
 

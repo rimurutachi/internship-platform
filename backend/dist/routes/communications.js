@@ -4,12 +4,39 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const crypto_1 = __importDefault(require("crypto"));
 const auth_1 = require("../middleware/auth");
 const communicationController_1 = __importDefault(require("../controllers/communicationController"));
 const communciationValidators_1 = require("../middleware/communciationValidators");
 const supabase_js_1 = require("@supabase/supabase-js");
 const router = (0, express_1.Router)();
-// All routes require authentication
+/**
+ * Validates internal service-to-service calls (e.g., from document-service)
+ * using constant-time comparison against INTERNAL_SERVICE_KEY or SUPABASE_SERVICE_KEY.
+ */
+function validateInternalServiceKey(req, res, next) {
+    const expectedKey = process.env.INTERNAL_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
+    const providedKey = String(req.headers["x-internal-service-key"] || "");
+    if (!expectedKey || !providedKey) {
+        return res.status(401).json({
+            success: false,
+            error: "Unauthorized internal request",
+        });
+    }
+    const expectedBuf = Buffer.from(expectedKey, "utf8");
+    const providedBuf = Buffer.from(providedKey, "utf8");
+    if (expectedBuf.length !== providedBuf.length ||
+        !crypto_1.default.timingSafeEqual(expectedBuf, providedBuf)) {
+        return res.status(403).json({
+            success: false,
+            error: "Invalid internal service key",
+        });
+    }
+    next();
+}
+// Internal service-to-service notification endpoint (before JWT auth middleware)
+router.post("/notifications/internal", validateInternalServiceKey, communicationController_1.default.createInternalNotifications);
+// All user-facing routes require authentication
 router.use(auth_1.authenticateToken);
 // ===== USER SEARCH (for document sharing) =====
 /**
@@ -59,10 +86,14 @@ router.post("/notifications", (0, auth_1.requireRole)(["admin"]), communciationV
 router.get("/notifications", communciationValidators_1.validateGetNotifications, communicationController_1.default.getNotifications);
 // Get unread notifications count
 router.get("/notifications/unread/count", communicationController_1.default.getUnreadNotificationsCount);
-// Mark single notification as read
-router.patch("/notifications/:notificationId/read", communciationValidators_1.validateMarkNotificationAsRead, communciationValidators_1.validateNotificationOwnership, communicationController_1.default.markNotificationAsRead);
 // Mark all notifications as read
 router.patch("/notifications/read-all", communicationController_1.default.markAllAsRead);
+// Clear read notifications (must precede /:notificationId)
+router.delete("/notifications/clear-read", communicationController_1.default.clearReadNotifications);
+// Clear all notifications (must precede /:notificationId)
+router.delete("/notifications/clear-all", communicationController_1.default.clearAllNotifications);
+// Mark single notification as read
+router.patch("/notifications/:notificationId/read", communciationValidators_1.validateMarkNotificationAsRead, communciationValidators_1.validateNotificationOwnership, communicationController_1.default.markNotificationAsRead);
 // Delete notification
 router.delete("/notifications/:notificationId", communciationValidators_1.validateMarkNotificationAsRead, communciationValidators_1.validateNotificationOwnership, communicationController_1.default.deleteNotification);
 exports.default = router;

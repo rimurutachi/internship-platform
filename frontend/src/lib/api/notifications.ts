@@ -16,7 +16,32 @@ export interface Notification {
   is_read: boolean;
   read_at?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+}
+
+export type NotificationCategory =
+  | 'all'
+  | 'internship'
+  | 'document'
+  | 'evaluation'
+  | 'message'
+  | 'system';
+
+export interface NotificationQueryParams {
+  page?: number;
+  limit?: number;
+  is_read?: boolean;
+  category?: NotificationCategory;
+  search?: string;
+}
+
+export interface PaginatedNotificationsData {
+  notifications: Notification[];
+  total: number;
+  unread_count: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
 }
 
 export interface CreateNotificationDTO {
@@ -38,12 +63,19 @@ export interface UnreadCountResponse {
 export interface NotificationsResponse {
   success: boolean;
   data: Notification[];
+  pagination?: {
+    total: number;
+    unread_count: number;
+    page: number;
+    limit: number;
+    has_more: boolean;
+  };
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createSupabaseClient();
   const { data: { session } } = await supabase.auth.getSession();
-  
+
   if (!session?.access_token) {
     throw new Error('Not authenticated');
   }
@@ -63,12 +95,18 @@ const CACHE_TTL_MS = 15000; // 15 seconds cache
 
 export const notificationsAPI = {
   /**
+   * Invalidate cached notifications (called on real-time socket events or mutations)
+   */
+  invalidateCache: () => {
+    notificationsCache = null;
+  },
+
+  /**
    * Get user notifications
    * @param limit - Number of notifications to fetch (default: 50, max: 100)
    * @param forceRefresh - Bypass cache and force a network request
    */
   getNotifications: async (limit: number = 50, forceRefresh: boolean = false): Promise<Notification[]> => {
-    // Check cache
     if (!forceRefresh && notificationsCache && Date.now() - notificationsCache.timestamp < CACHE_TTL_MS) {
       return notificationsCache.data;
     }
@@ -85,14 +123,63 @@ export const notificationsAPI = {
     }
 
     const result: NotificationsResponse = await response.json();
-    
-    // Update cache
+
     notificationsCache = {
       data: result.data,
       timestamp: Date.now()
     };
-    
+
     return result.data;
+  },
+
+  /**
+   * Get paginated & filtered user notifications for the View All Notifications page
+   */
+  getNotificationsPaginated: async (
+    params: NotificationQueryParams = {}
+  ): Promise<PaginatedNotificationsData> => {
+    const headers = await getAuthHeaders();
+    const searchParams = new URLSearchParams();
+    searchParams.set('paginated', 'true');
+    searchParams.set('page', String(params.page ?? 1));
+    searchParams.set('limit', String(params.limit ?? 20));
+
+    if (params.is_read !== undefined) {
+      searchParams.set('is_read', String(params.is_read));
+    }
+    if (params.category && params.category !== 'all') {
+      searchParams.set('category', params.category);
+    }
+    if (params.search && params.search.trim()) {
+      searchParams.set('search', params.search.trim());
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/communications/notifications?${searchParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch notifications');
+    }
+
+    const result: NotificationsResponse = await response.json();
+    const pagination = result.pagination || {
+      total: result.data.length,
+      unread_count: result.data.filter((n) => !n.is_read).length,
+      page: params.page ?? 1,
+      limit: params.limit ?? 20,
+      has_more: false,
+    };
+
+    return {
+      notifications: result.data,
+      ...pagination,
+    };
   },
 
   /**
@@ -116,7 +203,6 @@ export const notificationsAPI = {
 
   /**
    * Mark a single notification as read
-   * @param notificationId - ID of the notification to mark as read
    */
   markAsRead: async (notificationId: string): Promise<void> => {
     const headers = await getAuthHeaders();
@@ -130,7 +216,6 @@ export const notificationsAPI = {
       throw new Error(error.error || 'Failed to mark notification as read');
     }
 
-    // Invalidate cache since data has changed
     notificationsCache = null;
   },
 
@@ -149,13 +234,11 @@ export const notificationsAPI = {
       throw new Error(error.error || 'Failed to mark all notifications as read');
     }
 
-    // Invalidate cache
     notificationsCache = null;
   },
 
   /**
    * Delete a notification
-   * @param notificationId - ID of the notification to delete
    */
   deleteNotification: async (notificationId: string): Promise<void> => {
     const headers = await getAuthHeaders();
@@ -169,13 +252,51 @@ export const notificationsAPI = {
       throw new Error(error.error || 'Failed to delete notification');
     }
 
-    // Invalidate cache
     notificationsCache = null;
   },
 
   /**
+   * Delete all read notifications
+   */
+  clearReadNotifications: async (): Promise<number> => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/communications/notifications/clear-read`, {
+      method: 'DELETE',
+      headers
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to clear read notifications');
+    }
+
+    notificationsCache = null;
+    const result = await response.json();
+    return result.data?.deleted_count ?? 0;
+  },
+
+  /**
+   * Delete all notifications
+   */
+  clearAllNotifications: async (): Promise<number> => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/communications/notifications/clear-all`, {
+      method: 'DELETE',
+      headers
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to clear all notifications');
+    }
+
+    notificationsCache = null;
+    const result = await response.json();
+    return result.data?.deleted_count ?? 0;
+  },
+
+  /**
    * Create a notification (Admin only)
-   * @param data - Notification data
    */
   createNotification: async (data: CreateNotificationDTO): Promise<Notification> => {
     const headers = await getAuthHeaders();
@@ -190,7 +311,6 @@ export const notificationsAPI = {
       throw new Error(error.error || 'Failed to create notification');
     }
 
-    // Invalidate cache
     notificationsCache = null;
 
     const result = await response.json();

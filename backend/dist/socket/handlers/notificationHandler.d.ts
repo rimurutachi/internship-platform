@@ -6,6 +6,6 @@ interface AuthenticatedSocket extends Socket {
         role: string;
     };
 }
-export declare const setupNotificationHandlers: (io: Server, socket: AuthenticatedSocket) => void;
+export declare const setupNotificationHandlers: (_io: Server, socket: AuthenticatedSocket) => void;
 export {};
 //# sourceMappingURL=notificationHandler.d.ts.map

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { emitNewNotification, emitNotificationCountUpdate } from "../socket/emitters";
+import notificationService from "./notificationService";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -129,31 +129,23 @@ export const messageService = {
     
     const actionUrl = receiverInfo ? `/dashboard/${receiverInfo.role}/messages` : '/';
 
-    const { data: notificationData } = await supabase
-      .from('notifications')
-      .insert({
+    try {
+      await notificationService.createNotification({
         user_id: receiverId,
-        type: 'new_message',
+        type: 'message_received',
         title: 'New Message',
         message: `You have received a new message from ${senderName}.`,
         action_url: actionUrl,
         reference_id: data.id,
         reference_type: 'message',
-        is_read: false
-      })
-      .select()
-      .single();
-
-    // Emit realtime socket event so NotificationsDropdown updates immediately
-    if (notificationData) {
-      emitNewNotification(receiverId, notificationData);
-      // Also update the unread count badge
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', receiverId)
-        .eq('is_read', false);
-      emitNotificationCountUpdate(receiverId, count || 0);
+        metadata: {
+          sender_id: senderId,
+          sender_name: senderName,
+          conversation_id: data.conversation_id,
+        },
+      });
+    } catch (notifError) {
+      console.error('⚠️ [MessageService] Failed to create message notification:', notifError);
     }
 
     return data;

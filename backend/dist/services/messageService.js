@@ -1,8 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.messageService = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
-const emitters_1 = require("../socket/emitters");
+const notificationService_1 = __importDefault(require("./notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 exports.messageService = {
     // Get users that the current user is allowed to message based on roles and assignments
@@ -115,30 +118,24 @@ exports.messageService = {
             .eq('id', receiverId)
             .single();
         const actionUrl = receiverInfo ? `/dashboard/${receiverInfo.role}/messages` : '/';
-        const { data: notificationData } = await supabase
-            .from('notifications')
-            .insert({
-            user_id: receiverId,
-            type: 'new_message',
-            title: 'New Message',
-            message: `You have received a new message from ${senderName}.`,
-            action_url: actionUrl,
-            reference_id: data.id,
-            reference_type: 'message',
-            is_read: false
-        })
-            .select()
-            .single();
-        // Emit realtime socket event so NotificationsDropdown updates immediately
-        if (notificationData) {
-            (0, emitters_1.emitNewNotification)(receiverId, notificationData);
-            // Also update the unread count badge
-            const { count } = await supabase
-                .from('notifications')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', receiverId)
-                .eq('is_read', false);
-            (0, emitters_1.emitNotificationCountUpdate)(receiverId, count || 0);
+        try {
+            await notificationService_1.default.createNotification({
+                user_id: receiverId,
+                type: 'message_received',
+                title: 'New Message',
+                message: `You have received a new message from ${senderName}.`,
+                action_url: actionUrl,
+                reference_id: data.id,
+                reference_type: 'message',
+                metadata: {
+                    sender_id: senderId,
+                    sender_name: senderName,
+                    conversation_id: data.conversation_id,
+                },
+            });
+        }
+        catch (notifError) {
+            console.error('⚠️ [MessageService] Failed to create message notification:', notifError);
         }
         return data;
     },
