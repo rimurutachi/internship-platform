@@ -1,8 +1,22 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps, react/no-unescaped-entities */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useState, useEffect } from 'react';
-import { Bell, Check, Trash2, X, AlertCircle, CheckCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  Bell,
+  Check,
+  Trash2,
+  X,
+  AlertCircle,
+  CheckCircle,
+  Info,
+  AlertTriangle,
+  Loader2,
+  MessageSquare,
+  FileText,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,160 +26,85 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { notificationsAPI, type Notification } from '@/lib/api/notifications';
-import { useBackendSocket } from '@/hooks/use-backend-socket';
+import { type Notification } from '@/lib/api/notifications';
+import { useNotifications } from '@/components/providers/NotificationsProvider';
+import { useUserContext } from '@/components/providers/UserProvider';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getNotificationVisuals,
+  getRelativeTime,
+  type NotificationTone,
+} from '@/lib/notifications-ui';
 
 interface NotificationsDropdownProps {
   /** Callback when notification is clicked */
   onNotificationClick?: (notification: Notification) => void;
 }
 
-// Helper function to format relative time
-const getRelativeTime = (timestamp: string): string => {
-  const now = new Date();
-  const created = new Date(timestamp);
-  const diffInSeconds = Math.floor((now.getTime() - created.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hour${Math.floor(diffInSeconds / 3600) > 1 ? 's' : ''} ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} day${Math.floor(diffInSeconds / 86400) > 1 ? 's' : ''} ago`;
-  return created.toLocaleDateString();
-};
-
-// Helper function to determine notification type icon
-const getNotificationType = (type: string): 'info' | 'success' | 'warning' | 'error' => {
-  const lowerType = type.toLowerCase();
-  if (lowerType.includes('success') || lowerType.includes('complete')) return 'success';
-  if (lowerType.includes('error') || lowerType.includes('fail') || lowerType.includes('alert')) return 'error';
-  if (lowerType.includes('warning') || lowerType.includes('update')) return 'warning';
-  return 'info';
-};
+function renderToneIcon(tone: NotificationTone) {
+  switch (tone) {
+    case 'success':
+      return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+    case 'error':
+      return <AlertCircle className="w-4 h-4 text-red-500" />;
+    case 'warning':
+      return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+    case 'message':
+      return <MessageSquare className="w-4 h-4 text-sky-500" />;
+    case 'document':
+      return <FileText className="w-4 h-4 text-indigo-500" />;
+    case 'info':
+    default:
+      return <Info className="w-4 h-4 text-blue-500" />;
+  }
+}
 
 export const NotificationsDropdown = ({
   onNotificationClick,
 }: NotificationsDropdownProps) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const { toast } = useToast();
-  const { socket } = useBackendSocket();
+  const { user } = useUserContext();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll,
+  } = useNotifications();
 
-  // Load notifications from backend
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      const data = await notificationsAPI.getNotifications(50);
-      setNotifications(data);
-    } catch (error: any) {
-      console.error('Failed to load notifications:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to load notifications',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial load
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  // Socket.io real-time notifications
-  useEffect(() => {
-    if (!socket) return;
-
-    // Listen for new notifications
-    const handleNewNotification = (notification: Notification) => {
-      setNotifications(prev => [notification, ...prev]);
-      
-      // Show toast for new notification
-      toast({
-        title: notification.title,
-        description: notification.message,
-      });
-    };
-
-    // Listen for notification count updates
-    const handleCountUpdate = (data: { count: number }) => {
-      // Count is handled by filtering is_read
-      console.log('Notification count updated:', data.count);
-    };
-
-    socket.on('new_notification', handleNewNotification);
-    socket.on('notification_count_updated', handleCountUpdate);
-
-    return () => {
-      socket.off('new_notification', handleNewNotification);
-      socket.off('notification_count_updated', handleCountUpdate);
-    };
-  }, [socket, toast]);
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const getNotificationIcon = (type: string) => {
-    const displayType = getNotificationType(type);
-    switch (displayType) {
-      case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      case 'info':
-      default:
-        return <Info className="w-4 h-4 text-blue-500" />;
-    }
-  };
-
-  const getNotificationBorderColor = (type: string) => {
-    const displayType = getNotificationType(type);
-    switch (displayType) {
-      case 'success':
-        return 'border-l-green-500';
-      case 'error':
-        return 'border-l-red-500';
-      case 'warning':
-        return 'border-l-yellow-500';
-      case 'info':
-      default:
-        return 'border-l-blue-500';
-    }
-  };
+  const viewAllHref = user?.role
+    ? `/dashboard/${user.role}/notifications`
+    : '/dashboard/notifications';
 
   const handleNotificationClick = async (notification: Notification) => {
-    // Mark as read if unread
     if (!notification.is_read) {
       try {
-        await notificationsAPI.markAsRead(notification.id);
-        setNotifications(prev =>
-          prev.map(n => (n.id === notification.id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-        );
+        await markAsRead(notification.id);
       } catch (error: any) {
         console.error('Failed to mark as read:', error);
       }
     }
 
-    // Call external callback
     onNotificationClick?.(notification);
+    setOpen(false);
 
-    // Navigate if action_url exists
     if (notification.action_url) {
-      window.location.href = notification.action_url;
+      if (notification.action_url.startsWith('/')) {
+        router.push(notification.action_url);
+      } else {
+        window.location.href = notification.action_url;
+      }
     }
   };
 
   const handleMarkAsRead = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await notificationsAPI.markAsRead(notificationId);
-      setNotifications(prev =>
-        prev.map(n => (n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-      );
+      await markAsRead(notificationId);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -178,8 +117,7 @@ export const NotificationsDropdown = ({
   const handleDelete = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await notificationsAPI.deleteNotification(notificationId);
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      await deleteNotification(notificationId);
       toast({
         title: 'Success',
         description: 'Notification deleted',
@@ -195,8 +133,7 @@ export const NotificationsDropdown = ({
 
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationsAPI.markAllAsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() })));
+      await markAllAsRead();
       toast({
         title: 'Success',
         description: 'All notifications marked as read',
@@ -212,9 +149,7 @@ export const NotificationsDropdown = ({
 
   const handleClearAll = async () => {
     try {
-      // Delete all notifications one by one
-      await Promise.all(notifications.map(n => notificationsAPI.deleteNotification(n.id)));
-      setNotifications([]);
+      await clearAll();
       toast({
         title: 'Success',
         description: 'All notifications cleared',
@@ -266,7 +201,7 @@ export const NotificationsDropdown = ({
                 variant="ghost"
                 size="sm"
                 onClick={handleClearAll}
-                className="text-xs h-7 text-error hover:text-error/80"
+                className="text-xs h-7 text-destructive hover:text-destructive/80"
               >
                 <X className="w-3 h-3 mr-1" />
                 Clear
@@ -276,7 +211,7 @@ export const NotificationsDropdown = ({
         </div>
 
         {/* Notifications List */}
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[380px]">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Loader2 className="w-8 h-8 text-muted-foreground animate-spin mb-3" />
@@ -286,79 +221,104 @@ export const NotificationsDropdown = ({
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Bell className="w-12 h-12 text-muted-foreground/50 mb-3" />
               <p className="text-sm font-medium text-muted-foreground">No notifications</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">You're all caught up!</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">You&apos;re all caught up!</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={cn(
-                    'p-4 hover:bg-accent/50 cursor-pointer transition-colors border-l-4',
-                    !notification.is_read && 'bg-accent/20',
-                    getNotificationBorderColor(notification.type)
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">{getNotificationIcon(notification.type)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <h4
-                            className={cn(
-                              'text-sm font-semibold text-foreground',
-                              !notification.is_read && 'font-bold'
+              {notifications.map((notification) => {
+                const visuals = getNotificationVisuals(
+                  notification.type,
+                  notification.title
+                );
+                return (
+                  <div
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={cn(
+                      'p-4 hover:bg-accent/50 cursor-pointer transition-colors border-l-4',
+                      !notification.is_read && 'bg-accent/20',
+                      visuals.borderClass
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">{renderToneIcon(visuals.tone)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {!notification.is_read && (
+                                <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                              )}
+                              <h4
+                                className={cn(
+                                  'text-sm font-semibold text-foreground truncate',
+                                  !notification.is_read && 'font-bold'
+                                )}
+                              >
+                                {notification.title}
+                              </h4>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-xs text-muted-foreground/70">
+                                {getRelativeTime(notification.created_at)}
+                              </span>
+                              <span
+                                className={cn(
+                                  'text-[10px] px-1.5 py-0.5 rounded font-medium',
+                                  visuals.badgeClass
+                                )}
+                              >
+                                {visuals.categoryLabel}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {!notification.is_read && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleMarkAsRead(notification.id, e)}
+                                className="h-7 w-7 p-0"
+                                title="Mark as read"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </Button>
                             )}
-                          >
-                            {notification.title}
-                          </h4>
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground/70 mt-2">
-                            {getRelativeTime(notification.created_at)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {!notification.is_read && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={(e) => handleMarkAsRead(notification.id, e)}
-                              className="h-7 w-7 p-0"
-                              title="Mark as read"
+                              onClick={(e) => handleDelete(notification.id, e)}
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive/80"
+                              title="Delete"
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => handleDelete(notification.id, e)}
-                            className="h-7 w-7 p-0 text-error hover:text-error/80"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
 
-        {/* Footer */}
-        {notifications.length > 0 && !loading && (
-          <div className="p-3 border-t border-border bg-muted/30">
-            <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
-              <a href="/dashboard/notifications">View all notifications</a>
-            </Button>
-          </div>
-        )}
+        {/* Footer — always visible so user can open the full Notifications Center anytime */}
+        <div className="p-3 border-t border-border bg-muted/30">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs font-medium"
+            asChild
+            onClick={() => setOpen(false)}
+          >
+            <Link href={viewAllHref}>View all notifications</Link>
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

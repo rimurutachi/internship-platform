@@ -166,63 +166,72 @@ class InternshipsEnhancedService {
         const internship = reminder.internship;
         if (!internship)
             return;
-        let recipients = [];
+        const recipientEntries = [];
         let notificationMessage = '';
         let notificationTitle = '';
         switch (reminder.reminder_type) {
             case 'approaching_end_date':
-                recipients = [
-                    internship.student?.id,
-                    internship.advisor?.id,
-                    internship.supervisor?.id
-                ].filter(Boolean);
+                if (internship.student?.id)
+                    recipientEntries.push({ userId: internship.student.id, actionUrl: '/dashboard/student/current-internship' });
+                if (internship.advisor?.id)
+                    recipientEntries.push({ userId: internship.advisor.id, actionUrl: '/dashboard/advisor/students' });
+                if (internship.supervisor?.id)
+                    recipientEntries.push({ userId: internship.supervisor.id, actionUrl: '/dashboard/supervisor/evaluations' });
                 notificationTitle = 'Internship Ending Soon';
                 notificationMessage = `The internship at ${internship.company_name} is ending on ${new Date(internship.end_date).toLocaleDateString()}. Please prepare final evaluations and documents.`;
                 break;
             case 'pending_documents':
-                recipients = [internship.student?.id, internship.advisor?.id].filter(Boolean);
+                if (internship.student?.id)
+                    recipientEntries.push({ userId: internship.student.id, actionUrl: '/dashboard/student/requirements' });
+                if (internship.advisor?.id)
+                    recipientEntries.push({ userId: internship.advisor.id, actionUrl: '/dashboard/advisor/requirements' });
                 notificationTitle = 'Pending Documents';
                 notificationMessage = 'There are pending documents for your internship. Please submit them as soon as possible.';
                 break;
             case 'pending_daily_report':
-                recipients = [internship.student?.id].filter(Boolean);
+                if (internship.student?.id)
+                    recipientEntries.push({ userId: internship.student.id, actionUrl: '/dashboard/student/daily-reports' });
                 notificationTitle = 'Daily Report Reminder';
                 notificationMessage = 'Please remember to submit your daily report before end of day.';
                 break;
             case 'evaluation_due':
-                recipients = [internship.supervisor?.id].filter(Boolean);
+                if (internship.supervisor?.id)
+                    recipientEntries.push({ userId: internship.supervisor.id, actionUrl: '/dashboard/supervisor/evaluations' });
                 notificationTitle = 'Evaluation Due';
                 notificationMessage = `Please submit your evaluation for ${internship.student?.name} before ${new Date(internship.end_date).toLocaleDateString()}.`;
                 break;
             case 'missing_supervisor':
-                recipients = [internship.advisor?.id].filter(Boolean);
+                if (internship.advisor?.id)
+                    recipientEntries.push({ userId: internship.advisor.id, actionUrl: '/dashboard/advisor/students' });
                 notificationTitle = 'Supervisor Assignment Required';
                 notificationMessage = `Internship for ${internship.student?.name} is missing a supervisor assignment. Please resolve urgently.`;
                 break;
             case 'custom':
-                recipients = [
-                    internship.student?.id,
-                    internship.advisor?.id,
-                    internship.supervisor?.id
-                ].filter(Boolean);
+                if (internship.student?.id)
+                    recipientEntries.push({ userId: internship.student.id, actionUrl: '/dashboard/student/current-internship' });
+                if (internship.advisor?.id)
+                    recipientEntries.push({ userId: internship.advisor.id, actionUrl: '/dashboard/advisor/students' });
+                if (internship.supervisor?.id)
+                    recipientEntries.push({ userId: internship.supervisor.id, actionUrl: '/dashboard/supervisor/interns' });
                 notificationTitle = 'Internship Reminder';
                 notificationMessage = reminder.custom_message || 'You have a pending task for your internship.';
                 break;
         }
         // Send notifications using notificationService (with real-time socket delivery)
-        for (const userId of recipients) {
+        for (const recipient of recipientEntries) {
             try {
                 await notificationService_1.default.createNotification({
-                    user_id: userId,
-                    type: 'internship_reminder',
+                    user_id: recipient.userId,
+                    type: reminder.reminder_type === 'evaluation_due' ? 'evaluation_reminder' : 'internship_reminder',
                     title: notificationTitle,
                     message: notificationMessage,
-                    action_url: `/dashboard/student/current-internship`,
+                    action_url: recipient.actionUrl,
+                    reference_id: internship.id,
                     reference_type: 'internship',
                 });
             }
             catch (notifError) {
-                console.error(`Failed to send notification to ${userId}:`, notifError);
+                console.error(`Failed to send notification to ${recipient.userId}:`, notifError);
             }
         }
         // TODO: Integrate with email service if notification_channel includes 'email'

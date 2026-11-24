@@ -3,6 +3,7 @@ import { AuthRequest } from '../../middleware/auth';
 import { createClient } from '@supabase/supabase-js';
 import { calculateGrade } from '../../services/rubricService';
 import { ensureString } from '../../utils/typeGuards';
+import notificationService from '../../services/notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -523,18 +524,23 @@ export async function submitFinalEvaluation(req: AuthRequest, res: Response) {
 
     // Notify advisor - evaluation submitted for their review/approval
     if (evaluation.internship.advisor_id) {
-      await supabase.from('notifications').insert({
-        user_id: evaluation.internship.advisor_id,
-        type: 'evaluation_pending_review',
-        title: 'Evaluation Pending Your Review',
-        message: 'A supervisor has submitted a final evaluation that requires your review and approval.',
-        reference_id: id,
-        reference_type: 'evaluation',
-        metadata: {
-          evaluation_id: id,
-          internship_id: evaluation.internship_id,
-        },
-      });
+      try {
+        await notificationService.createNotification({
+          user_id: evaluation.internship.advisor_id,
+          type: 'evaluation_submitted',
+          title: 'Evaluation Pending Your Review',
+          message: 'A supervisor has submitted a final evaluation that requires your review and approval.',
+          action_url: '/dashboard/advisor/evaluations',
+          reference_id: id,
+          reference_type: 'evaluation',
+          metadata: {
+            evaluation_id: id,
+            internship_id: evaluation.internship_id,
+          },
+        });
+      } catch (notifError) {
+        console.error('⚠️ Failed to notify advisor about submitted evaluation:', notifError);
+      }
     }
 
     // Note: Admin and student notifications will be sent when advisor approves the evaluation

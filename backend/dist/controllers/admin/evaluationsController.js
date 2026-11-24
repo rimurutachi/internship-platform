@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EvaluationsController = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const evaluation_service_1 = require("../../services/evaluation.service");
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_KEY || '');
 class EvaluationsController {
     constructor() {
@@ -271,14 +275,16 @@ class EvaluationsController {
             try {
                 const { id } = req.params;
                 const { final_grade, notes, use_ai_grade } = req.body;
-                // Get evaluation with internship to fetch advisor_id
+                // Get evaluation with internship to fetch student_id, advisor_id, supervisor_id
                 const { data: evaluation, error: fetchError } = await supabase
                     .from('evaluations')
                     .select(`
           *,
           internship:internships(
             id,
-            advisor_id
+            student_id,
+            advisor_id,
+            supervisor_id
           )
         `)
                     .eq('id', id)
@@ -332,6 +338,55 @@ class EvaluationsController {
                     description: `Admin approved evaluation with final grade: ${gradeToSet}`,
                     metadata: { final_grade: gradeToSet, notes, use_ai_grade },
                 });
+                // Notify student, advisor, and supervisor in real time
+                try {
+                    const evalId = String(id);
+                    const studentId = evaluation.student_id || evaluation.internship?.student_id;
+                    const supervisorId = evaluation.supervisor_id || evaluation.internship?.supervisor_id;
+                    const notifItems = [];
+                    if (studentId) {
+                        notifItems.push({
+                            user_id: studentId,
+                            type: 'evaluation_approved',
+                            title: 'Final Evaluation Approved',
+                            message: `Your final evaluation has been approved with a final grade of ${gradeToSet}.`,
+                            action_url: '/dashboard/student/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, final_grade: gradeToSet },
+                        });
+                    }
+                    if (advisorId) {
+                        notifItems.push({
+                            user_id: advisorId,
+                            type: 'evaluation_approved',
+                            title: 'Evaluation Approved by Admin',
+                            message: `A student evaluation under your advisory has been approved with final grade ${gradeToSet}.`,
+                            action_url: '/dashboard/advisor/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, final_grade: gradeToSet },
+                        });
+                    }
+                    if (supervisorId) {
+                        notifItems.push({
+                            user_id: supervisorId,
+                            type: 'evaluation_approved',
+                            title: 'Evaluation Approved by Admin',
+                            message: `Your submitted evaluation has been approved with final grade ${gradeToSet}.`,
+                            action_url: '/dashboard/supervisor/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, final_grade: gradeToSet },
+                        });
+                    }
+                    if (notifItems.length > 0) {
+                        await notificationService_1.default.createBulkNotifications(notifItems);
+                    }
+                }
+                catch (notifError) {
+                    console.error('⚠️ Failed to send admin evaluation approval notifications:', notifError);
+                }
                 console.log('[AdminEvaluations] approveEvaluation success', { evaluationId: id, finalGrade: gradeToSet });
                 res.json({
                     success: true,
@@ -361,10 +416,18 @@ class EvaluationsController {
                         .status(400)
                         .json({ error: 'Grade must be between 0 and 100' });
                 }
-                // Get current evaluation
+                // Get current evaluation with internship details
                 const { data: evaluation, error: fetchError } = await supabase
                     .from('evaluations')
-                    .select('*')
+                    .select(`
+          *,
+          internship:internships(
+            id,
+            student_id,
+            advisor_id,
+            supervisor_id
+          )
+        `)
                     .eq('id', id)
                     .single();
                 if (fetchError || !evaluation) {
@@ -391,6 +454,56 @@ class EvaluationsController {
                     description: `Admin overrode grade from ${originalGrade} to ${new_grade}`,
                     metadata: { original_grade: originalGrade, new_grade, reason },
                 });
+                // Notify student, advisor, and supervisor about grade override
+                try {
+                    const evalId = String(id);
+                    const studentId = evaluation.student_id || evaluation.internship?.student_id;
+                    const advisorId = evaluation.advisor_id || evaluation.internship?.advisor_id;
+                    const supervisorId = evaluation.supervisor_id || evaluation.internship?.supervisor_id;
+                    const notifItems = [];
+                    if (studentId) {
+                        notifItems.push({
+                            user_id: studentId,
+                            type: 'evaluation_grade_overridden',
+                            title: 'Evaluation Grade Updated',
+                            message: `Your evaluation final grade was updated to ${new_grade} by an administrator.`,
+                            action_url: '/dashboard/student/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, original_grade: originalGrade, new_grade, reason },
+                        });
+                    }
+                    if (advisorId) {
+                        notifItems.push({
+                            user_id: advisorId,
+                            type: 'evaluation_grade_overridden',
+                            title: 'Evaluation Grade Overridden',
+                            message: `An administrator updated a student evaluation grade from ${originalGrade} to ${new_grade}. Reason: ${reason}`,
+                            action_url: '/dashboard/advisor/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, original_grade: originalGrade, new_grade, reason },
+                        });
+                    }
+                    if (supervisorId) {
+                        notifItems.push({
+                            user_id: supervisorId,
+                            type: 'evaluation_grade_overridden',
+                            title: 'Evaluation Grade Overridden',
+                            message: `An administrator updated the grade for your submitted evaluation from ${originalGrade} to ${new_grade}. Reason: ${reason}`,
+                            action_url: '/dashboard/supervisor/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, original_grade: originalGrade, new_grade, reason },
+                        });
+                    }
+                    if (notifItems.length > 0) {
+                        await notificationService_1.default.createBulkNotifications(notifItems);
+                    }
+                }
+                catch (notifError) {
+                    console.error('⚠️ Failed to send grade override notifications:', notifError);
+                }
                 res.json({
                     success: true,
                     data: { message: 'Grade overridden successfully' },
@@ -412,6 +525,17 @@ class EvaluationsController {
                 if (!reason) {
                     return res.status(400).json({ error: 'Reason is required' });
                 }
+                // Fetch evaluation with internship for notification recipients
+                const { data: evaluation } = await supabase
+                    .from('evaluations')
+                    .select(`
+          id,
+          supervisor_id,
+          advisor_id,
+          internship:internships(advisor_id, supervisor_id)
+        `)
+                    .eq('id', id)
+                    .maybeSingle();
                 // Set status back to submitted for supervisor to revise
                 const { error: updateError } = await supabase
                     .from('evaluations')
@@ -432,7 +556,46 @@ class EvaluationsController {
                     description: `Admin rejected evaluation - Reason: ${reason}`,
                     metadata: { reason, comments },
                 });
-                // TODO: Send notification to supervisor
+                // Notify supervisor and advisor in real time
+                try {
+                    const evalId = String(id);
+                    const internshipRel = Array.isArray(evaluation?.internship)
+                        ? evaluation.internship[0]
+                        : evaluation?.internship;
+                    const supervisorId = evaluation?.supervisor_id || internshipRel?.supervisor_id;
+                    const advisorId = evaluation?.advisor_id || internshipRel?.advisor_id;
+                    const notifItems = [];
+                    if (supervisorId) {
+                        notifItems.push({
+                            user_id: supervisorId,
+                            type: 'evaluation_rejected',
+                            title: 'Evaluation Returned for Revision',
+                            message: `An administrator returned your evaluation for revision. Reason: ${reason}`,
+                            action_url: '/dashboard/supervisor/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, reason, comments },
+                        });
+                    }
+                    if (advisorId) {
+                        notifItems.push({
+                            user_id: advisorId,
+                            type: 'evaluation_rejected',
+                            title: 'Evaluation Rejected by Admin',
+                            message: `An evaluation under your advisory was returned to the supervisor. Reason: ${reason}`,
+                            action_url: '/dashboard/advisor/evaluations',
+                            reference_id: evalId,
+                            reference_type: 'evaluation',
+                            metadata: { evaluation_id: evalId, reason, comments },
+                        });
+                    }
+                    if (notifItems.length > 0) {
+                        await notificationService_1.default.createBulkNotifications(notifItems);
+                    }
+                }
+                catch (notifError) {
+                    console.error('⚠️ Failed to send evaluation rejection notifications:', notifError);
+                }
                 res.json({
                     success: true,
                     data: { message: 'Evaluation rejected and returned to supervisor' },

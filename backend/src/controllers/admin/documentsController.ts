@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import documentServiceProxy from '../../services/documentServiceProxy';
+import notificationService from '../../services/notificationService';
 import {
   Document,
   DocumentVersion,
@@ -384,17 +385,53 @@ export const getWorkflow = async (req: Request, res: Response) => {
 };
 
 /**
+ * Notify a document owner about an admin document action (non-blocking)
+ */
+async function notifyDocumentOwner(
+  ownerId: string | undefined,
+  actorId: string | undefined,
+  type: string,
+  title: string,
+  message: string,
+  documentId: string
+): Promise<void> {
+  if (!ownerId || ownerId === actorId) return;
+  try {
+    const { data: owner } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', ownerId)
+      .maybeSingle();
+
+    const ownerRole = owner?.role || 'student';
+    await notificationService.createNotification({
+      user_id: ownerId,
+      type,
+      title,
+      message,
+      action_url: `/dashboard/${ownerRole}/documents/${documentId}`,
+      reference_id: documentId,
+      reference_type: 'document',
+      metadata: { document_id: documentId },
+    });
+  } catch (err) {
+    console.error('⚠️ [AdminDocuments] Failed to notify document owner:', err);
+  }
+}
+
+/**
  * Update document status with validation
  */
 export const updateStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body as UpdateStatusData;
+    const actorId = (req as any).user?.id;
 
     // Get current document
     const { data: currentDoc, error: fetchError } = await supabaseAdmin
       .from('documents')
-      .select('status')
+      .select('status, owner_id, title')
       .eq('id', id)
       .single();
 
@@ -422,6 +459,22 @@ export const updateStatus = async (req: Request, res: Response) => {
       .single();
 
     if (updateError) throw updateError;
+
+    const docType =
+      status === 'approved'
+        ? 'document_approved'
+        : status === 'rejected'
+        ? 'document_rejected'
+        : 'document_reviewed';
+
+    await notifyDocumentOwner(
+      currentDoc.owner_id,
+      actorId,
+      docType,
+      `Document Status Updated`,
+      `Your document "${currentDoc.title || 'Document'}" status was updated to "${status}".`,
+      String(id)
+    );
 
     res.json(updatedDoc);
   } catch (error: any) {
@@ -482,6 +535,21 @@ export const updateWorkflow = async (req: Request, res: Response) => {
         if (updateWorkflowError) throw updateWorkflowError;
       }
 
+      const { data: docInfo } = await supabaseAdmin
+        .from('documents')
+        .select('owner_id, title')
+        .eq('id', id)
+        .maybeSingle();
+
+      await notifyDocumentOwner(
+        docInfo?.owner_id,
+        userId,
+        action === 'approve' ? 'document_approved' : 'document_rejected',
+        action === 'approve' ? 'Document Workflow Approved' : 'Document Workflow Rejected',
+        `Your document "${docInfo?.title || 'Document'}" was ${action === 'approve' ? 'approved' : 'rejected'}${comments ? `. Comments: ${comments}` : '.'}`,
+        String(id)
+      );
+
       res.json(approval);
     } else if (action === 'advance') {
       // Advance to next stage
@@ -514,6 +582,7 @@ export const updateWorkflow = async (req: Request, res: Response) => {
 export const archiveDocument = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const actorId = (req as any).user?.id;
 
     const { data: document, error } = await supabaseAdmin
       .from('documents')
@@ -526,6 +595,15 @@ export const archiveDocument = async (req: Request, res: Response) => {
     if (!document) {
       return res.status(404).json({ error: 'Document not found' });
     }
+
+    await notifyDocumentOwner(
+      document.owner_id,
+      actorId,
+      'document_reviewed',
+      'Document Archived',
+      `Your document "${document.title || 'Document'}" has been archived by an administrator.`,
+      String(id)
+    );
 
     res.json(document);
   } catch (error: any) {

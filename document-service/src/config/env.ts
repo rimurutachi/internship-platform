@@ -22,6 +22,9 @@ export const env = {
   SUPABASE_URL: getEnv('SUPABASE_URL'),
   SUPABASE_SERVICE_KEY: getEnv('SUPABASE_SERVICE_KEY'),
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000',
+  INTERNAL_SERVICE_KEY:
+    process.env.INTERNAL_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || '',
   AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000',
   PORT: parseInt(process.env.PORT || '6000', 10),
   REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',

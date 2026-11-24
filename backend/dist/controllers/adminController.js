@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAllUsers = getAllUsers;
 exports.getUserById = getUserById;
@@ -14,6 +17,7 @@ exports.unarchiveUser = unarchiveUser;
 exports.graduateStudent = graduateStudent;
 const supabase_js_1 = require("@supabase/supabase-js");
 const typeGuards_1 = require("../utils/typeGuards");
+const notificationService_1 = __importDefault(require("../services/notificationService"));
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 /**
  * Get all users with filtering, search, and pagination
@@ -926,7 +930,7 @@ async function graduateStudent(req, res) {
         // Check if student has at least one completed internship
         const { data: completedInternships } = await supabase
             .from('internships')
-            .select('id')
+            .select('id, advisor_id')
             .eq('student_id', id)
             .eq('status', 'completed')
             .limit(1);
@@ -986,17 +990,43 @@ async function graduateStudent(req, res) {
                 internship_id: completedInternships[0].id,
             },
         });
-        // Notify the student
-        await supabase.from('notifications').insert({
-            user_id: id,
-            type: 'student_graduated',
-            title: 'Congratulations! You have Graduated',
-            message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
-            data: {
-                graduation_notes: graduation_notes || null,
-                graduated_at: new Date().toISOString(),
-            },
-        });
+        // Notify the student and advisor in real time
+        try {
+            const gradNotifs = [
+                {
+                    user_id: id,
+                    type: 'student_graduated',
+                    title: 'Congratulations! You have Graduated',
+                    message: 'Your OJT program has been completed successfully. Congratulations on your graduation!',
+                    action_url: '/dashboard/student',
+                    reference_id: id,
+                    reference_type: 'user',
+                    metadata: {
+                        graduation_notes: graduation_notes || null,
+                        graduated_at: new Date().toISOString(),
+                    },
+                },
+            ];
+            if (completedInternships[0].advisor_id) {
+                gradNotifs.push({
+                    user_id: completedInternships[0].advisor_id,
+                    type: 'student_graduated',
+                    title: 'Advisee Graduated',
+                    message: `${user.first_name} ${user.last_name} has been officially marked as graduated.`,
+                    action_url: '/dashboard/advisor/students',
+                    reference_id: id,
+                    reference_type: 'user',
+                    metadata: {
+                        graduation_notes: graduation_notes || null,
+                        graduated_at: new Date().toISOString(),
+                    },
+                });
+            }
+            await notificationService_1.default.createBulkNotifications(gradNotifs);
+        }
+        catch (notifError) {
+            console.error('⚠️ Failed to send graduation notifications:', notifError);
+        }
         console.log(`✅ Student ${id} graduated successfully by admin ${adminId}`);
         return res.status(200).json({
             success: true,

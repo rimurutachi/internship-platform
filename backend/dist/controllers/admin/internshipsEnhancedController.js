@@ -213,52 +213,76 @@ class InternshipsEnhancedController {
                 res.status(404).json({ success: false, error: 'Internship not found' });
                 return;
             }
-            // Prepare notification based on reminder_type
-            const recipients = [];
+            // Prepare notification based on reminder_type with role-specific action URLs
+            const recipientEntries = [];
             let notificationMessage = custom_message || '';
             let notificationTitle = 'Internship Reminder';
+            const studentDocUrl = reminder_type === 'pending_documents'
+                ? '/dashboard/student/requirements'
+                : '/dashboard/student/current-internship';
+            const advisorDocUrl = reminder_type === 'pending_documents'
+                ? '/dashboard/advisor/requirements'
+                : '/dashboard/advisor/students';
+            const supervisorEvalUrl = reminder_type === 'evaluation_due' || reminder_type === 'approaching_end_date'
+                ? '/dashboard/supervisor/evaluations'
+                : '/dashboard/supervisor/interns';
             switch (reminder_type) {
                 case 'approaching_end_date':
-                    recipients.push(internship.student?.id, internship.advisor?.id, internship.supervisor?.id);
+                    if (internship.student?.id)
+                        recipientEntries.push({ userId: internship.student.id, actionUrl: studentDocUrl });
+                    if (internship.advisor?.id)
+                        recipientEntries.push({ userId: internship.advisor.id, actionUrl: advisorDocUrl });
+                    if (internship.supervisor?.id)
+                        recipientEntries.push({ userId: internship.supervisor.id, actionUrl: supervisorEvalUrl });
                     notificationTitle = 'Internship Ending Soon';
                     notificationMessage = notificationMessage || `Your internship is ending soon (${new Date(internship.end_date).toLocaleDateString()}). Please prepare final evaluations.`;
                     break;
                 case 'pending_documents':
-                    recipients.push(internship.student?.id, internship.advisor?.id);
+                    if (internship.student?.id)
+                        recipientEntries.push({ userId: internship.student.id, actionUrl: studentDocUrl });
+                    if (internship.advisor?.id)
+                        recipientEntries.push({ userId: internship.advisor.id, actionUrl: advisorDocUrl });
                     notificationTitle = 'Pending Documents';
                     notificationMessage = notificationMessage || 'There are pending documents for your internship. Please submit them.';
                     break;
                 case 'evaluation_due':
-                    recipients.push(internship.supervisor?.id);
+                    if (internship.supervisor?.id)
+                        recipientEntries.push({ userId: internship.supervisor.id, actionUrl: supervisorEvalUrl });
                     notificationTitle = 'Evaluation Due';
                     notificationMessage = notificationMessage || `Please submit your evaluation for ${internship.student?.name} before ${new Date(internship.end_date).toLocaleDateString()}.`;
                     break;
                 case 'pending_daily_report':
-                    recipients.push(internship.student?.id);
+                    if (internship.student?.id)
+                        recipientEntries.push({ userId: internship.student.id, actionUrl: '/dashboard/student/daily-reports' });
                     notificationTitle = 'Daily Report Reminder';
                     notificationMessage = notificationMessage || 'Please remember to submit your daily report.';
                     break;
                 default:
-                    recipients.push(internship.student?.id, internship.advisor?.id, internship.supervisor?.id);
+                    if (internship.student?.id)
+                        recipientEntries.push({ userId: internship.student.id, actionUrl: '/dashboard/student/current-internship' });
+                    if (internship.advisor?.id)
+                        recipientEntries.push({ userId: internship.advisor.id, actionUrl: '/dashboard/advisor/students' });
+                    if (internship.supervisor?.id)
+                        recipientEntries.push({ userId: internship.supervisor.id, actionUrl: '/dashboard/supervisor/interns' });
             }
-            // Filter out null/undefined recipients
-            const validRecipients = recipients.filter(Boolean);
+            const validRecipients = recipientEntries.map(r => r.userId);
             // Send notifications using notificationService (with real-time socket delivery)
             let notificationCount = 0;
-            for (const userId of validRecipients) {
+            for (const recipient of recipientEntries) {
                 try {
                     await notificationService_1.default.createNotification({
-                        user_id: userId,
-                        type: reminder_type || 'system',
+                        user_id: recipient.userId,
+                        type: reminder_type === 'evaluation_due' ? 'evaluation_reminder' : 'internship_reminder',
                         title: notificationTitle,
                         message: notificationMessage,
-                        action_url: `/dashboard/student/internship`,
+                        action_url: recipient.actionUrl,
+                        reference_id: String(internship_id),
                         reference_type: 'internship',
                     });
                     notificationCount++;
                 }
                 catch (notifError) {
-                    console.error(`Failed to send notification to ${userId}:`, notifError);
+                    console.error(`Failed to send notification to ${recipient.userId}:`, notifError);
                 }
             }
             // Log action

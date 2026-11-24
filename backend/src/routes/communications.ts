@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import communicationController from "../controllers/communicationController";
 import {
@@ -11,7 +12,50 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-// All routes require authentication
+/**
+ * Validates internal service-to-service calls (e.g., from document-service)
+ * using constant-time comparison against INTERNAL_SERVICE_KEY or SUPABASE_SERVICE_KEY.
+ */
+function validateInternalServiceKey(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const expectedKey =
+    process.env.INTERNAL_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
+  const providedKey = String(req.headers["x-internal-service-key"] || "");
+
+  if (!expectedKey || !providedKey) {
+    return res.status(401).json({
+      success: false,
+      error: "Unauthorized internal request",
+    });
+  }
+
+  const expectedBuf = Buffer.from(expectedKey, "utf8");
+  const providedBuf = Buffer.from(providedKey, "utf8");
+
+  if (
+    expectedBuf.length !== providedBuf.length ||
+    !crypto.timingSafeEqual(expectedBuf, providedBuf)
+  ) {
+    return res.status(403).json({
+      success: false,
+      error: "Invalid internal service key",
+    });
+  }
+
+  next();
+}
+
+// Internal service-to-service notification endpoint (before JWT auth middleware)
+router.post(
+  "/notifications/internal",
+  validateInternalServiceKey,
+  communicationController.createInternalNotifications
+);
+
+// All user-facing routes require authentication
 router.use(authenticateToken);
 
 // ===== USER SEARCH (for document sharing) =====
@@ -90,6 +134,21 @@ router.get(
   communicationController.getUnreadNotificationsCount
 );
 
+// Mark all notifications as read
+router.patch("/notifications/read-all", communicationController.markAllAsRead);
+
+// Clear read notifications (must precede /:notificationId)
+router.delete(
+  "/notifications/clear-read",
+  communicationController.clearReadNotifications
+);
+
+// Clear all notifications (must precede /:notificationId)
+router.delete(
+  "/notifications/clear-all",
+  communicationController.clearAllNotifications
+);
+
 // Mark single notification as read
 router.patch(
   "/notifications/:notificationId/read",
@@ -97,9 +156,6 @@ router.patch(
   validateNotificationOwnership,
   communicationController.markNotificationAsRead
 );
-
-// Mark all notifications as read
-router.patch("/notifications/read-all", communicationController.markAllAsRead);
 
 // Delete notification
 router.delete(

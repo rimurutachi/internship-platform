@@ -6,6 +6,7 @@ import { env } from "../config/env";
 import auditService from "../services/auditService";
 import workflowService from "../services/workflowService";
 import { pdfExportService } from "../services/pdfExportService";
+import notificationClient from "../services/notificationClient";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
@@ -535,6 +536,24 @@ export async function preApproveDraft(req: AuthRequest, res: Response) {
       pdfPath: pdfExportResult.storagePath,
     });
 
+    // Notify student owner if pre-approved by advisor/admin
+    if (doc.owner_id && doc.owner_id !== userId) {
+      try {
+        await notificationClient.sendNotification({
+          user_id: doc.owner_id,
+          type: "document_pre_approved",
+          title: "Document Pre-Approved",
+          message: `"${doc.title || "Your document"}" has been pre-approved and locked. You can now download the secure PDF for physical signing.`,
+          action_url: `/dashboard/student/documents/${documentId}`,
+          reference_id: documentId,
+          reference_type: "document",
+          metadata: { document_id: documentId, pre_approved_by: userId },
+        });
+      } catch (notifErr) {
+        console.warn("⚠️ [Workflow] Failed to notify student on pre-approval:", notifErr);
+      }
+    }
+
     return res.json({
       success: true,
       data: {
@@ -570,7 +589,7 @@ export async function revertPreApproval(req: AuthRequest, res: Response) {
     // Fetch document
     const { data: doc, error: docError } = await supabase
       .from("documents")
-      .select("id, status, metadata")
+      .select("id, status, metadata, owner_id, title")
       .eq("id", documentId)
       .single();
 
@@ -639,6 +658,24 @@ export async function revertPreApproval(req: AuthRequest, res: Response) {
       documentId: documentId.substring(0, 8),
     });
 
+    // Notify student owner if reverted by advisor/admin
+    if (doc.owner_id && doc.owner_id !== userId) {
+      try {
+        await notificationClient.sendNotification({
+          user_id: doc.owner_id,
+          type: "document_pre_approval_reverted",
+          title: "Pre-Approval Reverted to Draft",
+          message: `"${doc.title || "Your document"}" was reverted to draft for further editing${reason ? `. Reason: ${reason}` : "."}`,
+          action_url: `/dashboard/student/documents/${documentId}`,
+          reference_id: documentId,
+          reference_type: "document",
+          metadata: { document_id: documentId, reason: reason || null },
+        });
+      } catch (notifErr) {
+        console.warn("⚠️ [Workflow] Failed to notify student on pre-approval revert:", notifErr);
+      }
+    }
+
     return res.json({
       success: true,
       data: { document: updatedDoc },
@@ -667,7 +704,7 @@ export const uploadSignedDocument = async (req: AuthRequest, res: Response) => {
     // 1. Fetch document and ensure it's pre-approved
     const { data: doc, error: docError } = await supabase
       .from("documents")
-      .select("id, status, metadata")
+      .select("id, status, metadata, owner_id, title")
       .eq("id", documentId)
       .single();
 
@@ -744,6 +781,28 @@ export const uploadSignedDocument = async (req: AuthRequest, res: Response) => {
         new_status: "approved",
       },
     });
+
+    // Notify assigned advisor when student uploads AI-verified signed document
+    if (doc.owner_id) {
+      try {
+        const advisorId = await notificationClient.getStudentAdvisorId(doc.owner_id);
+        if (advisorId && advisorId !== userId) {
+          const studentInfo = await notificationClient.getUserDisplayNameAndRole(doc.owner_id);
+          await notificationClient.sendNotification({
+            user_id: advisorId,
+            type: "document_approved",
+            title: "Signed Document Verified & Finalized",
+            message: `${studentInfo.name} uploaded the signed version of "${doc.title || "Document"}", verified by AI signature check.`,
+            action_url: `/dashboard/advisor/documents/${documentId}`,
+            reference_id: documentId,
+            reference_type: "document",
+            metadata: { document_id: documentId, student_id: doc.owner_id },
+          });
+        }
+      } catch (notifErr) {
+        console.warn("⚠️ [Workflow] Failed to notify advisor on signed document upload:", notifErr);
+      }
+    }
 
     return res.json({
       success: true,

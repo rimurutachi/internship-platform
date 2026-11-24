@@ -1,7 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { AuthRequest } from '../../middleware/auth';
+import { ensureString } from '../../utils/typeGuards';
 import studentService from '../../services/studentService';
+import notificationService from '../../services/notificationService';
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -1052,26 +1054,19 @@ class StudentController {
   async markNotificationRead(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
-      const { id } = req.params;
+      const id = ensureString(req.params.id, 'id');
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
       }
 
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) {
-        return res.status(500).json({ success: false, error: error.message });
-      }
+      await notificationService.markAsRead(id, userId);
 
       res.json({ success: true, data: { message: 'Notification marked as read' } });
     } catch (error: any) {
       console.error('Error marking notification as read:', error);
-      res.status(500).json({ success: false, error: error.message });
+      const status = error.message?.includes('not found') ? 404 : error.message?.includes('only mark') ? 403 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -1087,15 +1082,7 @@ class StudentController {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
       }
 
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true, updated_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('is_read', false);
-
-      if (error) {
-        return res.status(500).json({ success: false, error: error.message });
-      }
+      await notificationService.markAllAsRead(userId);
 
       res.json({ success: true, data: { message: 'All notifications marked as read' } });
     } catch (error: any) {

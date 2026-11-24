@@ -4,6 +4,7 @@ import { env } from "../config/env";
 import { AuthRequest } from "../middleware/auth";
 import { storageService } from "../services/storageService";
 import { docxGenerator } from "../utils/docxGenerator";
+import notificationClient from "../services/notificationClient";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
@@ -354,7 +355,7 @@ export async function updateDocument(req: AuthRequest, res: Response) {
     // Pre-approved documents cannot be edited to preserve content integrity
     const { data: currentDoc, error: fetchError } = await supabase
       .from("documents")
-      .select("status, owner_id")
+      .select("status, owner_id, title")
       .eq("id", id)
       .single();
 
@@ -388,23 +389,16 @@ export async function updateDocument(req: AuthRequest, res: Response) {
     // HYBRID WORKFLOW: Automatically grant/revoke access to advisor based on status
     if (updates.status === "in_review" || updates.status === "draft") {
       try {
-        const { data: internship } = await supabase
-          .from("internships")
-          .select("advisor_id")
-          .eq("student_id", currentDoc.owner_id)
-          .in("status", ["active", "pending"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
+        const advisorId = await notificationClient.getStudentAdvisorId(currentDoc.owner_id);
 
-        if (internship?.advisor_id) {
+        if (advisorId) {
           if (updates.status === "in_review") {
             // Grant view access - check if exists first since there's no unique constraint
             const { data: existingAccess } = await supabase
               .from("document_access_control")
               .select("id")
               .eq("document_id", id)
-              .eq("user_id", internship.advisor_id)
+              .eq("user_id", advisorId)
               .limit(1)
               .maybeSingle();
 
@@ -417,7 +411,7 @@ export async function updateDocument(req: AuthRequest, res: Response) {
             } else {
               await supabase.from("document_access_control").insert({
                 document_id: id,
-                user_id: internship.advisor_id,
+                user_id: advisorId,
                 permission_level: "view",
                 granted_by: req.user?.id || currentDoc.owner_id,
                 granted_at: new Date().toISOString(),
@@ -425,16 +419,31 @@ export async function updateDocument(req: AuthRequest, res: Response) {
               });
             }
             console.log(`✅ [Documents] Granted advisor view access for document ${id}`);
+
+            // Notify advisor in real time when document enters pre-approval review
+            if (currentDoc.status !== "in_review" && advisorId !== req.user?.id) {
+              const studentInfo = await notificationClient.getUserDisplayNameAndRole(currentDoc.owner_id);
+              await notificationClient.sendNotification({
+                user_id: advisorId,
+                type: "document_submitted",
+                title: "Document Submitted for Pre-Approval",
+                message: `${studentInfo.name} submitted "${data.title || currentDoc.title || "a document"}" for your pre-approval review.`,
+                action_url: `/dashboard/advisor/documents/${id}`,
+                reference_id: id,
+                reference_type: "document",
+                metadata: { document_id: id, student_id: currentDoc.owner_id },
+              });
+            }
           } else if (updates.status === "draft") {
             // Revoke access by setting revoked_at
             await supabase.from("document_access_control").update({
               revoked_at: new Date().toISOString()
-            }).eq("document_id", id).eq("user_id", internship.advisor_id);
+            }).eq("document_id", id).eq("user_id", advisorId);
             console.log(`✅ [Documents] Revoked advisor view access for document ${id} (reverted to draft)`);
           }
         }
       } catch (accessErr) {
-        console.warn("⚠️ [Documents] Could not update advisor access:", accessErr);
+        console.warn("⚠️ [Documents] Could not update advisor access or notify:", accessErr);
       }
     }
 

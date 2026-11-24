@@ -45,6 +45,27 @@ export const validateGetNotifications = [
     .optional()
     .isInt({ min: 1, max: 100 })
     .withMessage("Limit must be between 1 and 100"),
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("Page must be a positive integer"),
+  query("offset")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("Offset must be a non-negative integer"),
+  query("is_read")
+    .optional()
+    .isIn(["true", "false"])
+    .withMessage("is_read must be 'true' or 'false'"),
+  query("category")
+    .optional()
+    .isIn(["all", "internship", "document", "evaluation", "message", "system"])
+    .withMessage("Invalid notification category"),
+  query("search")
+    .optional()
+    .isString()
+    .isLength({ max: 200 })
+    .withMessage("Search query must be at most 200 characters"),
   handleValidationErrors,
 ];
 
@@ -65,14 +86,42 @@ export const validateCreateNotification = [
     .withMessage("Notification type is required.")
     .isIn([
       "message",
+      "message_received",
       "evaluation_submitted",
       "evaluation_approved",
+      "evaluation_revision_requested",
+      "evaluation_rejected",
+      "evaluation_grade_overridden",
+      "evaluation_reminder",
       "internship_created",
       "internship_updated",
+      "internship_active",
+      "internship_completed",
+      "internship_cancelled",
+      "internship_reminder",
       "document_shared",
+      "document_required",
+      "document_submitted",
+      "document_reviewed",
+      "document_revision_requested",
+      "document_approved",
+      "document_rejected",
+      "document_pre_approved",
+      "document_pre_approval_reverted",
+      "document_template_uploaded",
+      "weekly_report_submitted",
+      "weekly_report_approved",
+      "weekly_report_rejected",
       "comment_added",
       "mention",
       "system",
+      "profile_verified",
+      "profile_rejected",
+      "student_graduated",
+      "account_archive_warning",
+      "account_archived",
+      "account_updated",
+      "account_restored",
     ])
     .withMessage("Invalid notification type"),
   body("title")
@@ -88,15 +137,16 @@ export const validateCreateNotification = [
     .isLength({ min: 1, max: 1000 })
     .withMessage("Message must be between 1 and 1000 characters only."),
   body("action_url")
-    .optional()
-    .isUUID()
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: 500 })
     .withMessage("Invalid action URL format."),
   body("reference_id")
-    .optional()
+    .optional({ nullable: true })
     .isUUID()
     .withMessage("Invalid reference ID format"),
   body("reference_type")
-    .optional()
+    .optional({ nullable: true })
     .trim()
     .isIn([
       "message",
@@ -104,6 +154,10 @@ export const validateCreateNotification = [
       "internship",
       "evaluation",
       "document",
+      "document_requirement",
+      "document_submission",
+      "weekly_dtr",
+      "user",
       "comment",
     ])
     .withMessage("Invalid reference type."),

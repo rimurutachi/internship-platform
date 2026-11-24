@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { UserProvider } from '@/components/providers/UserProvider';
+import { NotificationsProvider } from '@/components/providers/NotificationsProvider';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { SidebarProvider } from '@/components/providers/SidebarContext';
 import { MobileHeaderProvider } from '@/components/providers/MobileHeaderContext';
@@ -21,20 +22,22 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
   return (
     <ProtectedRoute requiredRole="student">
       <UserProvider>
-        <SidebarProvider>
-          <MobileHeaderProvider
-            defaultTitle="Student Portal"
-            defaultSubtitle="Internship Dashboard"
-          >
-            <DashboardShell
-              sidebar={<StudentSidebar />}
-              header={<StudentHeader />}
-              bottomNavType="student"
+        <NotificationsProvider>
+          <SidebarProvider>
+            <MobileHeaderProvider
+              defaultTitle="Student Portal"
+              defaultSubtitle="Internship Dashboard"
             >
-              {children}
-            </DashboardShell>
-          </MobileHeaderProvider>
-        </SidebarProvider>
+              <DashboardShell
+                sidebar={<StudentSidebar />}
+                header={<StudentHeader />}
+                bottomNavType="student"
+              >
+                {children}
+              </DashboardShell>
+            </MobileHeaderProvider>
+          </SidebarProvider>
+        </NotificationsProvider>
       </UserProvider>
     </ProtectedRoute>
   );

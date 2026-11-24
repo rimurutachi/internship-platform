@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDocumentStats = exports.deleteDocument = exports.archiveDocument = exports.updateWorkflow = exports.updateStatus = exports.getWorkflow = exports.getComments = exports.getVersions = exports.getDocument = exports.getAllDocuments = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
+const notificationService_1 = __importDefault(require("../../services/notificationService"));
 // Create admin client that bypasses RLS
 const supabaseAdmin = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
     auth: {
@@ -338,16 +342,45 @@ const getWorkflow = async (req, res) => {
 };
 exports.getWorkflow = getWorkflow;
 /**
+ * Notify a document owner about an admin document action (non-blocking)
+ */
+async function notifyDocumentOwner(ownerId, actorId, type, title, message, documentId) {
+    if (!ownerId || ownerId === actorId)
+        return;
+    try {
+        const { data: owner } = await supabaseAdmin
+            .from('users')
+            .select('role')
+            .eq('id', ownerId)
+            .maybeSingle();
+        const ownerRole = owner?.role || 'student';
+        await notificationService_1.default.createNotification({
+            user_id: ownerId,
+            type,
+            title,
+            message,
+            action_url: `/dashboard/${ownerRole}/documents/${documentId}`,
+            reference_id: documentId,
+            reference_type: 'document',
+            metadata: { document_id: documentId },
+        });
+    }
+    catch (err) {
+        console.error('⚠️ [AdminDocuments] Failed to notify document owner:', err);
+    }
+}
+/**
  * Update document status with validation
  */
 const updateStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
+        const actorId = req.user?.id;
         // Get current document
         const { data: currentDoc, error: fetchError } = await supabaseAdmin
             .from('documents')
-            .select('status')
+            .select('status, owner_id, title')
             .eq('id', id)
             .single();
         if (fetchError)
@@ -373,6 +406,12 @@ const updateStatus = async (req, res) => {
             .single();
         if (updateError)
             throw updateError;
+        const docType = status === 'approved'
+            ? 'document_approved'
+            : status === 'rejected'
+                ? 'document_rejected'
+                : 'document_reviewed';
+        await notifyDocumentOwner(currentDoc.owner_id, actorId, docType, `Document Status Updated`, `Your document "${currentDoc.title || 'Document'}" status was updated to "${status}".`, String(id));
         res.json(updatedDoc);
     }
     catch (error) {
@@ -428,6 +467,12 @@ const updateWorkflow = async (req, res) => {
                 if (updateWorkflowError)
                     throw updateWorkflowError;
             }
+            const { data: docInfo } = await supabaseAdmin
+                .from('documents')
+                .select('owner_id, title')
+                .eq('id', id)
+                .maybeSingle();
+            await notifyDocumentOwner(docInfo?.owner_id, userId, action === 'approve' ? 'document_approved' : 'document_rejected', action === 'approve' ? 'Document Workflow Approved' : 'Document Workflow Rejected', `Your document "${docInfo?.title || 'Document'}" was ${action === 'approve' ? 'approved' : 'rejected'}${comments ? `. Comments: ${comments}` : '.'}`, String(id));
             res.json(approval);
         }
         else if (action === 'advance') {
@@ -460,6 +505,7 @@ exports.updateWorkflow = updateWorkflow;
 const archiveDocument = async (req, res) => {
     try {
         const { id } = req.params;
+        const actorId = req.user?.id;
         const { data: document, error } = await supabaseAdmin
             .from('documents')
             .update({ status: 'archived', updated_at: new Date().toISOString() })
@@ -471,6 +517,7 @@ const archiveDocument = async (req, res) => {
         if (!document) {
             return res.status(404).json({ error: 'Document not found' });
         }
+        await notifyDocumentOwner(document.owner_id, actorId, 'document_reviewed', 'Document Archived', `Your document "${document.title || 'Document'}" has been archived by an administrator.`, String(id));
         res.json(document);
     }
     catch (error) {
